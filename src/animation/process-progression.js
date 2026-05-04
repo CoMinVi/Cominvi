@@ -322,6 +322,23 @@ export function syncProcessMobileLayout(section) {
   const processes = Array.from(section.querySelectorAll('.process'))
   if (!processes.length) return () => {}
 
+  const notifyTextRevealReflow = () => {
+    if (typeof window === 'undefined') return
+    try {
+      if (typeof window.__textRevealOnResize === 'function') {
+        window.__textRevealOnResize()
+        return
+      }
+    } catch (e) {
+      // ignore
+    }
+    try {
+      window.dispatchEvent(new Event('resize'))
+    } catch (e) {
+      // ignore
+    }
+  }
+
   const restoreInlineStyles = (target, styles) => {
     if (!target || !styles) return
     Object.entries(styles).forEach(([prop, value]) => {
@@ -333,6 +350,7 @@ export function syncProcessMobileLayout(section) {
     if (!proc) return
     const processIndex = proc.querySelector('.process_index')
     const inner = proc.querySelector('.process_inner')
+    const processInfos = proc.querySelector('.process-infos')
     if (!processIndex || !inner) return
     if (processIndex.parentElement === inner) return
 
@@ -351,26 +369,40 @@ export function syncProcessMobileLayout(section) {
         },
         processIndexStyles: {
           gridColumn: processIndex.style.gridColumn,
+          paddingTop: processIndex.style.paddingTop,
         },
+        processInfosStyles: processInfos
+          ? {
+              node: processInfos,
+              width: processInfos.style.width,
+            }
+          : null,
         descStyles: desc
           ? {
               node: desc,
               gridColumn: desc.style.gridColumn,
+              display: desc.style.display,
             }
           : null,
       })
+    }
+
+    if (processInfos) {
+      processInfos.style.width = '100%'
     }
 
     inner.prepend(processIndex)
     inner.style.display = 'grid'
     inner.style.gridTemplateColumns = 'repeat(4, 1fr)'
     inner.style.columnGap = '1em'
-    inner.style.marginLeft = '1em'
-    inner.style.marginRight = '1em'
+    inner.style.marginLeft = '0'
+    inner.style.marginRight = '0'
     processIndex.style.gridColumn = '1 / 2'
+    processIndex.style.paddingTop = '0'
 
     if (desc) {
       desc.style.gridColumn = '2 / 5'
+      desc.style.display = 'block'
     }
   }
 
@@ -388,6 +420,7 @@ export function syncProcessMobileLayout(section) {
       nextSibling,
       innerStyles,
       processIndexStyles,
+      processInfosStyles,
       descStyles,
     } = origin
 
@@ -401,9 +434,15 @@ export function syncProcessMobileLayout(section) {
 
     restoreInlineStyles(inner, innerStyles)
     restoreInlineStyles(processIndex, processIndexStyles)
+    if (processInfosStyles && processInfosStyles.node) {
+      restoreInlineStyles(processInfosStyles.node, {
+        width: processInfosStyles.width,
+      })
+    }
 
     if (descStyles && descStyles.node) {
       descStyles.node.style.gridColumn = descStyles.gridColumn ?? ''
+      descStyles.node.style.display = descStyles.display ?? ''
     }
 
     processIndexOrigins.delete(processIndex)
@@ -422,6 +461,7 @@ export function syncProcessMobileLayout(section) {
     } else {
       revertDesktop()
     }
+    notifyTextRevealReflow()
   }
 
   evaluate()

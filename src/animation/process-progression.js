@@ -1,6 +1,11 @@
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
+const PROCESS_MOBILE_MAX = 767
+const processIndexOrigins = new WeakMap()
+
+const isProcessMobile = () => window.innerWidth < PROCESS_MOBILE_MAX
+
 gsap.registerPlugin(ScrollTrigger)
 
 export function initProcessProgression(root = document) {
@@ -96,6 +101,10 @@ export function initProcessProgression(root = document) {
       if (window.__processResizeHandler) {
         window.removeEventListener('resize', window.__processResizeHandler)
       }
+      if (window.__processCleanupMobile) {
+        window.__processCleanupMobile()
+        window.__processCleanupMobile = null
+      }
     } catch (e) {
       // ignore
     }
@@ -114,6 +123,9 @@ export function initProcessProgression(root = document) {
       numberInner,
       progressReadout,
     })
+
+    const cleanupMobileLayout = syncProcessMobileLayout(section)
+    window.__processCleanupMobile = cleanupMobileLayout
 
     // Ensure triggers calculate with settled layout
     try {
@@ -303,4 +315,120 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
   })
 
   update()
+}
+
+export function syncProcessMobileLayout(section) {
+  if (!section) return () => {}
+  const processes = Array.from(section.querySelectorAll('.process'))
+  if (!processes.length) return () => {}
+
+  const restoreInlineStyles = (target, styles) => {
+    if (!target || !styles) return
+    Object.entries(styles).forEach(([prop, value]) => {
+      target.style[prop] = value ?? ''
+    })
+  }
+
+  const moveIndexInside = (proc) => {
+    if (!proc) return
+    const processIndex = proc.querySelector('.process_index')
+    const inner = proc.querySelector('.process_inner')
+    if (!processIndex || !inner) return
+    if (processIndex.parentElement === inner) return
+
+    const desc = inner.querySelector('.process-desc')
+
+    if (!processIndexOrigins.has(processIndex)) {
+      processIndexOrigins.set(processIndex, {
+        parent: processIndex.parentElement,
+        nextSibling: processIndex.nextElementSibling,
+        innerStyles: {
+          display: inner.style.display,
+          gridTemplateColumns: inner.style.gridTemplateColumns,
+          columnGap: inner.style.columnGap,
+          marginLeft: inner.style.marginLeft,
+          marginRight: inner.style.marginRight,
+        },
+        processIndexStyles: {
+          gridColumn: processIndex.style.gridColumn,
+        },
+        descStyles: desc
+          ? {
+              node: desc,
+              gridColumn: desc.style.gridColumn,
+            }
+          : null,
+      })
+    }
+
+    inner.prepend(processIndex)
+    inner.style.display = 'grid'
+    inner.style.gridTemplateColumns = 'repeat(4, 1fr)'
+    inner.style.columnGap = '1em'
+    inner.style.marginLeft = '1em'
+    inner.style.marginRight = '1em'
+    processIndex.style.gridColumn = '1 / 2'
+
+    if (desc) {
+      desc.style.gridColumn = '2 / 5'
+    }
+  }
+
+  const restoreIndex = (proc) => {
+    if (!proc) return
+    const processIndex = proc.querySelector('.process_index')
+    const inner = proc.querySelector('.process_inner')
+    if (!processIndex || !inner) return
+
+    const origin = processIndexOrigins.get(processIndex)
+    if (!origin) return
+
+    const {
+      parent,
+      nextSibling,
+      innerStyles,
+      processIndexStyles,
+      descStyles,
+    } = origin
+
+    if (parent) {
+      if (nextSibling && parent.contains(nextSibling)) {
+        parent.insertBefore(processIndex, nextSibling)
+      } else {
+        parent.appendChild(processIndex)
+      }
+    }
+
+    restoreInlineStyles(inner, innerStyles)
+    restoreInlineStyles(processIndex, processIndexStyles)
+
+    if (descStyles && descStyles.node) {
+      descStyles.node.style.gridColumn = descStyles.gridColumn ?? ''
+    }
+
+    processIndexOrigins.delete(processIndex)
+  }
+
+  const applyMobile = () => processes.forEach(moveIndexInside)
+  const revertDesktop = () => processes.forEach(restoreIndex)
+
+  let currentMobile = null
+  const evaluate = () => {
+    const shouldBeMobile = isProcessMobile()
+    if (shouldBeMobile === currentMobile) return
+    currentMobile = shouldBeMobile
+    if (shouldBeMobile) {
+      applyMobile()
+    } else {
+      revertDesktop()
+    }
+  }
+
+  evaluate()
+  window.addEventListener('resize', evaluate)
+
+  return () => {
+    window.removeEventListener('resize', evaluate)
+    revertDesktop()
+  }
 }

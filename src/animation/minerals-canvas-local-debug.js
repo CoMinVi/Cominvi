@@ -5,8 +5,9 @@ gsap.registerPlugin(ScrollTrigger)
 
 const LOG = '[minerals-canvas]'
 const ALLOWED_NAMESPACES = new Set(['home', 'services'])
-const LOOP_COUNT = 5
-const SCRUB_SMOOTHING = 0.2
+const LOOP_COUNT = 1
+const SCRUB_SMOOTHING = 0.4
+const ENABLE_FRAME_BLEND = false
 
 function info(...args) {
   // eslint-disable-next-line no-console
@@ -92,14 +93,14 @@ export function initMineralsCanvas(root = document) {
       component.getAttribute('fc-image-scrubbing-fps') || '24',
       10
     )
-    if (!Number.isFinite(fps) || fps <= 0) fps = 24
+    if (!Number.isFinite(fps) || fps <= 0) fps = 30
 
     const state = { frame: 0 }
     const maxLinearFrame = Math.max(0, urls.length * LOOP_COUNT - 1)
     const images = []
     let firstLoadedIndex = -1
     let loadedCount = 0
-    let lastDrawnFrame = -1
+    let lastRenderSignature = ''
     let tween = null
     let resizeObserver = null
 
@@ -126,7 +127,7 @@ export function initMineralsCanvas(root = document) {
       return fit.base || 'contain'
     }
 
-    const drawImageAt = (index) => {
+    const drawImageAt = (index, options = {}) => {
       const image = images[index]
       if (
         !image ||
@@ -164,34 +165,98 @@ export function initMineralsCanvas(root = document) {
       const offsetX = (canvasWidth - drawWidth) / 2
       const offsetY = (canvasHeight - drawHeight) / 2
 
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+      if (!options.skipClear) {
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+      }
       ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight)
       return true
     }
 
-    const renderCurrentFrame = () => {
-      const targetLinearFrame = Math.max(
-        0,
-        Math.min(maxLinearFrame, Math.round(state.frame))
-      )
-      const targetFrame =
-        targetLinearFrame >= maxLinearFrame
-          ? images.length - 1
-          : targetLinearFrame % images.length
+    const drawBlendedFrame = (linearFrame) => {
+      const total = images.length
+      if (!total) return false
 
-      if (targetFrame === lastDrawnFrame && canvas.__highResReady) return
+      // Fin de séquence: garde explicitement la dernière frame.
+      if (linearFrame >= maxLinearFrame) {
+        return drawImageAt(total - 1)
+      }
+
+      const baseLinear = Math.floor(linearFrame)
+      const baseIndex = ((baseLinear % total) + total) % total
+      const nextIndex = (baseIndex + 1) % total
+      const t = Math.max(0, Math.min(1, linearFrame - baseLinear))
+      const isLoopSeam = baseIndex === total - 1 && nextIndex === 0
+
+      if (!ENABLE_FRAME_BLEND) {
+        return drawImageAt(baseIndex)
+      }
+
+      const baseImg = images[baseIndex]
+      const nextImg = images[nextIndex]
+      const baseReady =
+        !!baseImg &&
+        baseImg.complete &&
+        !!baseImg.naturalWidth &&
+        !!baseImg.naturalHeight
+      const nextReady =
+        !!nextImg &&
+        nextImg.complete &&
+        !!nextImg.naturalWidth &&
+        !!nextImg.naturalHeight
+
+      if (!baseReady && !nextReady) return false
+
+      // Si une frame manque, fallback sans interpolation.
+      if (!baseReady) return drawImageAt(nextIndex)
+      if (!nextReady) return drawImageAt(baseIndex)
+
+      // Evite le flash visible sur la jonction fin->debut de boucle.
+      if (isLoopSeam) {
+        return drawImageAt(baseIndex)
+      }
+
+      // Evite les blends inutiles tres proches des bornes.
+      if (t <= 0.001) return drawImageAt(baseIndex)
+      if (t >= 0.999) return drawImageAt(nextIndex)
+
+      // Blend entre deux frames pour éviter les micro-saccades à basse vitesse.
+      const canvasWidth = Math.max(canvas.clientWidth || 0, 1)
+      const canvasHeight = Math.max(canvas.clientHeight || 0, 1)
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+
+      ctx.save()
+      ctx.globalAlpha = 1 - t
+      drawImageAt(baseIndex, { skipClear: true })
+      ctx.restore()
+
+      ctx.save()
+      ctx.globalAlpha = t
+      drawImageAt(nextIndex, { skipClear: true })
+      ctx.restore()
+
+      return true
+    }
+
+    const renderCurrentFrame = () => {
+      const linearFrame = Math.max(0, Math.min(maxLinearFrame, state.frame))
+      const baseLinear = Math.floor(linearFrame)
+      const signature = ENABLE_FRAME_BLEND
+        ? `${baseLinear}:${linearFrame.toFixed(3)}`
+        : String(baseLinear)
+
+      if (signature === lastRenderSignature && canvas.__highResReady) return
 
       if (!canvas.__highResReady) {
         resizeCanvas()
         canvas.__highResReady = true
       }
 
-      const drawn = drawImageAt(targetFrame)
+      const drawn = drawBlendedFrame(linearFrame)
       if (!drawn && firstLoadedIndex >= 0) {
         drawImageAt(firstLoadedIndex)
       }
 
-      lastDrawnFrame = targetFrame
+      lastRenderSignature = signature
     }
 
     urls.forEach((url, index) => {

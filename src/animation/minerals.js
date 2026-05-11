@@ -58,6 +58,9 @@ export function initMinerals(root = document) {
     const nameItems = Array.from(
       section.querySelectorAll('.minerals-names .body-xl')
     )
+    const NAME_TRANSITION_DURATION = 0.25
+    const NAME_MOBILE_CENTER_DURATION = 0.3
+    const EYEBROW_TRANSITION_DURATION = 0.25
     const isMobileViewport = () => {
       const mm =
         window.matchMedia && window.matchMedia('(max-width: 767px)').matches
@@ -109,7 +112,7 @@ export function initMinerals(root = document) {
 
         gsap.to(container, {
           scrollLeft: clamped,
-          duration: 1.2,
+          duration: NAME_MOBILE_CENTER_DURATION,
           ease: mineralsEase,
           overwrite: 'auto',
         })
@@ -132,7 +135,7 @@ export function initMinerals(root = document) {
         el.classList.toggle('is-o-15', !isActive)
         gsap.to(el, {
           opacity: isActive ? 1 : 0.15,
-          duration: 1.2,
+          duration: NAME_TRANSITION_DURATION,
           ease: mineralsEase,
           overwrite: 'auto',
         })
@@ -245,7 +248,7 @@ export function initMinerals(root = document) {
         // Move the track so that item `next` is visible (each item height = 100%)
         gsap.to(slider, {
           yPercent: -100 * next,
-          duration: 1.2,
+          duration: EYEBROW_TRANSITION_DURATION,
           ease: mineralsEase,
           overwrite: 'auto',
         })

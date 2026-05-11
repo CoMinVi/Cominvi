@@ -9,6 +9,7 @@ import { initCylinder } from './animation/cylinder.js'
 import { initTeam } from './animation/join-the-team.js'
 import { initLoader } from './animation/loader.js'
 import { initMap } from './animation/map.js'
+import { initMineralsCanvas } from './animation/minerals-canvas-local-debug.js'
 import { initMinerals } from './animation/minerals.js'
 import { initializeNav2 } from './animation/nav.js'
 import { initializePageTransitionNav } from './animation/page-transition-nav.js'
@@ -64,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   initTextReveal()
   initMinerals()
+  initMineralsCanvas(document)
   initScrollList()
   initProcessProgression()
   initTestimonials()

@@ -10,6 +10,7 @@ import { initContact } from './contact.js'
 import { initCylinder } from './cylinder.js'
 import { initTeam } from './join-the-team.js'
 import { initMap } from './map.js'
+import { initMineralsCanvas } from './minerals-canvas-local-debug.js'
 import { initMinerals } from './minerals.js'
 import { initializeNav2, resetMenuLinksAnimationState } from './nav.js'
 import {
@@ -453,6 +454,7 @@ export function initializePageTransitionNav() {
           }
           initTextReveal()
           initMinerals()
+          initMineralsCanvas(next && next.container)
           initScrollList()
           initProcessProgression(next && next.container)
           initTestimonials()
@@ -643,6 +645,7 @@ export function initializePageTransitionNav() {
           }
           initTextReveal()
           initMinerals()
+          initMineralsCanvas(next && next.container)
           initScrollList()
           initProcessProgression(next && next.container)
           initTestimonials()
@@ -833,6 +836,7 @@ export function initializePageTransitionNav() {
           }
           initTextReveal()
           initMinerals()
+          initMineralsCanvas(next && next.container)
           initScrollList()
           initProcessProgression(next && next.container)
           initTestimonials()
@@ -943,6 +947,7 @@ export function initializePageTransitionNav() {
           }
           initTextReveal()
           initMinerals()
+          initMineralsCanvas(next && next.container)
           initScrollList()
           initProcessProgression(next && next.container)
           initTestimonials()
@@ -1103,6 +1108,7 @@ export function initializePageTransitionNav() {
     initProcessProgression(next && next.container)
     initTextReveal()
     initMinerals()
+    initMineralsCanvas(next && next.container)
     try {
       initSticky50(next && next.container)
     } catch (e) {

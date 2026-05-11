@@ -6,6 +6,7 @@ gsap.registerPlugin(ScrollTrigger)
 const LOG = '[minerals-canvas]'
 const ALLOWED_NAMESPACES = new Set(['home', 'services'])
 const LOOP_COUNT = 5
+const SCRUB_SMOOTHING = 0.2
 
 function info(...args) {
   // eslint-disable-next-line no-console
@@ -245,13 +246,15 @@ export function initMineralsCanvas(root = document) {
         trigger: component,
         start: scrollStart,
         end: scrollEnd,
-        scrub: true,
+        scrub: SCRUB_SMOOTHING,
+        invalidateOnRefresh: true,
       },
     })
 
     info('Init', {
       images: urls.length,
       loops: LOOP_COUNT,
+      scrub: SCRUB_SMOOTHING,
       fps,
       canvasWidth: canvas.clientWidth,
       canvasHeight: canvas.clientHeight,

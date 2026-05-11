@@ -29,19 +29,19 @@ export function initLenis(root = document) {
   // Synchronize Lenis with ScrollTrigger
   lenis.on('scroll', ScrollTrigger.update)
 
-  // Drive Lenis with requestAnimationFrame for stable timing
-  let rafId = null
-  const raf = (time) => {
+  // Drive Lenis from GSAP ticker to keep ScrollTrigger/Lenis perfectly in sync
+  const tickerRaf = (time) => {
     try {
-      lenis.raf(time)
+      // GSAP ticker sends seconds, Lenis expects milliseconds
+      lenis.raf(time * 1000)
     } catch (err) {
       // ignore
     }
-    rafId = requestAnimationFrame(raf)
   }
-  rafId = requestAnimationFrame(raf)
-  window.__lenisRaf = raf
-  window.__lenisRafId = rafId
+  gsap.ticker.add(tickerRaf)
+  // Prevent GSAP lag compensation from desyncing smooth scroll timing
+  gsap.ticker.lagSmoothing(0)
+  window.__lenisTickerRaf = tickerRaf
 
   // Let ScrollTrigger know how to handle the custom scroller (wrapper)
   ScrollTrigger.scrollerProxy(wrapper, {
@@ -116,9 +116,9 @@ export function initLenis(root = document) {
 
 export function destroyLenis() {
   try {
-    if (window.__lenisRafId) {
-      cancelAnimationFrame(window.__lenisRafId)
-      window.__lenisRafId = null
+    if (window.__lenisTickerRaf) {
+      gsap.ticker.remove(window.__lenisTickerRaf)
+      window.__lenisTickerRaf = null
     }
   } catch (err) {
     // ignore
@@ -132,7 +132,6 @@ export function destroyLenis() {
   }
   try {
     window.lenis = null
-    window.__lenisRaf = null
   } catch (err) {
     // ignore
   }

@@ -337,16 +337,27 @@ export function initializePageTransitionNav() {
       .catch(() => {})
   }
 
-  const scheduleAfterHero = (fn) => {
+  const scheduleAfterHero = (fn, { timeout = 180 } = {}) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (typeof window.requestIdleCallback === 'function') {
-          window.requestIdleCallback(fn, { timeout: 180 })
+          window.requestIdleCallback(fn, { timeout })
         } else {
-          setTimeout(fn, 48)
+          setTimeout(fn, Math.min(timeout, 300))
         }
       })
     })
+  }
+  const runAfterWindowLoad = (fn) => {
+    try {
+      if (document.readyState === 'complete') {
+        fn()
+        return
+      }
+      window.addEventListener('load', fn, { once: true })
+    } catch (e) {
+      fn()
+    }
   }
 
   const runNonCriticalInits = (
@@ -369,12 +380,16 @@ export function initializePageTransitionNav() {
     // Priorité critique: hero de la home immédiatement.
     initHeroBackgroundParallax(container)
     if (isHomeNamespace(container)) {
-      scheduleAfterHero(() =>
-        runNonCriticalInits(container, {
-          includeScrollRefresh,
-          includeTransitionEvent,
-        })
-      )
+      runAfterWindowLoad(() => {
+        scheduleAfterHero(
+          () =>
+            runNonCriticalInits(container, {
+              includeScrollRefresh,
+              includeTransitionEvent,
+            }),
+          { timeout: 1800 }
+        )
+      })
       return
     }
     runNonCriticalInits(container, {
@@ -804,12 +819,15 @@ export function initializePageTransitionNav() {
     ensureNavbarInteractive(next && next.container)
     // Reinitialize Webflow IX2/attributes before any custom init
     reinitializeWebflowAnimations()
-    try {
-      resetServiceCardIconsSafe(next && next.container)
-    } catch (e) {
-      /* ignore */
+    const nextContainer = next && next.container
+    if (!isHomeNamespace(nextContainer)) {
+      try {
+        resetServiceCardIconsSafe(nextContainer)
+      } catch (e) {
+        /* ignore */
+      }
     }
-    runPostTransitionInits(next && next.container)
+    runPostTransitionInits(nextContainer)
     // Ensure body background resets to primary after fallback transition
     try {
       gsap.set(document.body, { backgroundColor: 'var(--primary)' })
@@ -850,7 +868,9 @@ export function initializePageTransitionNav() {
       /* ignore */
     }
     if (isHome) {
-      scheduleAfterHero(runAfterEnterNonCritical)
+      runAfterWindowLoad(() => {
+        scheduleAfterHero(runAfterEnterNonCritical, { timeout: 1800 })
+      })
       return
     }
     runAfterEnterNonCritical()

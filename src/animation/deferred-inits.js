@@ -99,14 +99,20 @@ export function initIconsSafe(root = document) {
 
 export function runNonCriticalInits(
   container,
-  { includeScrollRefresh = false, includeTransitionEvent = false } = {}
+  {
+    includeScrollRefresh = false,
+    includeTransitionEvent = false,
+    includeTextReveal = true,
+  } = {}
 ) {
   initButtonHover(container)
   initParallax(container)
   initNextBackgroundParallax(container)
   initServiceCards(container)
   initIconsSafe(container)
-  initTextReveal()
+  if (includeTextReveal) {
+    initTextReveal()
+  }
   initMinerals()
   initMineralsCanvas(container)
   initScrollList()

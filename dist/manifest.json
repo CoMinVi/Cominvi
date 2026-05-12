@@ -11,7 +11,8 @@
       "src/animation/page-transition-nav.js",
       "src/animation/svg-clip-overlay.js",
       "src/animation/button-hover.js",
-      "_deferred-inits-7f456512.js"
+      "_text-reveal-46e91f7b.js",
+      "_deferred-inits-f66572f7.js"
     ],
     "assets": [
       "assets/maplibre-gl.43c1d886.css",
@@ -79,7 +80,7 @@
     "file": "chunks/base-38177c82.js"
   },
   "src/animation/page-transition-nav.js": {
-    "file": "chunks/page-transition-nav-888fc2c2.js",
+    "file": "chunks/page-transition-nav-feaae41b.js",
     "src": "src/animation/page-transition-nav.js",
     "isDynamicEntry": true,
     "imports": [
@@ -96,7 +97,7 @@
     ],
     "dynamicImports": [
       "src/animation/contact.js",
-      "_deferred-inits-7f456512.js"
+      "_deferred-inits-f66572f7.js"
     ]
   },
   "src/animation/svg-clip-overlay.js": {
@@ -117,14 +118,23 @@
       "_CustomEase-7fe4556b.js"
     ]
   },
-  "_deferred-inits-7f456512.js": {
-    "file": "chunks/deferred-inits-7f456512.js",
+  "_text-reveal-46e91f7b.js": {
+    "file": "chunks/text-reveal-46e91f7b.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index-13fb7855.js",
+      "_ScrollTrigger-24b062a5.js"
+    ]
+  },
+  "_deferred-inits-f66572f7.js": {
+    "file": "chunks/deferred-inits-f66572f7.js",
     "isDynamicEntry": true,
     "imports": [
       "src/main.js",
       "_base-38177c82.js",
       "_index-13fb7855.js",
       "_ScrollTrigger-24b062a5.js",
+      "_text-reveal-46e91f7b.js",
       "_CustomEase-7fe4556b.js",
       "src/animation/parallax.js",
       "src/animation/button-hover.js",
@@ -151,7 +161,7 @@
     ]
   },
   "src/animation/technology.js": {
-    "file": "chunks/technology-d77edfa5.js",
+    "file": "chunks/technology-3d4b4f24.js",
     "src": "src/animation/technology.js",
     "isDynamicEntry": true,
     "imports": [
@@ -160,9 +170,10 @@
       "_ScrollTrigger-24b062a5.js",
       "src/animation/nav.js",
       "src/animation/parallax.js",
-      "_deferred-inits-7f456512.js",
+      "_deferred-inits-f66572f7.js",
       "_base-38177c82.js",
       "src/main.js",
+      "_text-reveal-46e91f7b.js",
       "src/animation/button-hover.js",
       "__commonjsHelpers-7d66b65f.js"
     ]

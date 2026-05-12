@@ -41,6 +41,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return buttonHoverPromise
   }
+  let textRevealPromise = null
+  const loadTextReveal = () => {
+    if (!textRevealPromise) {
+      textRevealPromise = import('./animation/text-reveal.js')
+    }
+    return textRevealPromise
+  }
   const ensureStylesheet = (href) => {
     if (!href) return
     try {
@@ -154,11 +161,23 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) {
         // ignore
       }
+      // Home: pre-init text reveal earlier to avoid first-scroll visual pop.
+      if (isHomeNamespace(document)) {
+        loadTextReveal()
+          .then((m) => {
+            try {
+              m.initTextReveal(document)
+            } catch (e) {
+              // ignore
+            }
+          })
+          .catch(() => {})
+      }
     })
     .catch(() => {})
-  const runNonCriticalInitializers = () =>
+  const runNonCriticalInitializers = (options) =>
     loadDeferredInits()
-      .then((m) => m.runNonCriticalInits(document))
+      .then((m) => m.runNonCriticalInits(document, options))
       .catch(() => {})
 
   const runAfterInteractionOrTimeout = (fn, { timeout = 3200 } = {}) => {
@@ -233,9 +252,12 @@ document.addEventListener('DOMContentLoaded', () => {
     runAfterWindowLoad(() => {
       runAfterInteractionOrTimeout(
         () =>
-          scheduleDeferredInit(runNonCriticalInitializers, {
-            timeout: 2200,
-          }),
+          scheduleDeferredInit(
+            () => runNonCriticalInitializers({ includeTextReveal: false }),
+            {
+              timeout: 2200,
+            }
+          ),
         { timeout: 15000 }
       )
     })

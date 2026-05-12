@@ -34,6 +34,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return transitionSystemPromise
   }
+  let buttonHoverPromise = null
+  const loadButtonHover = () => {
+    if (!buttonHoverPromise) {
+      buttonHoverPromise = import('./animation/button-hover.js')
+    }
+    return buttonHoverPromise
+  }
   const ensureStylesheet = (href) => {
     if (!href) return
     try {
@@ -68,6 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (hasMapContent(document)) ensureStylesheet(maplibreCssUrl)
   ensureStylesheet(appCssUrl)
+  loadButtonHover()
+    .then((m) => {
+      try {
+        m.initButtonHover(document)
+      } catch (e) {
+        // ignore
+      }
+    })
+    .catch(() => {})
 
   const getCurrentNamespace = (scope = document) => {
     try {

@@ -3,6 +3,7 @@ import { initAboutValuesScroll } from './about-scroll.js'
 import { initAbout } from './about-us.js'
 import { blogArticleInit } from './blog-article.js'
 import { initBlog } from './blog.js'
+import { initButtonHover } from './button-hover.js'
 import { initCylinder } from './cylinder.js'
 import { initTeam } from './join-the-team.js'
 import { initMap } from './map.js'
@@ -100,6 +101,7 @@ export function runNonCriticalInits(
   container,
   { includeScrollRefresh = false, includeTransitionEvent = false } = {}
 ) {
+  initButtonHover(container)
   initParallax(container)
   initNextBackgroundParallax(container)
   initServiceCards(container)
@@ -207,6 +209,11 @@ export function runNonCriticalInits(
 }
 
 export function runAfterEnterNonCritical(container) {
+  try {
+    initButtonHover(container)
+  } catch (e) {
+    // ignore
+  }
   try {
     initServiceCards(container)
   } catch (e) {

@@ -9,7 +9,9 @@ const INTERACTION_EASE = CustomEase.create(
   'M0,0 C0.6,0 0,1 1,1'
 )
 
-const BOUND_ATTR = 'data-button-hover-bound'
+const BUTTON_BOUND_ATTR = 'data-button-hover-bound'
+const CARD_BOUND_ATTR = 'data-button-sm-hover-bound'
+const NAVLINK_BOUND_ATTR = 'data-navlink-hover-bound'
 const handlersByElement = new WeakMap()
 
 const getButtonParts = (button) => {
@@ -26,7 +28,18 @@ const isMainBreakpoint = () => {
   }
 }
 
+const clearButtonInlineState = ({ content, label, button }) => {
+  if (content) gsap.set(content, { clearProps: 'transform' })
+  if (label) gsap.set(label, { clearProps: 'color' })
+  if (button) gsap.set(button, { clearProps: 'backgroundColor' })
+}
+
 const setBaseState = (button, { content, label }) => {
+  if (!isMainBreakpoint()) {
+    clearButtonInlineState({ content, label, button })
+    return
+  }
+
   if (content) gsap.set(content, { x: '0em' })
 
   if (button.classList.contains('button')) {
@@ -129,7 +142,7 @@ const animateHoverOut = (button, { content, label }) => {
 
 const bindButton = (button) => {
   if (!(button instanceof HTMLElement)) return
-  if (button.getAttribute(BOUND_ATTR) === 'true') return
+  if (button.getAttribute(BUTTON_BOUND_ATTR) === 'true') return
 
   const parts = getButtonParts(button)
   if (!parts.content) return
@@ -146,8 +159,150 @@ const bindButton = (button) => {
   button.addEventListener('focusin', onFocus)
   button.addEventListener('focusout', onBlur)
 
-  button.setAttribute(BOUND_ATTR, 'true')
+  button.setAttribute(BUTTON_BOUND_ATTR, 'true')
   handlersByElement.set(button, {
+    onPointerEnter,
+    onPointerLeave,
+    onFocus,
+    onBlur,
+  })
+}
+
+const getButtonSmParts = (card) => ({
+  inner: card.querySelector('.button-sm_inner'),
+  buttonSm: card.querySelector('.button-sm'),
+})
+
+const setButtonSmBaseState = ({ inner, buttonSm }) => {
+  if (!isMainBreakpoint()) {
+    if (inner) gsap.set(inner, { clearProps: 'transform' })
+    if (buttonSm) gsap.set(buttonSm, { clearProps: 'backgroundColor' })
+    return
+  }
+  if (inner) gsap.set(inner, { x: '-0.75em' })
+  if (buttonSm) gsap.set(buttonSm, { backgroundColor: 'var(--white)' })
+}
+
+const animateButtonSmIn = ({ inner, buttonSm }) => {
+  if (!isMainBreakpoint()) return
+  if (inner) {
+    gsap.to(inner, {
+      x: '0.25em',
+      duration: INTERACTION_DURATION,
+      ease: INTERACTION_EASE,
+      overwrite: 'auto',
+    })
+  }
+  if (buttonSm) {
+    gsap.to(buttonSm, {
+      backgroundColor: 'var(--accent)',
+      duration: INTERACTION_DURATION,
+      ease: INTERACTION_EASE,
+      overwrite: 'auto',
+    })
+  }
+}
+
+const animateButtonSmOut = ({ inner, buttonSm }) => {
+  if (!isMainBreakpoint()) {
+    setButtonSmBaseState({ inner, buttonSm })
+    return
+  }
+  if (inner) {
+    gsap.to(inner, {
+      x: '-0.75em',
+      duration: INTERACTION_DURATION,
+      ease: INTERACTION_EASE,
+      overwrite: 'auto',
+    })
+  }
+  if (buttonSm) {
+    gsap.to(buttonSm, {
+      backgroundColor: 'var(--white)',
+      duration: INTERACTION_DURATION,
+      ease: INTERACTION_EASE,
+      overwrite: 'auto',
+    })
+  }
+}
+
+const bindButtonSm = (card) => {
+  if (!(card instanceof HTMLElement)) return
+  if (card.getAttribute(CARD_BOUND_ATTR) === 'true') return
+
+  const parts = getButtonSmParts(card)
+  if (!parts.inner || !parts.buttonSm) return
+
+  setButtonSmBaseState(parts)
+
+  const onPointerEnter = () => animateButtonSmIn(parts)
+  const onPointerLeave = () => animateButtonSmOut(parts)
+  const onFocus = () => animateButtonSmIn(parts)
+  const onBlur = () => animateButtonSmOut(parts)
+
+  card.addEventListener('pointerenter', onPointerEnter)
+  card.addEventListener('pointerleave', onPointerLeave)
+  card.addEventListener('focusin', onFocus)
+  card.addEventListener('focusout', onBlur)
+
+  card.setAttribute(CARD_BOUND_ATTR, 'true')
+  handlersByElement.set(card, {
+    onPointerEnter,
+    onPointerLeave,
+    onFocus,
+    onBlur,
+  })
+}
+
+const setNavlinkBaseState = (link) => {
+  if (!isMainBreakpoint()) {
+    gsap.set(link, { clearProps: 'transform' })
+    return
+  }
+  gsap.set(link, { x: '-3.6em' })
+}
+
+const animateNavlinkIn = (link) => {
+  if (!isMainBreakpoint()) return
+  gsap.to(link, {
+    x: '0em',
+    duration: INTERACTION_DURATION,
+    ease: INTERACTION_EASE,
+    overwrite: 'auto',
+  })
+}
+
+const animateNavlinkOut = (link) => {
+  if (!isMainBreakpoint()) {
+    setNavlinkBaseState(link)
+    return
+  }
+  gsap.to(link, {
+    x: '-3.6em',
+    duration: INTERACTION_DURATION,
+    ease: INTERACTION_EASE,
+    overwrite: 'auto',
+  })
+}
+
+const bindNavlink = (link) => {
+  if (!(link instanceof HTMLElement)) return
+  if (link.getAttribute(NAVLINK_BOUND_ATTR) === 'true') return
+
+  setNavlinkBaseState(link)
+
+  const onPointerEnter = () => animateNavlinkIn(link)
+  const onPointerLeave = () => animateNavlinkOut(link)
+  const onFocus = () => animateNavlinkIn(link)
+  const onBlur = () => animateNavlinkOut(link)
+
+  link.addEventListener('pointerenter', onPointerEnter)
+  link.addEventListener('pointerleave', onPointerLeave)
+  link.addEventListener('focusin', onFocus)
+  link.addEventListener('focusout', onBlur)
+
+  link.setAttribute(NAVLINK_BOUND_ATTR, 'true')
+  handlersByElement.set(link, {
     onPointerEnter,
     onPointerLeave,
     onFocus,
@@ -158,22 +313,31 @@ const bindButton = (button) => {
 export function initButtonHover(root = document) {
   const scope = root && root.querySelectorAll ? root : document
   const buttons = scope.querySelectorAll('.button, .button-white')
+  const cards = scope.querySelectorAll('.card')
+  const navlinks = scope.querySelectorAll('.navlink')
+
   buttons.forEach(bindButton)
+  cards.forEach(bindButtonSm)
+  navlinks.forEach(bindNavlink)
 }
 
 export function destroyButtonHover(root = document) {
   const scope = root && root.querySelectorAll ? root : document
-  const buttons = scope.querySelectorAll(`[${BOUND_ATTR}="true"]`)
+  const boundElements = scope.querySelectorAll(
+    `[${BUTTON_BOUND_ATTR}="true"], [${CARD_BOUND_ATTR}="true"], [${NAVLINK_BOUND_ATTR}="true"]`
+  )
 
-  buttons.forEach((button) => {
-    const handlers = handlersByElement.get(button)
+  boundElements.forEach((element) => {
+    const handlers = handlersByElement.get(element)
     if (handlers) {
-      button.removeEventListener('pointerenter', handlers.onPointerEnter)
-      button.removeEventListener('pointerleave', handlers.onPointerLeave)
-      button.removeEventListener('focusin', handlers.onFocus)
-      button.removeEventListener('focusout', handlers.onBlur)
-      handlersByElement.delete(button)
+      element.removeEventListener('pointerenter', handlers.onPointerEnter)
+      element.removeEventListener('pointerleave', handlers.onPointerLeave)
+      element.removeEventListener('focusin', handlers.onFocus)
+      element.removeEventListener('focusout', handlers.onBlur)
+      handlersByElement.delete(element)
     }
-    button.removeAttribute(BOUND_ATTR)
+    element.removeAttribute(BUTTON_BOUND_ATTR)
+    element.removeAttribute(CARD_BOUND_ATTR)
+    element.removeAttribute(NAVLINK_BOUND_ATTR)
   })
 }

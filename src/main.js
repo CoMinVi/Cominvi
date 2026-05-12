@@ -1,15 +1,39 @@
 import maplibreCssUrl from 'maplibre-gl/dist/maplibre-gl.css?url'
 
-import { initLoader } from './animation/loader.js'
-import { initializeNav2 } from './animation/nav.js'
-import { initializePageTransitionNav } from './animation/page-transition-nav.js'
-import { initHeroBackgroundParallax } from './animation/parallax.js'
-import { initLenis } from './animation/scroll.js'
-import { createViewportClipOverlay } from './animation/svg-clip-overlay.js'
 import appCssUrl from './styles/style.css?url'
 // (deduped)
 
 document.addEventListener('DOMContentLoaded', () => {
+  let coreAnimationsPromise = null
+  const loadCoreAnimations = () => {
+    if (!coreAnimationsPromise) {
+      coreAnimationsPromise = Promise.all([
+        import('./animation/loader.js'),
+        import('./animation/parallax.js'),
+        import('./animation/scroll.js'),
+      ])
+    }
+    return coreAnimationsPromise
+  }
+
+  let navSystemPromise = null
+  const loadNavSystem = () => {
+    if (!navSystemPromise) {
+      navSystemPromise = import('./animation/nav.js')
+    }
+    return navSystemPromise
+  }
+
+  let transitionSystemPromise = null
+  const loadTransitionSystem = () => {
+    if (!transitionSystemPromise) {
+      transitionSystemPromise = Promise.all([
+        import('./animation/page-transition-nav.js'),
+        import('./animation/svg-clip-overlay.js'),
+      ])
+    }
+    return transitionSystemPromise
+  }
   const ensureStylesheet = (href) => {
     if (!href) return
     try {
@@ -96,18 +120,32 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     // ignore
   }
-  initializePageTransitionNav()
-  initLoader()
-  initLenis()
-  initializeNav2()
-  // Priorité home: initialiser d'abord le hero.
-  initHeroBackgroundParallax(document)
+  loadCoreAnimations()
+    .then(([loaderMod, parallaxMod, scrollMod]) => {
+      try {
+        loaderMod.initLoader()
+      } catch (e) {
+        // ignore
+      }
+      try {
+        scrollMod.initLenis()
+      } catch (e) {
+        // ignore
+      }
+      // Priorité home: initialiser d'abord le hero.
+      try {
+        parallaxMod.initHeroBackgroundParallax(document)
+      } catch (e) {
+        // ignore
+      }
+    })
+    .catch(() => {})
   const runNonCriticalInitializers = () =>
     loadDeferredInits()
       .then((m) => m.runNonCriticalInits(document))
       .catch(() => {})
 
-  const runNonCriticalAfterInteractionOrTimeout = (fn) => {
+  const runAfterInteractionOrTimeout = (fn, { timeout = 3200 } = {}) => {
     let started = false
     const start = () => {
       if (started) return
@@ -139,13 +177,45 @@ document.addEventListener('DOMContentLoaded', () => {
     })
 
     // Fallback: ensure features still initialize without user interaction.
-    setTimeout(start, 3200)
+    setTimeout(start, timeout)
   }
+
+  runAfterInteractionOrTimeout(
+    () => {
+      loadNavSystem()
+        .then((m) => {
+          try {
+            m.initializeNav2()
+          } catch (e) {
+            // ignore
+          }
+        })
+        .catch(() => {})
+
+      loadTransitionSystem()
+        .then(([ptMod, overlayMod]) => {
+          try {
+            ptMod.initializePageTransitionNav()
+          } catch (e) {
+            // ignore
+          }
+          // Pre-instantiate mask overlay in DOM (hidden) so it exists before transitions.
+          try {
+            const { tl } = overlayMod.createViewportClipOverlay({})
+            if (tl && typeof tl.pause === 'function') tl.pause(0)
+          } catch (err) {
+            // ignore
+          }
+        })
+        .catch(() => {})
+    },
+    { timeout: 900 }
+  )
 
   if (isHomeNamespace(document)) {
     // Home: keep non-critical chunk/CSS/JSON out of the initial critical path.
     runAfterWindowLoad(() => {
-      runNonCriticalAfterInteractionOrTimeout(() =>
+      runAfterInteractionOrTimeout(() =>
         scheduleDeferredInit(runNonCriticalInitializers, { timeout: 2200 })
       )
     })
@@ -153,12 +223,5 @@ document.addEventListener('DOMContentLoaded', () => {
     runNonCriticalInitializers()
   }
 
-  // Pre-instantiate mask overlay in DOM (hidden) so it exists before any transition
-  try {
-    const { tl } = createViewportClipOverlay({})
-    if (tl && typeof tl.pause === 'function') tl.pause(0)
-  } catch (err) {
-    // ignore
-  }
   // Option: you can call splitIntoWordSpans here if you need a manual split elsewhere
 })

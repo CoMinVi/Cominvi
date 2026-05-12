@@ -4,6 +4,12 @@
     "src": "src/main.js",
     "isEntry": true,
     "dynamicImports": [
+      "src/animation/loader.js",
+      "src/animation/parallax.js",
+      "src/animation/scroll.js",
+      "_nav-4ae74bf1.js",
+      "src/animation/page-transition-nav.js",
+      "src/animation/svg-clip-overlay.js",
       "src/animation/deferred-inits.js"
     ],
     "assets": [
@@ -11,12 +17,108 @@
       "assets/style.883653c1.css"
     ]
   },
+  "src/animation/loader.js": {
+    "file": "chunks/loader-1a37ad74.js",
+    "src": "src/animation/loader.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index-13fb7855.js",
+      "_CustomEase-7fe4556b.js",
+      "_contact-1c775804.js",
+      "_landing-d8e4f3a8.js",
+      "src/animation/parallax.js",
+      "_ScrollTrigger-24b062a5.js"
+    ]
+  },
+  "_index-13fb7855.js": {
+    "file": "chunks/index-13fb7855.js"
+  },
+  "_CustomEase-7fe4556b.js": {
+    "file": "chunks/CustomEase-7fe4556b.js"
+  },
+  "_contact-1c775804.js": {
+    "file": "chunks/contact-1c775804.js",
+    "imports": [
+      "_index-13fb7855.js"
+    ]
+  },
+  "_landing-d8e4f3a8.js": {
+    "file": "chunks/landing-d8e4f3a8.js",
+    "imports": [
+      "_index-13fb7855.js",
+      "_CustomEase-7fe4556b.js"
+    ]
+  },
+  "src/animation/parallax.js": {
+    "file": "chunks/parallax-0b8f8621.js",
+    "src": "src/animation/parallax.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index-13fb7855.js",
+      "_ScrollTrigger-24b062a5.js"
+    ]
+  },
+  "_ScrollTrigger-24b062a5.js": {
+    "file": "chunks/ScrollTrigger-24b062a5.js"
+  },
+  "src/animation/scroll.js": {
+    "file": "chunks/scroll-6e009f73.js",
+    "src": "src/animation/scroll.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index-13fb7855.js",
+      "_ScrollTrigger-24b062a5.js"
+    ]
+  },
+  "_nav-4ae74bf1.js": {
+    "file": "chunks/nav-4ae74bf1.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index-13fb7855.js",
+      "_CustomEase-7fe4556b.js",
+      "_ScrollTrigger-24b062a5.js"
+    ]
+  },
+  "src/animation/page-transition-nav.js": {
+    "file": "chunks/page-transition-nav-78e17e37.js",
+    "src": "src/animation/page-transition-nav.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js",
+      "_index-13fb7855.js",
+      "_nav-4ae74bf1.js",
+      "src/animation/parallax.js",
+      "src/animation/scroll.js",
+      "src/animation/svg-clip-overlay.js",
+      "_CustomEase-7fe4556b.js",
+      "_contact-1c775804.js",
+      "_landing-d8e4f3a8.js",
+      "_ScrollTrigger-24b062a5.js"
+    ],
+    "dynamicImports": [
+      "src/animation/deferred-inits.js"
+    ]
+  },
+  "src/animation/svg-clip-overlay.js": {
+    "file": "chunks/svg-clip-overlay-8318d73d.js",
+    "src": "src/animation/svg-clip-overlay.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index-13fb7855.js",
+      "_CustomEase-7fe4556b.js"
+    ]
+  },
   "src/animation/deferred-inits.js": {
-    "file": "chunks/deferred-inits-cdcf7b69.js",
+    "file": "chunks/deferred-inits-4de9e4de.js",
     "src": "src/animation/deferred-inits.js",
     "isDynamicEntry": true,
     "imports": [
-      "src/main.js"
+      "_nav-4ae74bf1.js",
+      "_index-13fb7855.js",
+      "_ScrollTrigger-24b062a5.js",
+      "_CustomEase-7fe4556b.js",
+      "src/animation/parallax.js",
+      "_contact-1c775804.js"
     ],
     "css": [
       "assets/deferred-inits.cb82b5c7.css"

@@ -8,6 +8,9 @@ const INTERACTION_EASE = CustomEase.create(
   'button-hover-webflow-ease',
   'M0,0 C0.6,0 0,1 1,1'
 )
+const COLOR_PRIMARY = 'rgb(21, 21, 21)'
+const COLOR_ACCENT = 'rgb(244, 121, 32)'
+const COLOR_WHITE = 'rgb(255, 255, 255)'
 
 const BUTTON_BOUND_ATTR = 'data-button-hover-bound'
 const CARD_BOUND_ATTR = 'data-button-sm-hover-bound'
@@ -43,15 +46,15 @@ const setBaseState = (button, { content, label }) => {
   if (content) gsap.set(content, { x: '0em' })
 
   if (button.classList.contains('button')) {
-    gsap.set(button, { backgroundColor: 'var(--primary)' })
+    gsap.set(button, { backgroundColor: COLOR_PRIMARY })
     if (label && !label.classList.contains('is-black')) {
-      gsap.set(label, { color: 'var(--white)' })
+      gsap.set(label, { color: COLOR_WHITE })
     }
     return
   }
 
   if (button.classList.contains('button-white')) {
-    gsap.set(button, { backgroundColor: 'var(--white)' })
+    gsap.set(button, { backgroundColor: COLOR_WHITE })
   }
 }
 
@@ -69,7 +72,7 @@ const animateHoverIn = (button, { content, label }) => {
 
   if (button.classList.contains('button')) {
     gsap.to(button, {
-      backgroundColor: 'var(--accent)',
+      backgroundColor: COLOR_ACCENT,
       duration: INTERACTION_DURATION,
       ease: INTERACTION_EASE,
       overwrite: 'auto',
@@ -77,7 +80,7 @@ const animateHoverIn = (button, { content, label }) => {
 
     if (label && !label.classList.contains('is-black')) {
       gsap.to(label, {
-        color: 'var(--primary)',
+        color: COLOR_PRIMARY,
         duration: INTERACTION_DURATION,
         ease: INTERACTION_EASE,
         overwrite: 'auto',
@@ -88,7 +91,7 @@ const animateHoverIn = (button, { content, label }) => {
 
   if (button.classList.contains('button-white')) {
     gsap.to(button, {
-      backgroundColor: 'var(--accent)',
+      backgroundColor: COLOR_ACCENT,
       duration: INTERACTION_DURATION,
       ease: INTERACTION_EASE,
       overwrite: 'auto',
@@ -113,7 +116,7 @@ const animateHoverOut = (button, { content, label }) => {
 
   if (button.classList.contains('button')) {
     gsap.to(button, {
-      backgroundColor: 'var(--primary)',
+      backgroundColor: COLOR_PRIMARY,
       duration: INTERACTION_DURATION,
       ease: INTERACTION_EASE,
       overwrite: 'auto',
@@ -121,7 +124,7 @@ const animateHoverOut = (button, { content, label }) => {
 
     if (label && !label.classList.contains('is-black')) {
       gsap.to(label, {
-        color: 'var(--white)',
+        color: COLOR_WHITE,
         duration: INTERACTION_DURATION,
         ease: INTERACTION_EASE,
         overwrite: 'auto',
@@ -132,7 +135,7 @@ const animateHoverOut = (button, { content, label }) => {
 
   if (button.classList.contains('button-white')) {
     gsap.to(button, {
-      backgroundColor: 'var(--white)',
+      backgroundColor: COLOR_WHITE,
       duration: INTERACTION_DURATION,
       ease: INTERACTION_EASE,
       overwrite: 'auto',
@@ -180,7 +183,7 @@ const setButtonSmBaseState = ({ inner, buttonSm }) => {
     return
   }
   if (inner) gsap.set(inner, { x: '-0.75em' })
-  if (buttonSm) gsap.set(buttonSm, { backgroundColor: 'var(--white)' })
+  if (buttonSm) gsap.set(buttonSm, { backgroundColor: COLOR_WHITE })
 }
 
 const animateButtonSmIn = ({ inner, buttonSm }) => {
@@ -195,7 +198,7 @@ const animateButtonSmIn = ({ inner, buttonSm }) => {
   }
   if (buttonSm) {
     gsap.to(buttonSm, {
-      backgroundColor: 'var(--accent)',
+      backgroundColor: COLOR_ACCENT,
       duration: INTERACTION_DURATION,
       ease: INTERACTION_EASE,
       overwrite: 'auto',
@@ -218,7 +221,7 @@ const animateButtonSmOut = ({ inner, buttonSm }) => {
   }
   if (buttonSm) {
     gsap.to(buttonSm, {
-      backgroundColor: 'var(--white)',
+      backgroundColor: COLOR_WHITE,
       duration: INTERACTION_DURATION,
       ease: INTERACTION_EASE,
       overwrite: 'auto',

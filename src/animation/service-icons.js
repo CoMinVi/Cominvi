@@ -1,19 +1,25 @@
 // Lottie hover handling for service and team icons
 import lottieWeb from 'lottie-web'
 
-// Optional ID → URL mapping. If an element has data-lottie="1", it will
-// use LOTTIE_URLS['1']. If data-lottie contains a full URL, that URL is used.
+// Optional ID -> URL mapping. If an element has data-lottie="1", it will
+// use LOTTIE_URLS["1"]. If data-lottie contains a full URL, that URL is used.
 const LOTTIE_URLS = {
-  1: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6333c80ebd3a6425e_CoMinVi%20-%20Icon%2006.json',
-  2: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6913c3a60d5253cff_CoMinVi%20-%20Icon%2007.json',
-  3: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c64f785b294dba99cd_CoMinVi%20-%20Icon%2008.json',
-  4: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6913c3a60d5253d16_CoMinVi%20-%20Icon%2009.json',
-  5: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c666caf1a2edf01a39_CoMinVi%20-%20Icon%2010.json',
-  6: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c69287fd009887d761_CoMinVi%20-%20Icon%2001.json',
-  7: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c68ae2ca249e6dc2a3_CoMinVi%20-%20Icon%2002.json',
-  8: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c67409f539e5703fd4_CoMinVi%20-%20Icon%2003.json',
-  9: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6e5660af13ca675fd_CoMinVi%20-%20Icon%2004%202.json',
-  10: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c68f1decbc32255f9d_CoMinVi%20-%20Icon%2005.json',
+  1: '/lottie/icon-06.json',
+  2: '/lottie/icon-07.json',
+  3: '/lottie/icon-08.json',
+  4: '/lottie/icon-09.json',
+  5: '/lottie/icon-10.json',
+  6: '/lottie/icon-01.json',
+  7: '/lottie/icon-02.json',
+  8: '/lottie/icon-03.json',
+  9: '/lottie/icon-04.json',
+  10: '/lottie/icon-05.json',
+  11: '/lottie/icon-11.json',
+  12: '/lottie/icon-12.json',
+  13: '/lottie/icon-13.json',
+  14: '/lottie/icon-14.json',
+  15: '/lottie/icon-15.json',
+  16: '/lottie/icon-16.json',
 }
 
 export function initIcons(root = document) {
@@ -138,13 +144,31 @@ export function initIcons(root = document) {
       }
     }
 
+    const getDataLottieValue = (icon) => {
+      try {
+        const ownValue = icon?.getAttribute?.('data-lottie')
+        if (ownValue) return ownValue
+      } catch (e) {
+        /* ignore */
+      }
+      try {
+        const owner = icon?.closest?.('[data-lottie]')
+        if (owner && owner !== icon) {
+          return owner.getAttribute('data-lottie')
+        }
+      } catch (e) {
+        /* ignore */
+      }
+      return null
+    }
+
     const recreateAnimation = (icon) => {
       try {
         const lottie = getLottieLib()
         // Resolve path from data-lottie (URL or id) or legacy WF attributes
         let path = null
         try {
-          const dl = icon?.getAttribute?.('data-lottie')
+          const dl = getDataLottieValue(icon)
           if (dl) {
             if (/^(https?:)?\/\//i.test(dl) || (dl && dl.startsWith('/')))
               path = dl
@@ -792,7 +816,7 @@ export function destroyIcons(root = document) {
   try {
     const scope = root && root.querySelector ? root : document
     const cards = Array.from(
-      scope.querySelectorAll('.service-card, .team-card')
+      scope.querySelectorAll('.service-card, .team-card, .stats-card')
     )
     cards.forEach((card) => {
       try {

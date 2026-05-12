@@ -11,7 +11,7 @@
     ]
   },
   "src/animation/deferred-inits.js": {
-    "file": "chunks/deferred-inits-52e7b3ae.js",
+    "file": "chunks/deferred-inits-3c626bbc.js",
     "src": "src/animation/deferred-inits.js",
     "isDynamicEntry": true,
     "imports": [

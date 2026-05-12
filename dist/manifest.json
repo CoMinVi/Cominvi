@@ -6,12 +6,13 @@
     "dynamicImports": [
       "src/animation/deferred-inits.js"
     ],
-    "css": [
-      "assets/main.82a80164.css"
+    "assets": [
+      "assets/maplibre-gl.43c1d886.css",
+      "assets/style.883653c1.css"
     ]
   },
   "src/animation/deferred-inits.js": {
-    "file": "chunks/deferred-inits-935b40c0.js",
+    "file": "chunks/deferred-inits-e1c7e002.js",
     "src": "src/animation/deferred-inits.js",
     "isDynamicEntry": true,
     "imports": [

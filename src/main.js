@@ -1,14 +1,38 @@
-import 'maplibre-gl/dist/maplibre-gl.css'
-import './styles/style.css'
+import maplibreCssUrl from 'maplibre-gl/dist/maplibre-gl.css?url'
+
 import { initLoader } from './animation/loader.js'
 import { initializeNav2 } from './animation/nav.js'
 import { initializePageTransitionNav } from './animation/page-transition-nav.js'
 import { initHeroBackgroundParallax } from './animation/parallax.js'
 import { initLenis } from './animation/scroll.js'
 import { createViewportClipOverlay } from './animation/svg-clip-overlay.js'
+import appCssUrl from './styles/style.css?url'
 // (deduped)
 
 document.addEventListener('DOMContentLoaded', () => {
+  const ensureStylesheet = (href) => {
+    if (!href) return
+    try {
+      const links = Array.from(
+        document.querySelectorAll('link[rel="stylesheet"][href]')
+      )
+      const alreadyLoaded = links.some((link) => {
+        const raw = link.getAttribute('href') || ''
+        return raw === href || raw.includes(href)
+      })
+      if (alreadyLoaded) return
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  ensureStylesheet(maplibreCssUrl)
+  ensureStylesheet(appCssUrl)
+
   const getCurrentNamespace = (scope = document) => {
     try {
       const container = scope.querySelector('[data-barba="container"]')

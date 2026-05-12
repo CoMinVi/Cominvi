@@ -2,6 +2,23 @@
   "src/main.js": {
     "file": "main.js",
     "src": "src/main.js",
-    "isEntry": true
+    "isEntry": true,
+    "dynamicImports": [
+      "src/animation/deferred-inits.js"
+    ],
+    "css": [
+      "assets/main.82a80164.css"
+    ]
+  },
+  "src/animation/deferred-inits.js": {
+    "file": "chunks/deferred-inits-52e7b3ae.js",
+    "src": "src/animation/deferred-inits.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ],
+    "css": [
+      "assets/deferred-inits.cb82b5c7.css"
+    ]
   }
 }

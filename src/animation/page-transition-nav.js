@@ -1,51 +1,20 @@
 import barba from '@barba/core'
 import { gsap } from 'gsap'
 
-import { reinitializeWebflowAnimations, initSticky50 } from '../utils/base.js'
-import { initAboutValuesScroll } from './about-scroll.js'
-import { initAbout } from './about-us.js'
-import { blogArticleInit } from './blog-article.js'
-import { initBlog } from './blog.js'
-import { initContact } from './contact.js'
-import { initCylinder } from './cylinder.js'
-import { initTeam } from './join-the-team.js'
-import { initMap } from './map.js'
-import { initMineralsCanvas } from './minerals-canvas-local-debug.js'
-import { initMinerals } from './minerals.js'
+import { reinitializeWebflowAnimations } from '../utils/base.js'
 import { initializeNav2, resetMenuLinksAnimationState } from './nav.js'
-import {
-  initParallax,
-  initHeroBackgroundParallax,
-  initNextBackgroundParallax,
-} from './parallax.js'
-import {
-  initVideoClipStickyTransform,
-  destroyVideoClipStickyTransform,
-} from './process-images.js'
-import { initProcessProgression } from './process-progression.js'
-import { initScrollList } from './scroll-list.js'
+import { initHeroBackgroundParallax } from './parallax.js'
 import { initLenis, destroyLenis } from './scroll.js'
-import { initServiceCards } from './service-cards.js'
-import {
-  initIcons,
-  resetServiceCardIcons,
-  destroyIcons,
-} from './service-icons.js'
 import {
   createViewportClipOverlay,
   resetOverlayClipBaseState,
 } from './svg-clip-overlay.js'
-import { initTechnology } from './technology.js'
-import { initTestimonials } from './testimonials.js'
-import { initTextDisplayReveal } from './text-display-reveal.js'
-import { initTextReveal } from './text-reveal.js'
 import {
   slideScaleLeave as innerLeave,
   slideScaleEnter as innerEnter,
 } from './transition-inner.js'
 import { nextLeave, nextEnter } from './transition-next.js'
 import { slideScaleLeave, slideScaleEnter } from './transition-slide-scale.js'
-import { destroyWorkshopsStickyImages } from './workshops.js'
 
 // Minimal Barba setup that focuses only on nav-related transitions
 export function initializePageTransitionNav() {
@@ -342,6 +311,32 @@ export function initializePageTransitionNav() {
     return ns === 'home'
   }
 
+  let deferredInitsPromise = null
+  const loadDeferredInits = () => {
+    if (!deferredInitsPromise) {
+      deferredInitsPromise = import('./deferred-inits.js')
+    }
+    return deferredInitsPromise
+  }
+
+  const destroyIconsSafe = (root = document) => {
+    loadDeferredInits()
+      .then((m) => m.destroyIconsSafe(root))
+      .catch(() => {})
+  }
+
+  const resetServiceCardIconsSafe = (root = document) => {
+    loadDeferredInits()
+      .then((m) => m.resetServiceCardIconsSafe(root))
+      .catch(() => {})
+  }
+
+  const initIconsSafe = (root = document) => {
+    loadDeferredInits()
+      .then((m) => m.initIconsSafe(root))
+      .catch(() => {})
+  }
+
   const scheduleAfterHero = (fn) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -357,101 +352,15 @@ export function initializePageTransitionNav() {
   const runNonCriticalInits = (
     container,
     { includeScrollRefresh = false, includeTransitionEvent = false } = {}
-  ) => {
-    initParallax(container)
-    initNextBackgroundParallax(container)
-    initServiceCards(container)
-    try {
-      initIcons(container)
-    } catch (e) {
-      /* ignore */
-    }
-    initTextReveal()
-    initMinerals()
-    initMineralsCanvas(container)
-    initScrollList()
-    initProcessProgression(container)
-    initTestimonials()
-    initTextDisplayReveal()
-    try {
-      initCylinder(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initSticky50(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initBlog(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      blogArticleInit(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initTeam(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      destroyWorkshopsStickyImages()
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initAbout(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initAboutValuesScroll(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      destroyVideoClipStickyTransform()
-    } catch (e) {
-      /* ignore */
-    }
-    initVideoClipStickyTransform(container)
-    try {
-      initMap(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initTechnology(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initContact(container)
-    } catch (e) {
-      /* ignore */
-    }
-    if (includeScrollRefresh) {
-      try {
-        const st = window.ScrollTrigger
-        if (st && typeof st.refresh === 'function') {
-          requestAnimationFrame(() => st.refresh())
-        }
-      } catch (e) {
-        /* ignore */
-      }
-    }
-    if (includeTransitionEvent) {
-      try {
-        window.dispatchEvent(new Event('page:transition:after'))
-      } catch (e) {
-        /* ignore */
-      }
-    }
-  }
+  ) =>
+    loadDeferredInits()
+      .then((m) =>
+        m.runNonCriticalInits(container, {
+          includeScrollRefresh,
+          includeTransitionEvent,
+        })
+      )
+      .catch(() => {})
 
   const runPostTransitionInits = (
     container,
@@ -502,7 +411,7 @@ export function initializePageTransitionNav() {
         leave: (data) => {
           try {
             const current = data && data.current && data.current.container
-            destroyIcons(current || document)
+            destroyIconsSafe(current || document)
           } catch (e) {
             /* ignore */
           }
@@ -573,7 +482,7 @@ export function initializePageTransitionNav() {
           reinitializeWebflowAnimations()
           // Reset service-card icons so they don't auto-play on viewport
           try {
-            resetServiceCardIcons(next && next.container)
+            resetServiceCardIconsSafe(next && next.container)
           } catch (e) {
             /* ignore */
           }
@@ -607,13 +516,13 @@ export function initializePageTransitionNav() {
         leave: (data) => {
           try {
             const current = data && data.current && data.current.container
-            destroyIcons(current || document)
+            destroyIconsSafe(current || document)
           } catch (e) {
             /* ignore */
           }
           try {
             const current = data && data.current && data.current.container
-            destroyIcons(current || document)
+            destroyIconsSafe(current || document)
           } catch (e) {
             /* ignore */
           }
@@ -677,7 +586,7 @@ export function initializePageTransitionNav() {
           // Re-init Webflow first, then (re)bind nav handlers/animations
           reinitializeWebflowAnimations()
           try {
-            resetServiceCardIcons(next && next.container)
+            resetServiceCardIconsSafe(next && next.container)
           } catch (e) {
             /* ignore */
           }
@@ -789,7 +698,7 @@ export function initializePageTransitionNav() {
           ensureNavbarInteractive(next && next.container)
           // Ensure icons are reset and bound for inner transitions as well
           try {
-            resetServiceCardIcons(next && next.container)
+            resetServiceCardIconsSafe(next && next.container)
           } catch (e) {
             /* ignore */
           }
@@ -824,7 +733,7 @@ export function initializePageTransitionNav() {
           initializeNav2()
           // Ensure icons are reset and bound for generic slide-scale transitions too
           try {
-            resetServiceCardIcons(next && next.container)
+            resetServiceCardIconsSafe(next && next.container)
           } catch (e) {
             /* ignore */
           }
@@ -840,7 +749,7 @@ export function initializePageTransitionNav() {
   // Ensure icon teardown on every transition
   barba.hooks.beforeLeave(({ current }) => {
     try {
-      destroyIcons(current && current.container)
+      destroyIconsSafe(current && current.container)
     } catch (e) {
       /* ignore */
     }
@@ -852,12 +761,12 @@ export function initializePageTransitionNav() {
     if (window.__barbaAfterHandled) {
       window.__barbaAfterHandled = false
       try {
-        resetServiceCardIcons(next && next.container)
+        resetServiceCardIconsSafe(next && next.container)
       } catch (e) {
         /* ignore */
       }
       try {
-        initIcons(next && next.container)
+        initIconsSafe(next && next.container)
       } catch (e) {
         /* ignore */
       }
@@ -896,7 +805,7 @@ export function initializePageTransitionNav() {
     // Reinitialize Webflow IX2/attributes before any custom init
     reinitializeWebflowAnimations()
     try {
-      resetServiceCardIcons(next && next.container)
+      resetServiceCardIconsSafe(next && next.container)
     } catch (e) {
       /* ignore */
     }
@@ -913,72 +822,10 @@ export function initializePageTransitionNav() {
   barba.hooks.afterEnter(({ next }) => {
     const container = next && next.container
     const isHome = isHomeNamespace(container)
-    const runAfterEnterNonCritical = () => {
-      try {
-        initServiceCards(container)
-      } catch (e) {
-        /* ignore */
-      }
-      try {
-        initAboutValuesScroll(container)
-      } catch (e) {
-        /* ignore */
-      }
-      try {
-        requestAnimationFrame(() => {
-          // If icons still not ready in this frame, queue one more microtask
-          try {
-            // Re-assert Lottie registry readiness just before (re)binding
-            try {
-              const wf = typeof window !== 'undefined' ? window.Webflow : null
-              const mod =
-                wf && typeof wf.require === 'function'
-                  ? wf.require('lottie')
-                  : null
-              const ready =
-                mod && typeof mod.ready === 'function' ? mod.ready : null
-              if (ready) ready()
-            } catch (e) {
-              /* ignore */
-            }
-            resetServiceCardIcons(container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initIcons(container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            Promise.resolve().then(() => {
-              try {
-                try {
-                  const wf =
-                    typeof window !== 'undefined' ? window.Webflow : null
-                  const mod =
-                    wf && typeof wf.require === 'function'
-                      ? wf.require('lottie')
-                      : null
-                  const ready =
-                    mod && typeof mod.ready === 'function' ? mod.ready : null
-                  if (ready) ready()
-                } catch (e) {
-                  /* ignore */
-                }
-                initIcons(container)
-              } catch (e) {
-                /* ignore */
-              }
-            })
-          } catch (e) {
-            /* ignore */
-          }
-        })
-      } catch (e) {
-        /* ignore */
-      }
-    }
+    const runAfterEnterNonCritical = () =>
+      loadDeferredInits()
+        .then((m) => m.runAfterEnterNonCritical(container))
+        .catch(() => {})
 
     // Ensure Webflow's Lottie registry is ready before binding icons
     try {

@@ -107,10 +107,47 @@ document.addEventListener('DOMContentLoaded', () => {
       .then((m) => m.runNonCriticalInits(document))
       .catch(() => {})
 
+  const runNonCriticalAfterInteractionOrTimeout = (fn) => {
+    let started = false
+    const start = () => {
+      if (started) return
+      started = true
+      cleanup()
+      fn()
+    }
+    const onInteraction = () => start()
+    const cleanup = () => {
+      window.removeEventListener('pointerdown', onInteraction, true)
+      window.removeEventListener('touchstart', onInteraction, true)
+      window.removeEventListener('keydown', onInteraction, true)
+      window.removeEventListener('scroll', onInteraction, true)
+    }
+
+    window.addEventListener('pointerdown', onInteraction, {
+      capture: true,
+      passive: true,
+    })
+    window.addEventListener('touchstart', onInteraction, {
+      capture: true,
+      passive: true,
+    })
+    window.addEventListener('keydown', onInteraction, true)
+    window.addEventListener('scroll', onInteraction, {
+      capture: true,
+      passive: true,
+      once: true,
+    })
+
+    // Fallback: ensure features still initialize without user interaction.
+    setTimeout(start, 3200)
+  }
+
   if (isHomeNamespace(document)) {
     // Home: keep non-critical chunk/CSS/JSON out of the initial critical path.
     runAfterWindowLoad(() => {
-      scheduleDeferredInit(runNonCriticalInitializers, { timeout: 1800 })
+      runNonCriticalAfterInteractionOrTimeout(() =>
+        scheduleDeferredInit(runNonCriticalInitializers, { timeout: 2200 })
+      )
     })
   } else {
     runNonCriticalInitializers()

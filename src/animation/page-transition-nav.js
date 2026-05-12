@@ -18,6 +18,7 @@ import { slideScaleLeave, slideScaleEnter } from './transition-slide-scale.js'
 
 // Minimal Barba setup that focuses only on nav-related transitions
 export function initializePageTransitionNav() {
+  let hasHandledInitialAfterEnter = false
   const reinitFsAttributes = () => {
     try {
       const fs = window && window.fsAttributes
@@ -838,6 +839,11 @@ export function initializePageTransitionNav() {
 
   // Ensure immediate init after the new container is attached
   barba.hooks.afterEnter(({ next }) => {
+    if (!hasHandledInitialAfterEnter) {
+      hasHandledInitialAfterEnter = true
+      // Initial page boot is handled by main.js; avoid eager deferred chunk load.
+      return
+    }
     const container = next && next.container
     const isHome = isHomeNamespace(container)
     const runAfterEnterNonCritical = () =>

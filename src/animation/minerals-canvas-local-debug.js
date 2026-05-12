@@ -8,6 +8,10 @@ const ALLOWED_NAMESPACES = new Set(['home', 'services'])
 const LOOP_COUNT = 1
 const SCRUB_SMOOTHING = 0.4
 const ENABLE_FRAME_BLEND = false
+const DEFAULT_INITIAL_PRELOAD = 12
+const DEFAULT_PRELOAD_AHEAD = 6
+const DEFAULT_PRELOAD_BEHIND = 2
+const DEFAULT_CONCURRENCY = 6
 
 function info(...args) {
   // eslint-disable-next-line no-console
@@ -24,6 +28,12 @@ function parseImageUrls(raw) {
     .split(';')
     .map((value) => value.trim())
     .filter(Boolean)
+}
+
+function parsePositiveInt(raw, fallback) {
+  const n = parseInt(String(raw || ''), 10)
+  if (!Number.isFinite(n) || n <= 0) return fallback
+  return n
 }
 
 function getContainer(scope) {
@@ -47,6 +57,13 @@ function isAllowedPage(scope) {
   return ALLOWED_NAMESPACES.has(ns)
 }
 
+function getBreakpoint() {
+  const width = window.innerWidth || document.documentElement.clientWidth || 0
+  if (width <= 767) return 'mobile'
+  if (width <= 991) return 'tablet'
+  return 'desktop'
+}
+
 export function initMineralsCanvas(root = document) {
   try {
     if (!isAllowedPage(root)) return null
@@ -55,12 +72,27 @@ export function initMineralsCanvas(root = document) {
     const component = scope.querySelector('[fc-image-scrubbing="component"]')
     if (!component) return null
 
-    const urlsAttrValue = component.getAttribute('fc-image-scrubbing-urls')
-    const fallbackUrlHolder = scope.querySelector('[fc-image-scrubbing-urls]')
-    const fallbackUrls = fallbackUrlHolder
-      ? fallbackUrlHolder.getAttribute('fc-image-scrubbing-urls')
-      : ''
-    const urls = parseImageUrls(urlsAttrValue || fallbackUrls)
+    const getAttrFromComponentOrScope = (attrName) => {
+      const own = component.getAttribute(attrName)
+      if (own) return own
+      const holder = scope.querySelector(`[${attrName}]`)
+      return holder ? holder.getAttribute(attrName) : ''
+    }
+
+    const bp = getBreakpoint()
+    const responsiveUrls = {
+      desktop: getAttrFromComponentOrScope('fc-image-scrubbing-urls-desktop'),
+      tablet: getAttrFromComponentOrScope('fc-image-scrubbing-urls-tablet'),
+      mobile: getAttrFromComponentOrScope('fc-image-scrubbing-urls-mobile'),
+    }
+    const baseUrls = getAttrFromComponentOrScope('fc-image-scrubbing-urls')
+    const urls = parseImageUrls(
+      responsiveUrls[bp] ||
+        responsiveUrls.desktop ||
+        responsiveUrls.tablet ||
+        responsiveUrls.mobile ||
+        baseUrls
+    )
     if (!urls.length) {
       err('La liste d’images est vide.')
       return null
@@ -89,18 +121,43 @@ export function initMineralsCanvas(root = document) {
       portrait: component.getAttribute('fc-image-scrubbing-fit-portrait'),
     }
 
-    let fps = parseInt(
-      component.getAttribute('fc-image-scrubbing-fps') || '24',
-      10
+    let fps = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-fps'),
+      24
     )
     if (!Number.isFinite(fps) || fps <= 0) fps = 30
 
+    const initialPreloadCount = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-initial-preload'),
+      DEFAULT_INITIAL_PRELOAD
+    )
+    const preloadAhead = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-preload-ahead'),
+      DEFAULT_PRELOAD_AHEAD
+    )
+    const preloadBehind = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-preload-behind'),
+      DEFAULT_PRELOAD_BEHIND
+    )
+    const maxConcurrency = Math.max(
+      1,
+      parsePositiveInt(
+        component.getAttribute('fc-image-scrubbing-concurrency'),
+        DEFAULT_CONCURRENCY
+      )
+    )
+
     const state = { frame: 0 }
     const maxLinearFrame = Math.max(0, urls.length * LOOP_COUNT - 1)
-    const images = []
+    const images = new Array(urls.length)
+    const loadStates = new Array(urls.length).fill('idle')
+    const pendingQueue = []
     let firstLoadedIndex = -1
     let loadedCount = 0
+    let activeLoads = 0
+    let destroyed = false
     let lastRenderSignature = ''
+    let lastLinearFrame = 0
     let tween = null
     let resizeObserver = null
 
@@ -170,6 +227,122 @@ export function initMineralsCanvas(root = document) {
       }
       ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight)
       return true
+    }
+
+    const findClosestLoadedIndex = (targetIndex) => {
+      if (!urls.length) return -1
+      if (loadStates[targetIndex] === 'loaded') return targetIndex
+
+      for (let offset = 1; offset < urls.length; offset += 1) {
+        const left = targetIndex - offset
+        if (left >= 0 && loadStates[left] === 'loaded') return left
+        const right = targetIndex + offset
+        if (right < urls.length && loadStates[right] === 'loaded') return right
+      }
+      return -1
+    }
+
+    const queueLoad = (index, highPriority = false) => {
+      if (destroyed) return
+      if (index < 0 || index >= urls.length) return
+
+      const currentState = loadStates[index]
+      if (currentState === 'loaded' || currentState === 'loading') return
+
+      if (currentState === 'queued') {
+        if (highPriority) {
+          const queuedIndex = pendingQueue.indexOf(index)
+          if (queuedIndex > 0) {
+            pendingQueue.splice(queuedIndex, 1)
+            pendingQueue.unshift(index)
+          }
+        }
+        return
+      }
+
+      loadStates[index] = 'queued'
+      if (highPriority) pendingQueue.unshift(index)
+      else pendingQueue.push(index)
+    }
+
+    const loadOneImage = (index) =>
+      new Promise((resolve) => {
+        if (destroyed) {
+          resolve()
+          return
+        }
+
+        const image = new Image()
+        image.onload = () => {
+          if (destroyed) {
+            resolve()
+            return
+          }
+          images[index] = image
+          loadStates[index] = 'loaded'
+          loadedCount += 1
+          if (firstLoadedIndex === -1) firstLoadedIndex = index
+
+          if (loadedCount === 1) {
+            info('Premiere image chargee', {
+              index,
+              total: urls.length,
+              canvasWidth: canvas.clientWidth,
+              canvasHeight: canvas.clientHeight,
+            })
+            renderCurrentFrame()
+          }
+          resolve()
+        }
+
+        image.onerror = () => {
+          if (!destroyed) {
+            loadStates[index] = 'error'
+            err('Echec de chargement image:', urls[index])
+          }
+          resolve()
+        }
+
+        image.src = urls[index]
+      })
+
+    const pumpQueue = () => {
+      if (destroyed) return
+
+      while (activeLoads < maxConcurrency && pendingQueue.length > 0) {
+        const index = pendingQueue.shift()
+        if (typeof index !== 'number') continue
+        if (loadStates[index] !== 'queued') continue
+
+        loadStates[index] = 'loading'
+        activeLoads += 1
+
+        loadOneImage(index).finally(() => {
+          activeLoads -= 1
+          pumpQueue()
+        })
+      }
+    }
+
+    const scheduleDirectionalPreload = (linearFrame) => {
+      const baseIndex = Math.max(
+        0,
+        Math.min(urls.length - 1, Math.floor(linearFrame))
+      )
+      const direction = baseIndex >= lastLinearFrame ? 1 : -1
+      lastLinearFrame = baseIndex
+
+      // Toujours prioriser la frame courante pour éviter les trous visuels.
+      queueLoad(baseIndex, true)
+
+      for (let i = 1; i <= preloadAhead; i += 1) {
+        queueLoad(baseIndex + direction * i, true)
+      }
+      for (let i = 1; i <= preloadBehind; i += 1) {
+        queueLoad(baseIndex - direction * i, false)
+      }
+
+      pumpQueue()
     }
 
     const drawBlendedFrame = (linearFrame) => {
@@ -244,6 +417,8 @@ export function initMineralsCanvas(root = document) {
         ? `${baseLinear}:${linearFrame.toFixed(3)}`
         : String(baseLinear)
 
+      scheduleDirectionalPreload(linearFrame)
+
       if (signature === lastRenderSignature && canvas.__highResReady) return
 
       if (!canvas.__highResReady) {
@@ -252,38 +427,26 @@ export function initMineralsCanvas(root = document) {
       }
 
       const drawn = drawBlendedFrame(linearFrame)
-      if (!drawn && firstLoadedIndex >= 0) {
-        drawImageAt(firstLoadedIndex)
+      if (!drawn) {
+        const fallbackIndex = findClosestLoadedIndex(baseLinear)
+        if (fallbackIndex >= 0) {
+          drawImageAt(fallbackIndex)
+        } else if (firstLoadedIndex >= 0) {
+          drawImageAt(firstLoadedIndex)
+        }
       }
 
       lastRenderSignature = signature
     }
 
-    urls.forEach((url, index) => {
-      const image = new Image()
-
-      image.onload = () => {
-        loadedCount += 1
-        if (firstLoadedIndex === -1) firstLoadedIndex = index
-
-        if (loadedCount === 1) {
-          info('Premiere image chargee', {
-            index,
-            total: urls.length,
-            canvasWidth: canvas.clientWidth,
-            canvasHeight: canvas.clientHeight,
-          })
-          renderCurrentFrame()
-        }
-      }
-
-      image.onerror = () => {
-        err('Echec de chargement image:', url)
-      }
-
-      image.src = url
-      images.push(image)
-    })
+    const initialCap = Math.min(urls.length, Math.max(1, initialPreloadCount))
+    for (let index = 0; index < initialCap; index += 1) {
+      queueLoad(index, true)
+    }
+    for (let index = initialCap; index < urls.length; index += 1) {
+      queueLoad(index, false)
+    }
+    pumpQueue()
 
     const onResize = () => {
       canvas.__highResReady = false
@@ -321,11 +484,18 @@ export function initMineralsCanvas(root = document) {
       loops: LOOP_COUNT,
       scrub: SCRUB_SMOOTHING,
       fps,
+      breakpoint: bp,
+      initialPreloadCount: initialCap,
+      preloadAhead,
+      preloadBehind,
+      maxConcurrency,
       canvasWidth: canvas.clientWidth,
       canvasHeight: canvas.clientHeight,
     })
 
     const cleanup = () => {
+      destroyed = true
+      pendingQueue.length = 0
       try {
         if (tween && typeof tween.kill === 'function') tween.kill()
       } catch (e) {

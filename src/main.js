@@ -30,7 +30,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  ensureStylesheet(maplibreCssUrl)
+  const hasMapContent = (scope = document) => {
+    try {
+      return Boolean(
+        scope.querySelector(
+          '.map, .map-wrap, .map-section, .project-item, .marker[id^="marker-"], .region[id^="region-"]'
+        )
+      )
+    } catch (e) {
+      return false
+    }
+  }
+
+  if (hasMapContent(document)) ensureStylesheet(maplibreCssUrl)
   ensureStylesheet(appCssUrl)
 
   const getCurrentNamespace = (scope = document) => {
@@ -43,16 +55,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const isHomeNamespace = (scope = document) =>
     getCurrentNamespace(scope).trim().toLowerCase() === 'home'
-  const scheduleDeferredInit = (fn) => {
+  const scheduleDeferredInit = (fn, { timeout = 180 } = {}) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (typeof window.requestIdleCallback === 'function') {
-          window.requestIdleCallback(fn, { timeout: 180 })
+          window.requestIdleCallback(fn, { timeout })
         } else {
-          setTimeout(fn, 48)
+          setTimeout(fn, Math.min(timeout, 300))
         }
       })
     })
+  }
+  const runAfterWindowLoad = (fn) => {
+    try {
+      if (document.readyState === 'complete') {
+        fn()
+        return
+      }
+      window.addEventListener('load', fn, { once: true })
+    } catch (e) {
+      fn()
+    }
   }
   let deferredInitsPromise = null
   const loadDeferredInits = () => {
@@ -85,7 +108,10 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(() => {})
 
   if (isHomeNamespace(document)) {
-    scheduleDeferredInit(runNonCriticalInitializers)
+    // Home: keep non-critical chunk/CSS/JSON out of the initial critical path.
+    runAfterWindowLoad(() => {
+      scheduleDeferredInit(runNonCriticalInitializers, { timeout: 1800 })
+    })
   } else {
     runNonCriticalInitializers()
   }

@@ -337,6 +337,143 @@ export function initializePageTransitionNav() {
     true
   )
 
+  const isHomeNamespace = (container) => {
+    const ns = (getNamespaceFromContainer(container) || '').trim().toLowerCase()
+    return ns === 'home'
+  }
+
+  const scheduleAfterHero = (fn) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (typeof window.requestIdleCallback === 'function') {
+          window.requestIdleCallback(fn, { timeout: 180 })
+        } else {
+          setTimeout(fn, 48)
+        }
+      })
+    })
+  }
+
+  const runNonCriticalInits = (
+    container,
+    { includeScrollRefresh = false, includeTransitionEvent = false } = {}
+  ) => {
+    initParallax(container)
+    initNextBackgroundParallax(container)
+    initServiceCards(container)
+    try {
+      initIcons(container)
+    } catch (e) {
+      /* ignore */
+    }
+    initTextReveal()
+    initMinerals()
+    initMineralsCanvas(container)
+    initScrollList()
+    initProcessProgression(container)
+    initTestimonials()
+    initTextDisplayReveal()
+    try {
+      initCylinder(container)
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      initSticky50(container)
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      initBlog(container)
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      blogArticleInit(container)
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      initTeam(container)
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      destroyWorkshopsStickyImages()
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      initAbout(container)
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      initAboutValuesScroll(container)
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      destroyVideoClipStickyTransform()
+    } catch (e) {
+      /* ignore */
+    }
+    initVideoClipStickyTransform(container)
+    try {
+      initMap(container)
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      initTechnology(container)
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      initContact(container)
+    } catch (e) {
+      /* ignore */
+    }
+    if (includeScrollRefresh) {
+      try {
+        const st = window.ScrollTrigger
+        if (st && typeof st.refresh === 'function') {
+          requestAnimationFrame(() => st.refresh())
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    if (includeTransitionEvent) {
+      try {
+        window.dispatchEvent(new Event('page:transition:after'))
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }
+
+  const runPostTransitionInits = (
+    container,
+    { includeScrollRefresh = false, includeTransitionEvent = false } = {}
+  ) => {
+    // Priorité critique: hero de la home immédiatement.
+    initHeroBackgroundParallax(container)
+    if (isHomeNamespace(container)) {
+      scheduleAfterHero(() =>
+        runNonCriticalInits(container, {
+          includeScrollRefresh,
+          includeTransitionEvent,
+        })
+      )
+      return
+    }
+    runNonCriticalInits(container, {
+      includeScrollRefresh,
+      includeTransitionEvent,
+    })
+  }
+
   barba.init({
     preventRunning: true,
     schema: { namespace: 'data-barba-namespace' },
@@ -443,97 +580,10 @@ export function initializePageTransitionNav() {
           resetMenuLinksAnimationState(next && next.container)
           initializeNav2()
           ensureNavbarInteractive(next && next.container)
-          initParallax(next && next.container)
-          initHeroBackgroundParallax(next && next.container)
-          initNextBackgroundParallax(next && next.container)
-          initServiceCards(next && next.container)
-          try {
-            initIcons(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          initTextReveal()
-          initMinerals()
-          initMineralsCanvas(next && next.container)
-          initScrollList()
-          initProcessProgression(next && next.container)
-          initTestimonials()
-          initTextDisplayReveal()
-          try {
-            initCylinder(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initSticky50(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initBlog(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            blogArticleInit(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initTeam(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            destroyWorkshopsStickyImages()
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initAbout(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initAboutValuesScroll(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            destroyVideoClipStickyTransform()
-          } catch (e) {
-            /* ignore */
-          }
-          initVideoClipStickyTransform(next && next.container)
-          try {
-            initMap(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initTechnology(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initContact(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            const st = window.ScrollTrigger
-            if (st && typeof st.refresh === 'function') {
-              requestAnimationFrame(() => st.refresh())
-            }
-          } catch (e) {
-            /* ignore */
-          }
-          // Notify components that rely on layout to recalc after transition
-          try {
-            window.dispatchEvent(new Event('page:transition:after'))
-          } catch (e) {
-            /* ignore */
-          }
+          runPostTransitionInits(next && next.container, {
+            includeScrollRefresh: true,
+            includeTransitionEvent: true,
+          })
           // Ensure body background resets to primary after transition animation
           try {
             gsap.set(document.body, { backgroundColor: 'var(--primary)' })
@@ -634,91 +684,9 @@ export function initializePageTransitionNav() {
           resetMenuLinksAnimationState(next && next.container)
           initializeNav2()
           ensureNavbarInteractive(next && next.container)
-          initParallax(next && next.container)
-          initHeroBackgroundParallax(next && next.container)
-          initNextBackgroundParallax(next && next.container)
-          initServiceCards(next && next.container)
-          try {
-            initIcons(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          initTextReveal()
-          initMinerals()
-          initMineralsCanvas(next && next.container)
-          initScrollList()
-          initProcessProgression(next && next.container)
-          initTestimonials()
-          initTextDisplayReveal()
-          try {
-            initCylinder(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initSticky50(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initBlog(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            blogArticleInit(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initTeam(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            destroyWorkshopsStickyImages()
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initAbout(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initAboutValuesScroll(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            destroyVideoClipStickyTransform()
-          } catch (e) {
-            /* ignore */
-          }
-          initVideoClipStickyTransform(next && next.container)
-          try {
-            initMap(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initTechnology(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initContact(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            const st = window.ScrollTrigger
-            if (st && typeof st.refresh === 'function') {
-              requestAnimationFrame(() => st.refresh())
-            }
-          } catch (e) {
-            /* ignore */
-          }
+          runPostTransitionInits(next && next.container, {
+            includeScrollRefresh: true,
+          })
           try {
             window.__barbaHistoryNav = false
           } catch (e) {
@@ -819,89 +787,13 @@ export function initializePageTransitionNav() {
           resetMenuLinksAnimationState(next && next.container)
           initializeNav2()
           ensureNavbarInteractive(next && next.container)
-          initParallax(next && next.container)
-          initHeroBackgroundParallax(next && next.container)
-          initNextBackgroundParallax(next && next.container)
-          initServiceCards(next && next.container)
           // Ensure icons are reset and bound for inner transitions as well
           try {
             resetServiceCardIcons(next && next.container)
           } catch (e) {
             /* ignore */
           }
-          try {
-            initIcons(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          initTextReveal()
-          initMinerals()
-          initMineralsCanvas(next && next.container)
-          initScrollList()
-          initProcessProgression(next && next.container)
-          initTestimonials()
-          initTextDisplayReveal()
-          try {
-            initCylinder(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initSticky50(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initBlog(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            blogArticleInit(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initTeam(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            destroyWorkshopsStickyImages()
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initAbout(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initAboutValuesScroll(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            destroyVideoClipStickyTransform()
-          } catch (e) {
-            /* ignore */
-          }
-          initVideoClipStickyTransform(next && next.container)
-          try {
-            initMap(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initTechnology(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initContact(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
+          runPostTransitionInits(next && next.container)
           // Ensure body background resets to primary after transition animation
           try {
             gsap.set(document.body, { backgroundColor: 'var(--primary)' })
@@ -930,103 +822,16 @@ export function initializePageTransitionNav() {
           // Re-init Webflow first, then (re)bind nav handlers/animations
           reinitializeWebflowAnimations()
           initializeNav2()
-          initParallax(next && next.container)
-          initHeroBackgroundParallax(next && next.container)
-          initNextBackgroundParallax(next && next.container)
-          initServiceCards(next && next.container)
           // Ensure icons are reset and bound for generic slide-scale transitions too
           try {
             resetServiceCardIcons(next && next.container)
           } catch (e) {
             /* ignore */
           }
-          try {
-            initIcons(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          initTextReveal()
-          initMinerals()
-          initMineralsCanvas(next && next.container)
-          initScrollList()
-          initProcessProgression(next && next.container)
-          initTestimonials()
-          initTextDisplayReveal()
-          try {
-            initCylinder(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initSticky50(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initBlog(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            blogArticleInit(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initTeam(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            destroyWorkshopsStickyImages()
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initAbout(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initAboutValuesScroll(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            destroyVideoClipStickyTransform()
-          } catch (e) {
-            /* ignore */
-          }
-          initVideoClipStickyTransform(next && next.container)
-          try {
-            initMap(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initTechnology(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            initContact(next && next.container)
-          } catch (e) {
-            /* ignore */
-          }
-          try {
-            const st = window.ScrollTrigger
-            if (st && typeof st.refresh === 'function') {
-              requestAnimationFrame(() => st.refresh())
-            }
-          } catch (e) {
-            /* ignore */
-          }
-          // Notify components that rely on layout to recalc after transition
-          try {
-            window.dispatchEvent(new Event('page:transition:after'))
-          } catch (e) {
-            /* ignore */
-          }
+          runPostTransitionInits(next && next.container, {
+            includeScrollRefresh: true,
+            includeTransitionEvent: true,
+          })
         },
       },
     ],
@@ -1095,76 +900,7 @@ export function initializePageTransitionNav() {
     } catch (e) {
       /* ignore */
     }
-    initParallax(next && next.container)
-    initHeroBackgroundParallax(next && next.container)
-    initNextBackgroundParallax(next && next.container)
-    initServiceCards(next && next.container)
-    // Ensure icons are constructed after service cards/DOM structure exists
-    try {
-      initIcons(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    initProcessProgression(next && next.container)
-    initTextReveal()
-    initMinerals()
-    initMineralsCanvas(next && next.container)
-    try {
-      initSticky50(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initBlog(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      blogArticleInit(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initTeam(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      destroyWorkshopsStickyImages()
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initAbout(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initAboutValuesScroll(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      destroyVideoClipStickyTransform()
-    } catch (e) {
-      /* ignore */
-    }
-    initVideoClipStickyTransform(next && next.container)
-    try {
-      initMap(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initTechnology(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initContact(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
+    runPostTransitionInits(next && next.container)
     // Ensure body background resets to primary after fallback transition
     try {
       gsap.set(document.body, { backgroundColor: 'var(--primary)' })
@@ -1175,6 +911,75 @@ export function initializePageTransitionNav() {
 
   // Ensure immediate init after the new container is attached
   barba.hooks.afterEnter(({ next }) => {
+    const container = next && next.container
+    const isHome = isHomeNamespace(container)
+    const runAfterEnterNonCritical = () => {
+      try {
+        initServiceCards(container)
+      } catch (e) {
+        /* ignore */
+      }
+      try {
+        initAboutValuesScroll(container)
+      } catch (e) {
+        /* ignore */
+      }
+      try {
+        requestAnimationFrame(() => {
+          // If icons still not ready in this frame, queue one more microtask
+          try {
+            // Re-assert Lottie registry readiness just before (re)binding
+            try {
+              const wf = typeof window !== 'undefined' ? window.Webflow : null
+              const mod =
+                wf && typeof wf.require === 'function'
+                  ? wf.require('lottie')
+                  : null
+              const ready =
+                mod && typeof mod.ready === 'function' ? mod.ready : null
+              if (ready) ready()
+            } catch (e) {
+              /* ignore */
+            }
+            resetServiceCardIcons(container)
+          } catch (e) {
+            /* ignore */
+          }
+          try {
+            initIcons(container)
+          } catch (e) {
+            /* ignore */
+          }
+          try {
+            Promise.resolve().then(() => {
+              try {
+                try {
+                  const wf =
+                    typeof window !== 'undefined' ? window.Webflow : null
+                  const mod =
+                    wf && typeof wf.require === 'function'
+                      ? wf.require('lottie')
+                      : null
+                  const ready =
+                    mod && typeof mod.ready === 'function' ? mod.ready : null
+                  if (ready) ready()
+                } catch (e) {
+                  /* ignore */
+                }
+                initIcons(container)
+              } catch (e) {
+                /* ignore */
+              }
+            })
+          } catch (e) {
+            /* ignore */
+          }
+        })
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
     // Ensure Webflow's Lottie registry is ready before binding icons
     try {
       const wf = typeof window !== 'undefined' ? window.Webflow : null
@@ -1197,68 +1002,10 @@ export function initializePageTransitionNav() {
     } catch (e) {
       /* ignore */
     }
-    try {
-      initServiceCards(next && next.container)
-    } catch (e) {
-      /* ignore */
+    if (isHome) {
+      scheduleAfterHero(runAfterEnterNonCritical)
+      return
     }
-    try {
-      initAboutValuesScroll(next && next.container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      requestAnimationFrame(() => {
-        // If icons still not ready in this frame, queue one more microtask
-        try {
-          // Re-assert Lottie registry readiness just before (re)binding
-          try {
-            const wf = typeof window !== 'undefined' ? window.Webflow : null
-            const mod =
-              wf && typeof wf.require === 'function'
-                ? wf.require('lottie')
-                : null
-            const ready =
-              mod && typeof mod.ready === 'function' ? mod.ready : null
-            if (ready) ready()
-          } catch (e) {
-            /* ignore */
-          }
-          resetServiceCardIcons(next && next.container)
-        } catch (e) {
-          /* ignore */
-        }
-        try {
-          initIcons(next && next.container)
-        } catch (e) {
-          /* ignore */
-        }
-        try {
-          Promise.resolve().then(() => {
-            try {
-              try {
-                const wf = typeof window !== 'undefined' ? window.Webflow : null
-                const mod =
-                  wf && typeof wf.require === 'function'
-                    ? wf.require('lottie')
-                    : null
-                const ready =
-                  mod && typeof mod.ready === 'function' ? mod.ready : null
-                if (ready) ready()
-              } catch (e) {
-                /* ignore */
-              }
-              initIcons(next && next.container)
-            } catch (e) {
-              /* ignore */
-            }
-          })
-        } catch (e) {
-          /* ignore */
-        }
-      })
-    } catch (e) {
-      /* ignore */
-    }
+    runAfterEnterNonCritical()
   })
 }

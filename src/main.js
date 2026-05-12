@@ -35,6 +35,28 @@ import { initSticky50 } from './utils/base.js'
 // (deduped)
 
 document.addEventListener('DOMContentLoaded', () => {
+  const getCurrentNamespace = (scope = document) => {
+    try {
+      const container = scope.querySelector('[data-barba="container"]')
+      return (container && container.getAttribute('data-barba-namespace')) || ''
+    } catch (e) {
+      return ''
+    }
+  }
+  const isHomeNamespace = (scope = document) =>
+    getCurrentNamespace(scope).trim().toLowerCase() === 'home'
+  const scheduleDeferredInit = (fn) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (typeof window.requestIdleCallback === 'function') {
+          window.requestIdleCallback(fn, { timeout: 180 })
+        } else {
+          setTimeout(fn, 48)
+        }
+      })
+    })
+  }
+
   try {
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual'
@@ -50,84 +72,89 @@ document.addEventListener('DOMContentLoaded', () => {
   initLoader()
   initLenis()
   initializeNav2()
+  // Priorité home: initialiser d'abord le hero.
+  initParallax()
   try {
     initCylinder(document)
   } catch (e) {
     // ignore
   }
-  initParallax()
-  initNextBackgroundParallax()
-  initServiceCards()
-  try {
-    initIcons(document)
-  } catch (e) {
-    /* ignore */
-  }
-  initTextReveal()
-  initMinerals()
-  initMineralsCanvas(document)
-  initScrollList()
-  initProcessProgression()
-  initTestimonials()
-  initTextDisplayReveal()
-  initVideoClipStickyTransform()
-  // Sticky 50 center across site
-  try {
-    initSticky50(document)
-  } catch (e) {
-    // ignore
-  }
-  // Blog page behaviors (initial load)
-  try {
-    initBlog(document)
-  } catch (e) {
-    // ignore
-  }
-  // Blog article page behaviors (initial load)
-  try {
-    blogArticleInit(document)
-  } catch (e) {
-    // ignore
-  }
-  // Initialize map interactions on first load
-  try {
-    initMap(document)
-  } catch (e) {
-    // ignore
-  }
-  // Technology page behaviors
-  try {
-    initTechnology(document)
-  } catch (e) {
-    // ignore
+  const runNonCriticalInitializers = () => {
+    initNextBackgroundParallax()
+    initServiceCards()
+    try {
+      initIcons(document)
+    } catch (e) {
+      /* ignore */
+    }
+    initTextReveal()
+    initMinerals()
+    initMineralsCanvas(document)
+    initScrollList()
+    initProcessProgression()
+    initTestimonials()
+    initTextDisplayReveal()
+    initVideoClipStickyTransform()
+    // Sticky 50 center across site
+    try {
+      initSticky50(document)
+    } catch (e) {
+      // ignore
+    }
+    // Blog page behaviors (initial load)
+    try {
+      initBlog(document)
+    } catch (e) {
+      // ignore
+    }
+    // Blog article page behaviors (initial load)
+    try {
+      blogArticleInit(document)
+    } catch (e) {
+      // ignore
+    }
+    // Initialize map interactions on first load
+    try {
+      initMap(document)
+    } catch (e) {
+      // ignore
+    }
+    // Technology page behaviors
+    try {
+      initTechnology(document)
+    } catch (e) {
+      // ignore
+    }
+    // Contact page behaviors
+    try {
+      initContact(document)
+    } catch (e) {
+      // ignore
+    }
+    // About Us page behaviors
+    try {
+      initAbout(document)
+    } catch (e) {
+      // ignore
+    }
+    // About Us: values scroll ticks and active item highlighting
+    try {
+      initAboutValuesScroll(document)
+    } catch (e) {
+      // ignore
+    }
+    // Join the Team page behaviors
+    try {
+      initTeam(document)
+    } catch (e) {
+      // ignore
+    }
   }
 
-  // Contact page behaviors
-  try {
-    initContact(document)
-  } catch (e) {
-    // ignore
-  }
-
-  // About Us page behaviors
-  try {
-    initAbout(document)
-  } catch (e) {
-    // ignore
-  }
-
-  // About Us: values scroll ticks and active item highlighting
-  try {
-    initAboutValuesScroll(document)
-  } catch (e) {
-    // ignore
-  }
-
-  // Join the Team page behaviors
-  try {
-    initTeam(document)
-  } catch (e) {
-    // ignore
+  if (isHomeNamespace(document)) {
+    scheduleDeferredInit(runNonCriticalInitializers)
+  } else {
+    runNonCriticalInitializers()
   }
 
   // Pre-instantiate mask overlay in DOM (hidden) so it exists before any transition

@@ -158,6 +158,7 @@ export function initMineralsCanvas(root = document) {
     let destroyed = false
     let lastRenderSignature = ''
     let lastLinearFrame = 0
+    let hasDrawnFrameZero = false
     let tween = null
     let resizeObserver = null
 
@@ -282,6 +283,14 @@ export function initMineralsCanvas(root = document) {
           loadStates[index] = 'loaded'
           loadedCount += 1
           if (firstLoadedIndex === -1) firstLoadedIndex = index
+
+          // Garantit que la vraie première frame est visible dès qu'elle existe.
+          if (index === 0 && !hasDrawnFrameZero) {
+            state.frame = 0
+            canvas.__highResReady = false
+            renderCurrentFrame()
+            hasDrawnFrameZero = true
+          }
 
           if (loadedCount === 1) {
             info('Premiere image chargee', {
@@ -440,8 +449,10 @@ export function initMineralsCanvas(root = document) {
     }
 
     const initialCap = Math.min(urls.length, Math.max(1, initialPreloadCount))
-    for (let index = 0; index < initialCap; index += 1) {
-      queueLoad(index, true)
+    // Priorité absolue: index 0, pour affichage immédiat de la première frame.
+    queueLoad(0, true)
+    for (let index = 1; index < initialCap; index += 1) {
+      queueLoad(index, false)
     }
     for (let index = initialCap; index < urls.length; index += 1) {
       queueLoad(index, false)

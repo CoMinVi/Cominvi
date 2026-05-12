@@ -215,8 +215,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (isHomeNamespace(document)) {
     // Home: keep non-critical chunk/CSS/JSON out of the initial critical path.
     runAfterWindowLoad(() => {
-      runAfterInteractionOrTimeout(() =>
-        scheduleDeferredInit(runNonCriticalInitializers, { timeout: 2200 })
+      runAfterInteractionOrTimeout(
+        () =>
+          scheduleDeferredInit(runNonCriticalInitializers, {
+            timeout: 2200,
+          }),
+        { timeout: 15000 }
       )
     })
   } else {

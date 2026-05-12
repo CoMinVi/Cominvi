@@ -1,10 +1,37 @@
 import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 
-import { initContact, initContactHero } from './contact.js'
 import { heroAnimation } from './landing.js'
 
 gsap.registerPlugin(CustomEase)
+
+let contactModulePromise = null
+const loadContactModule = () => {
+  if (!contactModulePromise) {
+    contactModulePromise = import('./contact.js')
+  }
+  return contactModulePromise
+}
+const initContactLazy = (container) =>
+  loadContactModule()
+    .then((m) => {
+      try {
+        m.initContact(container)
+      } catch (e) {
+        // ignore
+      }
+    })
+    .catch(() => {})
+const initContactHeroLazy = (container, options) =>
+  loadContactModule()
+    .then((m) => {
+      try {
+        m.initContactHero(container, options)
+      } catch (e) {
+        // ignore
+      }
+    })
+    .catch(() => {})
 
 const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
 
@@ -169,7 +196,7 @@ export function nextLeave({ current, trigger, next }) {
           zIndex: 0,
         })
         try {
-          initContact(next && next.container)
+          initContactLazy(next && next.container)
         } catch (e) {
           // ignore
         }
@@ -237,7 +264,7 @@ export function nextLeave({ current, trigger, next }) {
             duration: 1.4,
             ease: gsap.parseEase(`custom(${easeCurve})`),
           })
-          initContactHero(next && next.container, {
+          initContactHeroLazy(next && next.container, {
             animate: true,
             duration: 1.4,
             ease: gsap.parseEase(`custom(${easeCurve})`),

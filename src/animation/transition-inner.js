@@ -1,7 +1,6 @@
 import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 
-import { initContact, initContactHero } from './contact.js'
 import { heroAnimation } from './landing.js'
 import { addMenuLinksCloseToTimeline } from './nav.js'
 import {
@@ -12,6 +11,34 @@ import {
 } from './svg-clip-overlay.js'
 
 gsap.registerPlugin(CustomEase)
+
+let contactModulePromise = null
+const loadContactModule = () => {
+  if (!contactModulePromise) {
+    contactModulePromise = import('./contact.js')
+  }
+  return contactModulePromise
+}
+const initContactLazy = (container) =>
+  loadContactModule()
+    .then((m) => {
+      try {
+        m.initContact(container)
+      } catch (e) {
+        // ignore
+      }
+    })
+    .catch(() => {})
+const initContactHeroLazy = (container, options) =>
+  loadContactModule()
+    .then((m) => {
+      try {
+        m.initContactHero(container, options)
+      } catch (e) {
+        // ignore
+      }
+    })
+    .catch(() => {})
 
 // keep for parity with slide-scale if needed later
 let lastTopOffsetPx = 0 // eslint-disable-line no-unused-vars
@@ -308,7 +335,7 @@ export function slideScaleEnter({ next }) {
 
   // Initialize Contact page SDK map as early as possible for destination
   try {
-    initContact(next && next.container)
+    initContactLazy(next && next.container)
   } catch (e) {
     // ignore
   }
@@ -584,7 +611,7 @@ export function slideScaleEnter({ next }) {
           ease: gsap.parseEase(`custom(${easeCurve})`),
         })
         // Contact hero width adjustment at descale with matching timing/easing
-        initContactHero(next && next.container, {
+        initContactHeroLazy(next && next.container, {
           animate: true,
           duration: 1.2,
           ease: gsap.parseEase(`custom(${easeCurve})`),

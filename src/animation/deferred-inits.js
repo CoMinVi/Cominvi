@@ -3,7 +3,6 @@ import { initAboutValuesScroll } from './about-scroll.js'
 import { initAbout } from './about-us.js'
 import { blogArticleInit } from './blog-article.js'
 import { initBlog } from './blog.js'
-import { initContact } from './contact.js'
 import { initCylinder } from './cylinder.js'
 import { initTeam } from './join-the-team.js'
 import { initMap } from './map.js'
@@ -22,11 +21,44 @@ import {
   resetServiceCardIcons,
   destroyIcons,
 } from './service-icons.js'
-import { initTechnology } from './technology.js'
 import { initTestimonials } from './testimonials.js'
 import { initTextDisplayReveal } from './text-display-reveal.js'
 import { initTextReveal } from './text-reveal.js'
 import { destroyWorkshopsStickyImages } from './workshops.js'
+
+let technologyModulePromise = null
+const loadTechnologyModule = () => {
+  if (!technologyModulePromise) {
+    technologyModulePromise = import('./technology.js')
+  }
+  return technologyModulePromise
+}
+
+let contactModulePromise = null
+const loadContactModule = () => {
+  if (!contactModulePromise) {
+    contactModulePromise = import('./contact.js')
+  }
+  return contactModulePromise
+}
+
+const getNamespace = (scope = document) => {
+  try {
+    const ns =
+      (scope &&
+        scope.getAttribute &&
+        scope.getAttribute('data-barba-namespace')) ||
+      (scope &&
+        scope.querySelector &&
+        scope
+          .querySelector('[data-barba="container"]')
+          ?.getAttribute('data-barba-namespace')) ||
+      ''
+    return String(ns).trim().toLowerCase()
+  } catch (e) {
+    return ''
+  }
+}
 
 function ensureLottieReady() {
   try {
@@ -130,15 +162,28 @@ export function runNonCriticalInits(
   } catch (e) {
     // ignore
   }
-  try {
-    initTechnology(container)
-  } catch (e) {
-    // ignore
+  const namespace = getNamespace(container)
+  if (namespace === 'technology') {
+    loadTechnologyModule()
+      .then((m) => {
+        try {
+          m.initTechnology(container)
+        } catch (e) {
+          // ignore
+        }
+      })
+      .catch(() => {})
   }
-  try {
-    initContact(container)
-  } catch (e) {
-    // ignore
+  if (namespace === 'contact') {
+    loadContactModule()
+      .then((m) => {
+        try {
+          m.initContact(container)
+        } catch (e) {
+          // ignore
+        }
+      })
+      .catch(() => {})
   }
 
   if (includeScrollRefresh) {

@@ -46,6 +46,18 @@ const initContactHeroLazy = (container, options) =>
       }
     })
     .catch(() => {})
+const isContactNamespace = (scope) => {
+  try {
+    const ns =
+      (scope &&
+        scope.getAttribute &&
+        scope.getAttribute('data-barba-namespace')) ||
+      ''
+    return String(ns).trim().toLowerCase() === 'contact'
+  } catch (e) {
+    return false
+  }
+}
 
 let lastTopOffsetPx = 0
 const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
@@ -98,7 +110,9 @@ export function slideScaleEnter({ next }) {
 
   // Initialize Contact page SDK map as early as possible for destination
   try {
-    initContactLazy(next && next.container)
+    if (isContactNamespace(next && next.container)) {
+      initContactLazy(next && next.container)
+    }
   } catch (e) {
     // ignore
   }
@@ -192,11 +206,13 @@ export function slideScaleEnter({ next }) {
           ease: gsap.parseEase(`custom(${easeCurve})`),
         })
         // Contact hero width adjustment at descale-equivalent moment (lift)
-        initContactHeroLazy(next && next.container, {
-          animate: true,
-          duration: 1.2,
-          ease: gsap.parseEase(`custom(${easeCurve})`),
-        })
+        if (isContactNamespace(next && next.container)) {
+          initContactHeroLazy(next && next.container, {
+            animate: true,
+            duration: 1.2,
+            ease: gsap.parseEase(`custom(${easeCurve})`),
+          })
+        }
       } catch (err) {
         // ignore
       }

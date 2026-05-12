@@ -4,24 +4,6 @@ import { CustomEase } from 'gsap/CustomEase'
 import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
-let contactModulePromise = null
-const loadContactModule = () => {
-  if (!contactModulePromise) {
-    contactModulePromise = import('./contact.js')
-  }
-  return contactModulePromise
-}
-const initContactHeroLazy = (container, options) =>
-  loadContactModule()
-    .then((m) => {
-      try {
-        m.initContactHero(container, options)
-      } catch (e) {
-        // ignore
-      }
-    })
-    .catch(() => {})
-
 /**
  * Loader animation sequence
  * Steps provided by user:
@@ -242,11 +224,7 @@ export function initLoader() {
       }, '>')
       tl.add(() => {
         try {
-          initContactHeroLazy(document, {
-            animate: true,
-            duration: 1.2,
-            ease: loaderEase,
-          })
+          // Contact hero adjustment moved to contact-specific transitions only.
         } catch (e) {
           // ignore
         }
@@ -429,11 +407,7 @@ export function initLoader() {
     // Synchroniser l'animation de la largeur de la carte Contact avec la disparition du loader
     tl.add(() => {
       try {
-        initContactHeroLazy(document, {
-          animate: true,
-          duration: 1.2,
-          ease: loaderEase,
-        })
+        // Contact hero adjustment moved to contact-specific transitions only.
       } catch (e) {
         // ignore
       }

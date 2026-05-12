@@ -32,6 +32,18 @@ const initContactHeroLazy = (container, options) =>
       }
     })
     .catch(() => {})
+const isContactNamespace = (scope) => {
+  try {
+    const ns =
+      (scope &&
+        scope.getAttribute &&
+        scope.getAttribute('data-barba-namespace')) ||
+      ''
+    return String(ns).trim().toLowerCase() === 'contact'
+  } catch (e) {
+    return false
+  }
+}
 
 const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
 
@@ -196,7 +208,9 @@ export function nextLeave({ current, trigger, next }) {
           zIndex: 0,
         })
         try {
-          initContactLazy(next && next.container)
+          if (isContactNamespace(next && next.container)) {
+            initContactLazy(next && next.container)
+          }
         } catch (e) {
           // ignore
         }
@@ -264,11 +278,13 @@ export function nextLeave({ current, trigger, next }) {
             duration: 1.4,
             ease: gsap.parseEase(`custom(${easeCurve})`),
           })
-          initContactHeroLazy(next && next.container, {
-            animate: true,
-            duration: 1.4,
-            ease: gsap.parseEase(`custom(${easeCurve})`),
-          })
+          if (isContactNamespace(next && next.container)) {
+            initContactHeroLazy(next && next.container, {
+              animate: true,
+              duration: 1.4,
+              ease: gsap.parseEase(`custom(${easeCurve})`),
+            })
+          }
         } catch (e) {
           // ignore
         }

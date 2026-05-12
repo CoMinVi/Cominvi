@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(() => {})
     },
-    { timeout: 900 }
+    { timeout: 15000 }
   )
 
   if (isHomeNamespace(document)) {

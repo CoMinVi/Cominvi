@@ -851,16 +851,6 @@ export function initializePageTransitionNav() {
         .then((m) => m.runAfterEnterNonCritical(container))
         .catch(() => {})
 
-    // Ensure Webflow's Lottie registry is ready before binding icons
-    try {
-      const wf = typeof window !== 'undefined' ? window.Webflow : null
-      const mod =
-        wf && typeof wf.require === 'function' ? wf.require('lottie') : null
-      const ready = mod && typeof mod.ready === 'function' ? mod.ready : null
-      if (ready) ready()
-    } catch (e) {
-      /* ignore */
-    }
     try {
       reinitializeWebflowAnimations()
     } catch (e) {

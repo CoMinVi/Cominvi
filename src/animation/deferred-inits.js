@@ -61,18 +61,6 @@ const getNamespace = (scope = document) => {
   }
 }
 
-function ensureLottieReady() {
-  try {
-    const wf = typeof window !== 'undefined' ? window.Webflow : null
-    const mod =
-      wf && typeof wf.require === 'function' ? wf.require('lottie') : null
-    const ready = mod && typeof mod.ready === 'function' ? mod.ready : null
-    if (ready) ready()
-  } catch (e) {
-    // ignore
-  }
-}
-
 export function destroyIconsSafe(root = document) {
   try {
     destroyIcons(root)
@@ -232,11 +220,9 @@ export function runAfterEnterNonCritical(container) {
   }
   try {
     requestAnimationFrame(() => {
-      ensureLottieReady()
       resetServiceCardIconsSafe(container)
       initIconsSafe(container)
       Promise.resolve().then(() => {
-        ensureLottieReady()
         initIconsSafe(container)
       })
     })

@@ -25,16 +25,6 @@ const LOTTIE_URLS = {
 export function initIcons(root = document) {
   try {
     const scope = root && root.querySelector ? root : document
-    // Ensure a globally accessible Lottie library from Webflow on every page
-    try {
-      const wf = typeof window !== 'undefined' ? window.Webflow : null
-      const mod =
-        wf && typeof wf.require === 'function' ? wf.require('lottie') : null
-      const lib = (mod && (mod.lottie || mod)) || null
-      if (lib && !window.lottie) window.lottie = lib
-    } catch (e) {
-      /* ignore */
-    }
     try {
       scope && scope.getAttribute
         ? scope.getAttribute('data-barba-namespace')
@@ -82,35 +72,6 @@ export function initIcons(root = document) {
     }
 
     const getAnim = (icon) => {
-      // Try Webflow registry first
-      try {
-        const wf = typeof window !== 'undefined' ? window.Webflow : null
-        const mod =
-          wf && typeof wf.require === 'function' ? wf.require('lottie') : null
-        const lottie = mod && mod.lottie
-        const regs =
-          (lottie &&
-            typeof lottie.getRegisteredAnimations === 'function' &&
-            lottie.getRegisteredAnimations()) ||
-          []
-        for (let i = 0; i < regs.length; i++) {
-          const a = regs[i]
-          const container = a.wrapper || a.container || a.renderer?.svg
-          if (!container) continue
-          const closest =
-            typeof container.closest === 'function'
-              ? container.closest('.service-icon_icon')
-              : null
-          if (
-            closest === icon ||
-            container === icon ||
-            icon.contains(container)
-          )
-            return a
-        }
-      } catch (e) {
-        // ignore
-      }
       // Fallback to injected SVG handles
       try {
         const svg = icon.querySelector('svg')
@@ -130,10 +91,7 @@ export function initIcons(root = document) {
         /* ignore */
       }
       try {
-        const wf = typeof window !== 'undefined' ? window.Webflow : null
-        const mod =
-          wf && typeof wf.require === 'function' ? wf.require('lottie') : null
-        const lib = (mod && (mod.lottie || mod)) || (window && window.lottie)
+        const lib = window && window.lottie
         return lib || null
       } catch (e) {
         try {
@@ -732,34 +690,6 @@ export function resetServiceCardIcons(root = document) {
 
     const getAnimForIcon = (icon) => {
       try {
-        const wf = typeof window !== 'undefined' ? window.Webflow : null
-        const mod =
-          wf && typeof wf.require === 'function' ? wf.require('lottie') : null
-        const lottie = mod && mod.lottie
-        const regs =
-          (lottie &&
-            typeof lottie.getRegisteredAnimations === 'function' &&
-            lottie.getRegisteredAnimations()) ||
-          []
-        for (let i = 0; i < regs.length; i++) {
-          const a = regs[i]
-          const container = a.wrapper || a.container || a.renderer?.svg
-          if (!container) continue
-          const closest =
-            typeof container.closest === 'function'
-              ? container.closest('.service-icon_icon')
-              : null
-          if (
-            closest === icon ||
-            container === icon ||
-            icon.contains(container)
-          )
-            return a
-        }
-      } catch (e) {
-        /* ignore */
-      }
-      try {
         const svg = icon.querySelector('svg')
         const inst = svg && (svg.__lottie || svg._lottie)
         if (inst)
@@ -844,34 +774,6 @@ export function destroyIcons(root = document) {
       )
     )
     const getAnimForIcon = (icon) => {
-      try {
-        const wf = typeof window !== 'undefined' ? window.Webflow : null
-        const mod =
-          wf && typeof wf.require === 'function' ? wf.require('lottie') : null
-        const lottie = mod && mod.lottie
-        const regs =
-          (lottie &&
-            typeof lottie.getRegisteredAnimations === 'function' &&
-            lottie.getRegisteredAnimations()) ||
-          []
-        for (let i = 0; i < regs.length; i++) {
-          const a = regs[i]
-          const container = a.wrapper || a.container || a.renderer?.svg
-          if (!container) continue
-          const closest =
-            typeof container.closest === 'function'
-              ? container.closest('.service-icon_icon')
-              : null
-          if (
-            closest === icon ||
-            container === icon ||
-            icon.contains(container)
-          )
-            return a
-        }
-      } catch (e) {
-        /* ignore */
-      }
       try {
         const svg = icon.querySelector('svg')
         const inst = svg && (svg.__lottie || svg._lottie)

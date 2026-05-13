@@ -277,6 +277,7 @@ export function initLoader() {
 
     // 4. Préparation et animation du masque à l'intérieur de .is-logo-text
     let holeRectRef = null
+    let textBoxRevealStart = null
     tl.add(() => {
       // Reparent .is-logo-text au niveau de .loader_inner, supprimer les autres blocs
       const textRect = textBox.getBoundingClientRect()
@@ -286,6 +287,14 @@ export function initLoader() {
 
       // Déplacer textBox pour survivre à la suppression du wrapper
       document.body.appendChild(textBox)
+      // CLS fix: sortir logoText du DOM de textBox.
+      // Sans cela, le transform appliqué plus bas sur textBox dragerait logoText
+      // (un transform sur un ancêtre redéfinit le containing block des descendants `fixed`).
+      try {
+        document.body.appendChild(logoText)
+      } catch (e) {
+        // ignore
+      }
       iconBox.remove()
       logoWrap.remove()
       try {
@@ -306,6 +315,22 @@ export function initLoader() {
         overflow: 'visible',
         zIndex: '1001',
       })
+      // CLS fix: on animera ensuite textBox via transform (translate + scale)
+      // au lieu de gauche/haut/largeur/hauteur, pour éviter tout layout shift.
+      gsap.set(textBox, {
+        transformOrigin: '0 0',
+        x: 0,
+        y: 0,
+        scaleX: 1,
+        scaleY: 1,
+        force3D: true,
+      })
+      textBoxRevealStart = {
+        left: textRect.left - marginLeftPx,
+        top: textRect.top,
+        width: textRect.width,
+        height: textRect.height,
+      }
 
       // Figer .logo-text pour éviter tout jitter
       Object.assign(logoText.style, {
@@ -384,15 +409,30 @@ export function initLoader() {
       holeRectRef = holeRect
     })
 
-    // Animer .is-logo-text → plein écran (overshoot) et animer le trou avec les mêmes valeurs pour éviter les tremblements
+    // Animer .is-logo-text → plein écran via transform (translate + scale)
+    // pour ne PAS déclencher de layout shifts pendant le reveal du loader.
+    // Le trou du masque SVG, lui, peut animer ses attributs librement (n'impacte
+    // pas le layout du document principal).
     tl.to(textBox, {
-      left: () => `-24px`,
-      top: () => `-24px`,
-      width: () => `${window.innerWidth + 48}px`,
-      height: () => `${window.innerHeight + 48}px`,
-      marginLeft: 0,
+      x: () => {
+        const start = textBoxRevealStart
+        return start ? -24 - start.left : 0
+      },
+      y: () => {
+        const start = textBoxRevealStart
+        return start ? -24 - start.top : 0
+      },
+      scaleX: () => {
+        const start = textBoxRevealStart
+        return start ? (window.innerWidth + 48) / start.width : 1
+      },
+      scaleY: () => {
+        const start = textBoxRevealStart
+        return start ? (window.innerHeight + 48) / start.height : 1
+      },
       duration: 1.1,
       ease: loaderEase,
+      force3D: true,
     })
     tl.to(
       textBox,

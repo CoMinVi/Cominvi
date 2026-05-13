@@ -231,14 +231,24 @@ h1 > .is-h1-span-wrap:last-child > span {
   inset: 0;
 }
 
-/* Stabilize hero background video while parent transforms/scroll animate */
-.hero-background .background-inner,
-.hero-background .background_video,
-.hero-background .background_video video {
+/* Promote ONLY the scaled element to a GPU layer.
+   The video and its wrappers must NOT be promoted independently,
+   otherwise the compositor desyncs the video from the parent scale
+   and produces a visible jitter during the hero intro scale. */
+.hero-background .background-inner {
   will-change: transform;
-  transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+/* Make sure the video resamples in the SAME layer as the parent scale.
+   Disabling its own backface-visibility keeps it on the parent's compositor layer. */
+.hero-background .background_video,
+.hero-background .background_video video {
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+  will-change: auto;
 }
 
 /* Loader outline overlay: always on top and non-interactive */

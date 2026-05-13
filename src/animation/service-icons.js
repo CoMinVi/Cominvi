@@ -28,26 +28,75 @@ export function initIcons(root = document) {
           scope.querySelectorAll(STATS_CARD_SELECTOR)
         )
         if (!statsCards.length) return
+        const serviceIconSources = Array.from(
+          scope.querySelectorAll('.service-card .service-icon_icon')
+        )
+          .map((iconEl) => {
+            try {
+              return (
+                iconEl.getAttribute('data-lottie') ||
+                iconEl.getAttribute('data-src') ||
+                iconEl.getAttribute('data-animation-path') ||
+                ''
+              )
+            } catch (e) {
+              return ''
+            }
+          })
+          .filter(Boolean)
+        const parseStatText = (raw) => {
+          const value = String(raw || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+          if (!value) return null
+          const m = value.match(/^([0-9][0-9,.\s]*)\s+(.+)$/)
+          if (!m) return { number: value, label: '' }
+          return { number: m[1].trim(), label: m[2].trim() }
+        }
         statsCards.forEach((card, index) => {
           try {
+            if (!card.querySelector('.is-stat')) {
+              const parsed = parseStatText(card.textContent)
+              if (parsed) {
+                card.textContent = ''
+                const statWrap = document.createElement('div')
+                statWrap.className = 'is-stat'
+                const statNumber = document.createElement('span')
+                statNumber.className = 'stat_number'
+                statNumber.textContent = parsed.number
+                statWrap.appendChild(statNumber)
+                if (parsed.label) {
+                  const statLabel = document.createElement('span')
+                  statLabel.className = 'eyebrow-m o-60'
+                  statLabel.textContent = parsed.label
+                  statWrap.appendChild(statLabel)
+                }
+                card.appendChild(statWrap)
+              }
+            }
+
             if (card.querySelector('.service-icon_icon')) return
             const iconWrap = document.createElement('div')
             iconWrap.className = 'icon-wrap'
-            iconWrap.style.display = iconWrap.style.display || 'block'
-            iconWrap.style.flex = iconWrap.style.flex || '0 0 auto'
             const icon = document.createElement('div')
             icon.className = 'service-icon_icon is-2'
-            icon.style.display = icon.style.display || 'block'
-            icon.style.width = icon.style.width || '4.9375rem'
-            icon.style.height = icon.style.height || '4.9375rem'
             const iconNumber = 11 + (index % 6)
-            icon.setAttribute(
-              'data-src',
-              `/lottie/icon-${String(iconNumber).padStart(2, '0')}.json`
-            )
+            const fallbackIconPath = `/lottie/icon-${String(
+              iconNumber
+            ).padStart(2, '0')}.json`
+            const iconPath =
+              serviceIconSources[index % serviceIconSources.length] ||
+              fallbackIconPath
+            icon.setAttribute('data-lottie', iconPath)
+            icon.setAttribute('data-src', iconPath)
+            icon.setAttribute('data-animation-type', 'lottie')
             icon.setAttribute('data-loop', '0')
-            icon.setAttribute('data-autoplay', '0')
+            icon.setAttribute('data-direction', '1')
+            icon.setAttribute('data-autoplay', '1')
+            icon.setAttribute('data-is-ix2-target', '0')
             icon.setAttribute('data-renderer', 'svg')
+            icon.setAttribute('data-default-duration', '0')
+            icon.setAttribute('data-duration', '3.033333333333333')
             iconWrap.appendChild(icon)
             card.insertBefore(iconWrap, card.firstChild)
             if (
@@ -246,9 +295,9 @@ export function initIcons(root = document) {
           const isAbsolute =
             /^(https?:)?\/\//i.test(path) || (path && path.startsWith('/'))
           if (!isAbsolute) {
-            const origin =
-              (window && window.location && window.location.origin) || ''
-            resolvedPath = origin + '/' + path.replace(/^\/+/, '')
+            const href =
+              (window && window.location && window.location.href) || ''
+            resolvedPath = new URL(path, href).href
           }
         } catch (e) {
           /* ignore */

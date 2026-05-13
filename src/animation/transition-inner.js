@@ -525,6 +525,7 @@ export function slideScaleEnter({ next }) {
                     transformOrigin: '50% 50%',
                     duration: 1.2,
                     ease: gsap.parseEase(`custom(${easeCurve})`),
+                    force3D: true,
                     overwrite: 'auto',
                   },
                   'descale'

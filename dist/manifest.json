@@ -3,179 +3,23 @@
     "file": "main.js",
     "src": "src/main.js",
     "isEntry": true,
+    "isDynamicEntry": true,
     "dynamicImports": [
-      "src/animation/loader.js",
-      "src/animation/parallax.js",
-      "src/animation/scroll.js",
-      "src/animation/nav.js",
-      "src/animation/page-transition-nav.js",
-      "src/animation/svg-clip-overlay.js",
-      "src/animation/button-hover.js",
-      "_text-reveal-46e91f7b.js",
-      "_deferred-inits-7f83694a.js"
-    ],
-    "assets": [
-      "assets/maplibre-gl.43c1d886.css",
-      "assets/style.883653c1.css"
-    ]
-  },
-  "src/animation/loader.js": {
-    "file": "chunks/loader-c9327a3a.js",
-    "src": "src/animation/loader.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_index-13fb7855.js",
-      "_CustomEase-7fe4556b.js",
-      "_landing-d8e4f3a8.js",
-      "src/animation/parallax.js",
-      "_ScrollTrigger-24b062a5.js"
-    ]
-  },
-  "_index-13fb7855.js": {
-    "file": "chunks/index-13fb7855.js"
-  },
-  "_CustomEase-7fe4556b.js": {
-    "file": "chunks/CustomEase-7fe4556b.js"
-  },
-  "_landing-d8e4f3a8.js": {
-    "file": "chunks/landing-d8e4f3a8.js",
-    "imports": [
-      "_index-13fb7855.js",
-      "_CustomEase-7fe4556b.js"
-    ]
-  },
-  "src/animation/parallax.js": {
-    "file": "chunks/parallax-0b8f8621.js",
-    "src": "src/animation/parallax.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_index-13fb7855.js",
-      "_ScrollTrigger-24b062a5.js"
-    ]
-  },
-  "_ScrollTrigger-24b062a5.js": {
-    "file": "chunks/ScrollTrigger-24b062a5.js"
-  },
-  "src/animation/scroll.js": {
-    "file": "chunks/scroll-6e009f73.js",
-    "src": "src/animation/scroll.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_index-13fb7855.js",
-      "_ScrollTrigger-24b062a5.js"
-    ]
-  },
-  "src/animation/nav.js": {
-    "file": "chunks/nav-4ab665fe.js",
-    "src": "src/animation/nav.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_index-13fb7855.js",
-      "_CustomEase-7fe4556b.js",
-      "_ScrollTrigger-24b062a5.js",
-      "_base-38177c82.js"
-    ]
-  },
-  "_base-38177c82.js": {
-    "file": "chunks/base-38177c82.js"
-  },
-  "src/animation/page-transition-nav.js": {
-    "file": "chunks/page-transition-nav-a76c3138.js",
-    "src": "src/animation/page-transition-nav.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/main.js",
-      "_index-13fb7855.js",
-      "_base-38177c82.js",
-      "src/animation/nav.js",
-      "src/animation/parallax.js",
-      "src/animation/scroll.js",
-      "src/animation/svg-clip-overlay.js",
-      "_CustomEase-7fe4556b.js",
-      "_landing-d8e4f3a8.js",
-      "_ScrollTrigger-24b062a5.js"
-    ],
-    "dynamicImports": [
-      "src/animation/contact.js",
-      "_deferred-inits-7f83694a.js"
-    ]
-  },
-  "src/animation/svg-clip-overlay.js": {
-    "file": "chunks/svg-clip-overlay-8318d73d.js",
-    "src": "src/animation/svg-clip-overlay.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_index-13fb7855.js",
-      "_CustomEase-7fe4556b.js"
-    ]
-  },
-  "src/animation/button-hover.js": {
-    "file": "chunks/button-hover-397d2dad.js",
-    "src": "src/animation/button-hover.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_index-13fb7855.js",
-      "_CustomEase-7fe4556b.js"
-    ]
-  },
-  "_text-reveal-46e91f7b.js": {
-    "file": "chunks/text-reveal-46e91f7b.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_index-13fb7855.js",
-      "_ScrollTrigger-24b062a5.js"
-    ]
-  },
-  "_deferred-inits-7f83694a.js": {
-    "file": "chunks/deferred-inits-7f83694a.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/main.js",
-      "_base-38177c82.js",
-      "_index-13fb7855.js",
-      "_ScrollTrigger-24b062a5.js",
-      "_text-reveal-46e91f7b.js",
-      "_CustomEase-7fe4556b.js",
-      "src/animation/parallax.js",
-      "src/animation/button-hover.js",
-      "__commonjsHelpers-7d66b65f.js"
-    ],
-    "dynamicImports": [
-      "src/animation/technology.js",
-      "src/animation/contact.js"
+      "src/animation/deferred-inits.js"
     ],
     "css": [
-      "assets/deferred-inits.cb82b5c7.css"
+      "assets/main.caadc505.css"
     ]
   },
-  "__commonjsHelpers-7d66b65f.js": {
-    "file": "chunks/_commonjsHelpers-7d66b65f.js"
-  },
-  "src/animation/contact.js": {
-    "file": "chunks/contact-ebf9af77.js",
-    "src": "src/animation/contact.js",
+  "src/animation/deferred-inits.js": {
+    "file": "chunks/deferred-inits-7aae31c0.js",
+    "src": "src/animation/deferred-inits.js",
     "isDynamicEntry": true,
     "imports": [
-      "_index-13fb7855.js",
-      "__commonjsHelpers-7d66b65f.js"
-    ]
-  },
-  "src/animation/technology.js": {
-    "file": "chunks/technology-06791f81.js",
-    "src": "src/animation/technology.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_index-13fb7855.js",
-      "_CustomEase-7fe4556b.js",
-      "_ScrollTrigger-24b062a5.js",
-      "src/animation/nav.js",
-      "src/animation/parallax.js",
-      "_deferred-inits-7f83694a.js",
-      "_base-38177c82.js",
-      "src/main.js",
-      "_text-reveal-46e91f7b.js",
-      "src/animation/button-hover.js",
-      "__commonjsHelpers-7d66b65f.js"
+      "src/main.js"
+    ],
+    "dynamicImports": [
+      "src/main.js"
     ]
   }
 }

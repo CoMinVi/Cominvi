@@ -1,97 +1,40 @@
-import maplibreCssUrl from 'maplibre-gl/dist/maplibre-gl.css?url'
-
-import appCssUrl from './styles/style.css?url'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import './styles/style.css'
+import { initAboutValuesScroll } from './animation/about-scroll.js'
+import { initAbout } from './animation/about-us.js'
+import { blogArticleInit } from './animation/blog-article.js'
+import { initBlog } from './animation/blog.js'
+import { initContact } from './animation/contact.js'
+import { initCylinder } from './animation/cylinder.js'
+import { initTeam } from './animation/join-the-team.js'
+import { initLoader } from './animation/loader.js'
+import { initMap } from './animation/map.js'
+import { initMineralsCanvas } from './animation/minerals-canvas-local-debug.js'
+import { initMinerals } from './animation/minerals.js'
+import { initializeNav2 } from './animation/nav.js'
+import { initializePageTransitionNav } from './animation/page-transition-nav.js'
+import {
+  initParallax,
+  initNextBackgroundParallax,
+} from './animation/parallax.js'
+import { initVideoClipStickyTransform } from './animation/process-images.js'
+import { initProcessProgression } from './animation/process-progression.js'
+import { initScrollList } from './animation/scroll-list.js'
+import { initLenis } from './animation/scroll.js'
+import { initServiceCards } from './animation/service-cards.js'
+import { initIcons } from './animation/service-icons.js'
+import { createViewportClipOverlay } from './animation/svg-clip-overlay.js'
+import { initTechnology } from './animation/technology.js'
+import { initTestimonials } from './animation/testimonials.js'
+import {
+  initTextDisplayReveal,
+  // splitIntoWordSpans,
+} from './animation/text-display-reveal.js'
+import { initTextReveal } from './animation/text-reveal.js'
+import { initSticky50 } from './utils/base.js'
 // (deduped)
 
 document.addEventListener('DOMContentLoaded', () => {
-  let coreAnimationsPromise = null
-  const loadCoreAnimations = () => {
-    if (!coreAnimationsPromise) {
-      coreAnimationsPromise = Promise.all([
-        import('./animation/loader.js'),
-        import('./animation/parallax.js'),
-        import('./animation/scroll.js'),
-      ])
-    }
-    return coreAnimationsPromise
-  }
-
-  let navSystemPromise = null
-  const loadNavSystem = () => {
-    if (!navSystemPromise) {
-      navSystemPromise = import('./animation/nav.js')
-    }
-    return navSystemPromise
-  }
-
-  let transitionSystemPromise = null
-  const loadTransitionSystem = () => {
-    if (!transitionSystemPromise) {
-      transitionSystemPromise = Promise.all([
-        import('./animation/page-transition-nav.js'),
-        import('./animation/svg-clip-overlay.js'),
-      ])
-    }
-    return transitionSystemPromise
-  }
-  let buttonHoverPromise = null
-  const loadButtonHover = () => {
-    if (!buttonHoverPromise) {
-      buttonHoverPromise = import('./animation/button-hover.js')
-    }
-    return buttonHoverPromise
-  }
-  let textRevealPromise = null
-  const loadTextReveal = () => {
-    if (!textRevealPromise) {
-      textRevealPromise = import('./animation/text-reveal.js')
-    }
-    return textRevealPromise
-  }
-  const ensureStylesheet = (href) => {
-    if (!href) return
-    try {
-      const links = Array.from(
-        document.querySelectorAll('link[rel="stylesheet"][href]')
-      )
-      const alreadyLoaded = links.some((link) => {
-        const raw = link.getAttribute('href') || ''
-        return raw === href || raw.includes(href)
-      })
-      if (alreadyLoaded) return
-      const link = document.createElement('link')
-      link.rel = 'stylesheet'
-      link.href = href
-      document.head.appendChild(link)
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  const hasMapContent = (scope = document) => {
-    try {
-      return Boolean(
-        scope.querySelector(
-          '.map, .map-wrap, .map-section, .project-item, .marker[id^="marker-"], .region[id^="region-"]'
-        )
-      )
-    } catch (e) {
-      return false
-    }
-  }
-
-  if (hasMapContent(document)) ensureStylesheet(maplibreCssUrl)
-  ensureStylesheet(appCssUrl)
-  loadButtonHover()
-    .then((m) => {
-      try {
-        m.initButtonHover(document)
-      } catch (e) {
-        // ignore
-      }
-    })
-    .catch(() => {})
-
   const getCurrentNamespace = (scope = document) => {
     try {
       const container = scope.querySelector('[data-barba="container"]')
@@ -102,50 +45,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const isHomeNamespace = (scope = document) =>
     getCurrentNamespace(scope).trim().toLowerCase() === 'home'
-  const hasActiveLoader = (scope = document) => {
-    try {
-      const loader =
-        (scope && scope.querySelector && scope.querySelector('.loader')) ||
-        document.querySelector('.loader')
-      if (!loader) return false
-      const style = window.getComputedStyle(loader)
-      const hiddenByDisplay = style && style.display === 'none'
-      const hiddenByVisibility = style && style.visibility === 'hidden'
-      const hiddenByOpacity =
-        style && Number.parseFloat(style.opacity || '1') <= 0.001
-      return !hiddenByDisplay && !hiddenByVisibility && !hiddenByOpacity
-    } catch (e) {
-      return false
-    }
-  }
-  const scheduleDeferredInit = (fn, { timeout = 180 } = {}) => {
+  const scheduleDeferredInit = (fn) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (typeof window.requestIdleCallback === 'function') {
-          window.requestIdleCallback(fn, { timeout })
+          window.requestIdleCallback(fn, { timeout: 180 })
         } else {
-          setTimeout(fn, Math.min(timeout, 300))
+          setTimeout(fn, 48)
         }
       })
     })
-  }
-  const runAfterWindowLoad = (fn) => {
-    try {
-      if (document.readyState === 'complete') {
-        fn()
-        return
-      }
-      window.addEventListener('load', fn, { once: true })
-    } catch (e) {
-      fn()
-    }
-  }
-  let deferredInitsPromise = null
-  const loadDeferredInits = () => {
-    if (!deferredInitsPromise) {
-      deferredInitsPromise = import('./animation/deferred-inits.js')
-    }
-    return deferredInitsPromise
   }
 
   try {
@@ -159,131 +68,101 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     // ignore
   }
-  loadCoreAnimations()
-    .then(([loaderMod, parallaxMod, scrollMod]) => {
-      try {
-        loaderMod.initLoader()
-      } catch (e) {
-        // ignore
-      }
-      try {
-        scrollMod.initLenis()
-      } catch (e) {
-        // ignore
-      }
-      // Priorité home: initialiser d'abord le hero.
-      try {
-        const shouldSkipEarlyHeroParallax =
-          isHomeNamespace(document) && hasActiveLoader(document)
-        if (!shouldSkipEarlyHeroParallax) {
-          parallaxMod.initHeroBackgroundParallax(document)
-        }
-      } catch (e) {
-        // ignore
-      }
-      // Home: pre-init text reveal earlier to avoid first-scroll visual pop.
-      if (isHomeNamespace(document)) {
-        loadTextReveal()
-          .then((m) => {
-            try {
-              m.initTextReveal(document)
-            } catch (e) {
-              // ignore
-            }
-          })
-          .catch(() => {})
-      }
-    })
-    .catch(() => {})
-  const runNonCriticalInitializers = (options) =>
-    loadDeferredInits()
-      .then((m) => m.runNonCriticalInits(document, options))
-      .catch(() => {})
-
-  const runAfterInteractionOrTimeout = (fn, { timeout = 3200 } = {}) => {
-    let started = false
-    const start = () => {
-      if (started) return
-      started = true
-      cleanup()
-      fn()
+  initializePageTransitionNav()
+  initLoader()
+  initLenis()
+  initializeNav2()
+  // Priorité home: initialiser d'abord le hero.
+  initParallax()
+  try {
+    initCylinder(document)
+  } catch (e) {
+    // ignore
+  }
+  const runNonCriticalInitializers = () => {
+    initNextBackgroundParallax()
+    initServiceCards()
+    try {
+      initIcons(document)
+    } catch (e) {
+      /* ignore */
     }
-    const onInteraction = () => start()
-    const cleanup = () => {
-      window.removeEventListener('pointerdown', onInteraction, true)
-      window.removeEventListener('touchstart', onInteraction, true)
-      window.removeEventListener('keydown', onInteraction, true)
-      window.removeEventListener('scroll', onInteraction, true)
+    initTextReveal()
+    initMinerals()
+    initMineralsCanvas(document)
+    initScrollList()
+    initProcessProgression()
+    initTestimonials()
+    initTextDisplayReveal()
+    initVideoClipStickyTransform()
+    // Sticky 50 center across site
+    try {
+      initSticky50(document)
+    } catch (e) {
+      // ignore
     }
-
-    window.addEventListener('pointerdown', onInteraction, {
-      capture: true,
-      passive: true,
-    })
-    window.addEventListener('touchstart', onInteraction, {
-      capture: true,
-      passive: true,
-    })
-    window.addEventListener('keydown', onInteraction, true)
-    window.addEventListener('scroll', onInteraction, {
-      capture: true,
-      passive: true,
-      once: true,
-    })
-
-    // Fallback: ensure features still initialize without user interaction.
-    setTimeout(start, timeout)
+    // Blog page behaviors (initial load)
+    try {
+      initBlog(document)
+    } catch (e) {
+      // ignore
+    }
+    // Blog article page behaviors (initial load)
+    try {
+      blogArticleInit(document)
+    } catch (e) {
+      // ignore
+    }
+    // Initialize map interactions on first load
+    try {
+      initMap(document)
+    } catch (e) {
+      // ignore
+    }
+    // Technology page behaviors
+    try {
+      initTechnology(document)
+    } catch (e) {
+      // ignore
+    }
+    // Contact page behaviors
+    try {
+      initContact(document)
+    } catch (e) {
+      // ignore
+    }
+    // About Us page behaviors
+    try {
+      initAbout(document)
+    } catch (e) {
+      // ignore
+    }
+    // About Us: values scroll ticks and active item highlighting
+    try {
+      initAboutValuesScroll(document)
+    } catch (e) {
+      // ignore
+    }
+    // Join the Team page behaviors
+    try {
+      initTeam(document)
+    } catch (e) {
+      // ignore
+    }
   }
 
-  runAfterInteractionOrTimeout(
-    () => {
-      loadNavSystem()
-        .then((m) => {
-          try {
-            m.initializeNav2()
-          } catch (e) {
-            // ignore
-          }
-        })
-        .catch(() => {})
-
-      loadTransitionSystem()
-        .then(([ptMod, overlayMod]) => {
-          try {
-            ptMod.initializePageTransitionNav()
-          } catch (e) {
-            // ignore
-          }
-          // Pre-instantiate mask overlay in DOM (hidden) so it exists before transitions.
-          try {
-            const { tl } = overlayMod.createViewportClipOverlay({})
-            if (tl && typeof tl.pause === 'function') tl.pause(0)
-          } catch (err) {
-            // ignore
-          }
-        })
-        .catch(() => {})
-    },
-    { timeout: 15000 }
-  )
-
   if (isHomeNamespace(document)) {
-    // Home: keep non-critical chunk/CSS/JSON out of the initial critical path.
-    runAfterWindowLoad(() => {
-      runAfterInteractionOrTimeout(
-        () =>
-          scheduleDeferredInit(
-            () => runNonCriticalInitializers({ includeTextReveal: false }),
-            {
-              timeout: 2200,
-            }
-          ),
-        { timeout: 15000 }
-      )
-    })
+    scheduleDeferredInit(runNonCriticalInitializers)
   } else {
     runNonCriticalInitializers()
   }
 
+  // Pre-instantiate mask overlay in DOM (hidden) so it exists before any transition
+  try {
+    const { tl } = createViewportClipOverlay({})
+    if (tl && typeof tl.pause === 'function') tl.pause(0)
+  } catch (err) {
+    // ignore
+  }
   // Option: you can call splitIntoWordSpans here if you need a manual split elsewhere
 })

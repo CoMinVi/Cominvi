@@ -73,7 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initLoader()
   initLenis()
   initializeNav2()
-  initButtonHover(document)
   // Priorité home: initialiser d'abord le hero.
   initParallax()
   try {
@@ -82,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ignore
   }
   const runNonCriticalInitializers = () => {
+    initButtonHover(document)
     initNextBackgroundParallax()
     initServiceCards()
     try {

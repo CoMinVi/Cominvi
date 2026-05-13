@@ -454,10 +454,77 @@ export function initMineralsCanvas(root = document) {
     for (let index = 1; index < initialCap; index += 1) {
       queueLoad(index, false)
     }
-    for (let index = initialCap; index < urls.length; index += 1) {
-      queueLoad(index, false)
-    }
     pumpQueue()
+
+    // Reste de la séquence: chargée en arrière-plan une fois le loader / hero terminés
+    // afin de ne pas concurrencer la peinture initiale (LCP/Speed Index).
+    let backgroundPreloadTriggered = false
+    const triggerBackgroundPreload = () => {
+      if (backgroundPreloadTriggered || destroyed) return
+      backgroundPreloadTriggered = true
+      for (let index = initialCap; index < urls.length; index += 1) {
+        queueLoad(index, false)
+      }
+      pumpQueue()
+    }
+
+    const BACKGROUND_PRELOAD_DELAY_AFTER_LOADER = 800
+    const BACKGROUND_PRELOAD_DELAY_AFTER_LOAD = 2000
+    const cleanupCallbacks = []
+
+    const scheduleBackgroundPreload = (delay) => {
+      const timerId = setTimeout(triggerBackgroundPreload, delay)
+      cleanupCallbacks.push(() => clearTimeout(timerId))
+    }
+
+    if (window.__loaderDone) {
+      scheduleBackgroundPreload(BACKGROUND_PRELOAD_DELAY_AFTER_LOADER)
+    } else {
+      const onLoaderDone = () =>
+        scheduleBackgroundPreload(BACKGROUND_PRELOAD_DELAY_AFTER_LOADER)
+      document.addEventListener('loader:done', onLoaderDone, { once: true })
+      cleanupCallbacks.push(() =>
+        document.removeEventListener('loader:done', onLoaderDone)
+      )
+
+      // Filet de sécurité si l'event ne se déclenche pas (pages sans loader, etc.)
+      const onWindowLoad = () =>
+        scheduleBackgroundPreload(BACKGROUND_PRELOAD_DELAY_AFTER_LOAD)
+      if (document.readyState === 'complete') {
+        scheduleBackgroundPreload(BACKGROUND_PRELOAD_DELAY_AFTER_LOAD)
+      } else {
+        window.addEventListener('load', onWindowLoad, { once: true })
+        cleanupCallbacks.push(() =>
+          window.removeEventListener('load', onWindowLoad)
+        )
+      }
+    }
+
+    // Backup: si la section approche du viewport avant que le preload différé
+    // n'ait été déclenché, on l'amorce immédiatement.
+    let proximityObserver = null
+    if ('IntersectionObserver' in window) {
+      proximityObserver = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            triggerBackgroundPreload()
+            if (proximityObserver) {
+              proximityObserver.disconnect()
+              proximityObserver = null
+            }
+          }
+        },
+        { rootMargin: '300% 0px' }
+      )
+      proximityObserver.observe(component)
+      cleanupCallbacks.push(() => {
+        try {
+          if (proximityObserver) proximityObserver.disconnect()
+        } catch (e) {
+          // ignore
+        }
+      })
+    }
 
     const onResize = () => {
       canvas.__highResReady = false
@@ -520,6 +587,14 @@ export function initMineralsCanvas(root = document) {
       if (!resizeObserver) {
         window.removeEventListener('resize', onResize)
       }
+      cleanupCallbacks.forEach((fn) => {
+        try {
+          fn()
+        } catch (e) {
+          // ignore
+        }
+      })
+      cleanupCallbacks.length = 0
       component.__mineralsCanvasCleanup = null
     }
 

@@ -264,6 +264,12 @@ export function initLoader() {
         } catch (e) {
           // ignore
         }
+        try {
+          window.__loaderDone = true
+          document.dispatchEvent(new CustomEvent('loader:done'))
+        } catch (e) {
+          // ignore
+        }
       })
 
       return tl
@@ -453,6 +459,12 @@ export function initLoader() {
       }
       try {
         textBox.remove()
+      } catch (e) {
+        // ignore
+      }
+      try {
+        window.__loaderDone = true
+        document.dispatchEvent(new CustomEvent('loader:done'))
       } catch (e) {
         // ignore
       }

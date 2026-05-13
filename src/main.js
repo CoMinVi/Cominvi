@@ -102,6 +102,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const isHomeNamespace = (scope = document) =>
     getCurrentNamespace(scope).trim().toLowerCase() === 'home'
+  const hasActiveLoader = (scope = document) => {
+    try {
+      const loader =
+        (scope && scope.querySelector && scope.querySelector('.loader')) ||
+        document.querySelector('.loader')
+      if (!loader) return false
+      const style = window.getComputedStyle(loader)
+      const hiddenByDisplay = style && style.display === 'none'
+      const hiddenByVisibility = style && style.visibility === 'hidden'
+      const hiddenByOpacity =
+        style && Number.parseFloat(style.opacity || '1') <= 0.001
+      return !hiddenByDisplay && !hiddenByVisibility && !hiddenByOpacity
+    } catch (e) {
+      return false
+    }
+  }
   const scheduleDeferredInit = (fn, { timeout = 180 } = {}) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -157,7 +173,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       // Priorité home: initialiser d'abord le hero.
       try {
-        parallaxMod.initHeroBackgroundParallax(document)
+        const shouldSkipEarlyHeroParallax =
+          isHomeNamespace(document) && hasActiveLoader(document)
+        if (!shouldSkipEarlyHeroParallax) {
+          parallaxMod.initHeroBackgroundParallax(document)
+        }
       } catch (e) {
         // ignore
       }

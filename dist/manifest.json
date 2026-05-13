@@ -8,7 +8,7 @@
       "src/animation/deferred-inits.js"
     ],
     "css": [
-      "assets/main.9dd40f6c.css"
+      "assets/main.de77cb42.css"
     ],
     "assets": [
       "assets/maplibre-gl.43c1d886.css",
@@ -16,7 +16,7 @@
     ]
   },
   "src/animation/deferred-inits.js": {
-    "file": "chunks/deferred-inits-af0496b0.js",
+    "file": "chunks/deferred-inits-01f9e8ca.js",
     "src": "src/animation/deferred-inits.js",
     "isDynamicEntry": true,
     "imports": [

@@ -1,5 +1,6 @@
 import maplibreCssUrl from 'maplibre-gl/dist/maplibre-gl.css?url'
 
+import './styles/style.css'
 import { initAboutValuesScroll } from './animation/about-scroll.js'
 import { initAbout } from './animation/about-us.js'
 import { blogArticleInit } from './animation/blog-article.js'
@@ -102,10 +103,10 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     // ignore
   }
-  initializePageTransitionNav()
   initLoader()
   initLenis()
   initializeNav2()
+  initializePageTransitionNav()
   // Priorité home: initialiser d'abord le hero.
   initParallax()
   try {

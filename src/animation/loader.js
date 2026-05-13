@@ -5,6 +5,45 @@ import { initContactHero } from './contact.js'
 import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
+function prewarmHeroVideoSurface() {
+  try {
+    const videoEl = document.querySelector(
+      '.hero-background .background_video video'
+    )
+    if (!videoEl || videoEl.__heroVideoSurfacePrewarmed) return
+    videoEl.__heroVideoSurfacePrewarmed = true
+    videoEl.muted = true
+    videoEl.playsInline = true
+    videoEl.preload = 'auto'
+
+    const resetToStart = () => {
+      try {
+        videoEl.pause()
+        if (typeof videoEl.currentTime === 'number') videoEl.currentTime = 0
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const afterFirstDecodedFrame = () => {
+      if (typeof videoEl.requestVideoFrameCallback === 'function') {
+        videoEl.requestVideoFrameCallback(resetToStart)
+        return
+      }
+      window.setTimeout(resetToStart, 100)
+    }
+
+    const playPromise = videoEl.play()
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise.then(afterFirstDecodedFrame).catch(resetToStart)
+    } else {
+      afterFirstDecodedFrame()
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
 /**
  * Loader animation sequence
  * Steps provided by user:
@@ -50,6 +89,12 @@ export function initLoader() {
     }
 
     const otherPaths = Array.from(logoText.querySelectorAll('path'))
+
+    // Le reveal perce le loader par masque SVG. On force donc la surface vidéo
+    // à être créée/décodée avant l'ouverture, sinon Chrome peut composer les
+    // zones révélées par morceaux pendant le scale.
+    loader.style.opacity = '0.999'
+    prewarmHeroVideoSurface()
 
     // Create an overlay outline that mirrors .loader-logo_wrap size/position
     try {
@@ -402,10 +447,6 @@ export function initLoader() {
       // Appliquer le masque au loader: blanc = visible (loader), noir = percé (page)
       loader.style.mask = 'url(#pageRevealMask)'
       loader.style.webkitMask = 'url(#pageRevealMask)'
-      // Forcer Chrome à composer la page derrière le loader avant que le
-      // masque ne s'ouvre. À 0.999, c'est visuellement opaque, mais la vidéo
-      // est rasterisée sur tout le viewport au lieu d'être peinte par morceaux.
-      loader.style.opacity = '0.999'
 
       // Laisser visible, on fera un fondu pendant l'anim
 

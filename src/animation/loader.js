@@ -5,45 +5,6 @@ import { initContactHero } from './contact.js'
 import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
-function prewarmHeroVideoSurface() {
-  try {
-    const videoEl = document.querySelector(
-      '.hero-background .background_video video'
-    )
-    if (!videoEl || videoEl.__heroVideoSurfacePrewarmed) return
-    videoEl.__heroVideoSurfacePrewarmed = true
-    videoEl.muted = true
-    videoEl.playsInline = true
-    videoEl.preload = 'auto'
-
-    const resetToStart = () => {
-      try {
-        videoEl.pause()
-        if (typeof videoEl.currentTime === 'number') videoEl.currentTime = 0
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    const afterFirstDecodedFrame = () => {
-      if (typeof videoEl.requestVideoFrameCallback === 'function') {
-        videoEl.requestVideoFrameCallback(resetToStart)
-        return
-      }
-      window.setTimeout(resetToStart, 100)
-    }
-
-    const playPromise = videoEl.play()
-    if (playPromise && typeof playPromise.then === 'function') {
-      playPromise.then(afterFirstDecodedFrame).catch(resetToStart)
-    } else {
-      afterFirstDecodedFrame()
-    }
-  } catch (e) {
-    // ignore
-  }
-}
-
 /**
  * Loader animation sequence
  * Steps provided by user:
@@ -90,12 +51,6 @@ export function initLoader() {
 
     const otherPaths = Array.from(logoText.querySelectorAll('path'))
 
-    // Le reveal perce le loader par masque SVG. On force donc la surface vidéo
-    // à être créée/décodée avant l'ouverture, sinon Chrome peut composer les
-    // zones révélées par morceaux pendant le scale.
-    loader.style.opacity = '0.999'
-    prewarmHeroVideoSurface()
-
     // Create an overlay outline that mirrors .loader-logo_wrap size/position
     try {
       outlineEl = document.createElement('div')
@@ -135,8 +90,6 @@ export function initLoader() {
     const logoTargetWidthPx = logoInner.getBoundingClientRect().width || 0
     const widthAfterEm = 7.46
     const widthAfterPx = computePxFromEm(logoWrap, widthAfterEm)
-    const heroBgOverscanScale = 1.2
-    const heroBgIntroStartScale = 1 / heroBgOverscanScale
 
     // ----------------- Build the timeline
     const tl = gsap.timeline({ defaults: { ease: 'power2.out' } })
@@ -148,10 +101,7 @@ export function initLoader() {
     try {
       const bgInner = document.querySelector('.background-inner')
       if (bgInner) {
-        gsap.set(bgInner, {
-          transformOrigin: '50% 50%',
-          scale: heroBgIntroStartScale,
-        })
+        gsap.set(bgInner, { transformOrigin: '50% 50%', scale: 1 })
       }
     } catch (e) {
       // ignore
@@ -287,7 +237,7 @@ export function initLoader() {
       tl.to(
         '.background-inner',
         {
-          scale: 1,
+          scale: 1.2,
           transformOrigin: '50% 50%',
           duration: 1.2,
           ease: loaderEase,
@@ -327,7 +277,6 @@ export function initLoader() {
 
     // 4. Préparation et animation du masque à l'intérieur de .is-logo-text
     let holeRectRef = null
-    let textBoxRevealStart = null
     tl.add(() => {
       // Reparent .is-logo-text au niveau de .loader_inner, supprimer les autres blocs
       const textRect = textBox.getBoundingClientRect()
@@ -337,14 +286,6 @@ export function initLoader() {
 
       // Déplacer textBox pour survivre à la suppression du wrapper
       document.body.appendChild(textBox)
-      // CLS fix: sortir logoText du DOM de textBox.
-      // Sans cela, le transform appliqué plus bas sur textBox dragerait logoText
-      // (un transform sur un ancêtre redéfinit le containing block des descendants `fixed`).
-      try {
-        document.body.appendChild(logoText)
-      } catch (e) {
-        // ignore
-      }
       iconBox.remove()
       logoWrap.remove()
       try {
@@ -365,22 +306,6 @@ export function initLoader() {
         overflow: 'visible',
         zIndex: '1001',
       })
-      // CLS fix: on animera ensuite textBox via transform (translate + scale)
-      // au lieu de gauche/haut/largeur/hauteur, pour éviter tout layout shift.
-      gsap.set(textBox, {
-        transformOrigin: '0 0',
-        x: 0,
-        y: 0,
-        scaleX: 1,
-        scaleY: 1,
-        force3D: true,
-      })
-      textBoxRevealStart = {
-        left: textRect.left - marginLeftPx,
-        top: textRect.top,
-        width: textRect.width,
-        height: textRect.height,
-      }
 
       // Figer .logo-text pour éviter tout jitter
       Object.assign(logoText.style, {
@@ -459,30 +384,15 @@ export function initLoader() {
       holeRectRef = holeRect
     })
 
-    // Animer .is-logo-text → plein écran via transform (translate + scale)
-    // pour ne PAS déclencher de layout shifts pendant le reveal du loader.
-    // Le trou du masque SVG, lui, peut animer ses attributs librement (n'impacte
-    // pas le layout du document principal).
+    // Animer .is-logo-text → plein écran (overshoot) et animer le trou avec les mêmes valeurs pour éviter les tremblements
     tl.to(textBox, {
-      x: () => {
-        const start = textBoxRevealStart
-        return start ? -24 - start.left : 0
-      },
-      y: () => {
-        const start = textBoxRevealStart
-        return start ? -24 - start.top : 0
-      },
-      scaleX: () => {
-        const start = textBoxRevealStart
-        return start ? (window.innerWidth + 48) / start.width : 1
-      },
-      scaleY: () => {
-        const start = textBoxRevealStart
-        return start ? (window.innerHeight + 48) / start.height : 1
-      },
+      left: () => `-24px`,
+      top: () => `-24px`,
+      width: () => `${window.innerWidth + 48}px`,
+      height: () => `${window.innerHeight + 48}px`,
+      marginLeft: 0,
       duration: 1.1,
       ease: loaderEase,
-      force3D: true,
     })
     tl.to(
       textBox,
@@ -522,7 +432,7 @@ export function initLoader() {
     tl.to(
       '.background-inner',
       {
-        scale: 1,
+        scale: 1.2,
         transformOrigin: '50% 50%',
         duration: 1.2,
         ease: loaderEase,

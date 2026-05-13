@@ -229,13 +229,6 @@ export function initLoader() {
           // ignore
         }
       }, '<')
-      tl.add(() => {
-        try {
-          initHeroBackgroundParallax(document)
-        } catch (e) {
-          // ignore
-        }
-      }, '<')
       tl.to(
         '.background-inner',
         {
@@ -243,6 +236,13 @@ export function initLoader() {
           transformOrigin: '50% 50%',
           duration: 1.2,
           ease: loaderEase,
+          onComplete: () => {
+            try {
+              initHeroBackgroundParallax(document)
+            } catch (e) {
+              // ignore
+            }
+          },
         },
         '<'
       )
@@ -412,14 +412,6 @@ export function initLoader() {
         // ignore
       }
     }, '<')
-    // Une fois le reveal lancé, initialiser le parallax du background hero
-    tl.add(() => {
-      try {
-        initHeroBackgroundParallax(document)
-      } catch (e) {
-        // ignore
-      }
-    }, '<')
     tl.to(
       '.background-inner',
       {
@@ -427,6 +419,13 @@ export function initLoader() {
         transformOrigin: '50% 50%',
         duration: 1.2,
         ease: loaderEase,
+        onComplete: () => {
+          try {
+            initHeroBackgroundParallax(document)
+          } catch (e) {
+            // ignore
+          }
+        },
       },
       '<'
     )

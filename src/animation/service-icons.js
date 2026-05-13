@@ -19,6 +19,36 @@ const LOTTIE_URLS = {
 export function initIcons(root = document) {
   try {
     const scope = root && root.querySelector ? root : document
+    const ensureStatsIconStructure = () => {
+      try {
+        const statsCards = Array.from(scope.querySelectorAll('.stats-card'))
+        if (!statsCards.length) return
+        statsCards.forEach((card, index) => {
+          try {
+            if (card.querySelector('.service-icon_icon')) return
+            const iconWrap = document.createElement('div')
+            iconWrap.className = 'icon-wrap'
+            const icon = document.createElement('div')
+            icon.className = 'service-icon_icon is-2'
+            const iconNumber = 11 + (index % 6)
+            icon.setAttribute(
+              'data-src',
+              `/lottie/icon-${String(iconNumber).padStart(2, '0')}.json`
+            )
+            icon.setAttribute('data-loop', '0')
+            icon.setAttribute('data-autoplay', '0')
+            icon.setAttribute('data-renderer', 'svg')
+            iconWrap.appendChild(icon)
+            card.insertBefore(iconWrap, card.firstChild)
+          } catch (e) {
+            /* ignore */
+          }
+        })
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    ensureStatsIconStructure()
     // Ensure a globally accessible Lottie library from Webflow on every page
     try {
       const wf = typeof window !== 'undefined' ? window.Webflow : null
@@ -38,7 +68,7 @@ export function initIcons(root = document) {
     }
     // hover binding is now enabled on all devices; desktop check removed
 
-    const icons = Array.from(
+    let icons = Array.from(
       scope.querySelectorAll(
         '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie]'
       )
@@ -72,7 +102,13 @@ export function initIcons(root = document) {
       } catch (e) {
         /* ignore */
       }
-      return
+      ensureStatsIconStructure()
+      icons = Array.from(
+        scope.querySelectorAll(
+          '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie]'
+        )
+      )
+      if (!icons.length) return
     }
 
     const getAnim = (icon) => {

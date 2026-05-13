@@ -165,6 +165,24 @@ export function initIcons(root = document) {
               icon.getAttribute('data-animation-path')) ||
             null
         }
+        // Legacy Webflow exports sometimes reference /documents/CoMinVi---Icon-XX.json.
+        // Map those to local bundled assets restored under /lottie/icon-XX.json.
+        if (path) {
+          try {
+            const docIconMatch = String(path).match(
+              /documents\/CoMinVi---Icon-(\d+)(?:[^\d].*)?\.json$/i
+            )
+            if (docIconMatch) {
+              const n = parseInt(docIconMatch[1], 10)
+              if (Number.isFinite(n) && n > 0) {
+                const padded = String(n).padStart(2, '0')
+                path = `/lottie/icon-${padded}.json`
+              }
+            }
+          } catch (e) {
+            /* ignore */
+          }
+        }
         if (!lottie || !path) return null
         // Normalize to absolute URL to avoid relative-path issues after SPA transitions
         let resolvedPath = path

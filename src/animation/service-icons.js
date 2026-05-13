@@ -3,6 +3,8 @@ import lottieWeb from 'lottie-web'
 
 // Optional ID → URL mapping. If an element has data-lottie="1", it will
 // use LOTTIE_URLS['1']. If data-lottie contains a full URL, that URL is used.
+// IDs 1-10 are the service-card icons (hosted on Webflow CDN), 11-16 are the
+// stats-card icons (bundled locally under /public/lottie/).
 const LOTTIE_URLS = {
   1: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6333c80ebd3a6425e_CoMinVi%20-%20Icon%2006.json',
   2: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6913c3a60d5253cff_CoMinVi%20-%20Icon%2007.json',
@@ -14,10 +16,48 @@ const LOTTIE_URLS = {
   8: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c67409f539e5703fd4_CoMinVi%20-%20Icon%2003.json',
   9: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6e5660af13ca675fd_CoMinVi%20-%20Icon%2004%202.json',
   10: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c68f1decbc32255f9d_CoMinVi%20-%20Icon%2005.json',
+  11: '/lottie/icon-11.json',
+  12: '/lottie/icon-12.json',
+  13: '/lottie/icon-13.json',
+  14: '/lottie/icon-14.json',
+  15: '/lottie/icon-15.json',
+  16: '/lottie/icon-16.json',
 }
 const STATS_CARD_SELECTOR = '.stats-card, .stat-card'
 const ICON_SELECTOR =
   '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie], .stat-card [data-lottie]'
+
+// Resolve the origin from which the bundle (main.js) is served. This may
+// differ from the page origin: in dev the page is hosted on the Webflow
+// staging URL while assets come from the local Vite server. In prod the
+// bundle is hosted on the deploy CDN which also serves /lottie/*.json next
+// to it. Cached after first lookup.
+let __assetBaseOrigin = null
+function getAssetBaseOrigin() {
+  if (__assetBaseOrigin !== null) return __assetBaseOrigin
+  try {
+    if (typeof document === 'undefined') {
+      __assetBaseOrigin = ''
+      return __assetBaseOrigin
+    }
+    const scripts = Array.from(
+      document.querySelectorAll('script[src*="main.js"]')
+    )
+    for (const s of scripts) {
+      if (!s.src) continue
+      try {
+        __assetBaseOrigin = new URL(s.src).origin
+        return __assetBaseOrigin
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  __assetBaseOrigin = ''
+  return __assetBaseOrigin
+}
 
 export function initIcons(root = document) {
   try {
@@ -289,15 +329,23 @@ export function initIcons(root = document) {
           }
         }
         if (!lottie || !path) return null
-        // Normalize to absolute URL to avoid relative-path issues after SPA transitions
+        // Normalize to absolute URL. Two scenarios:
+        // 1) Full URL (http/https): use as-is.
+        // 2) Root-relative path (e.g. "/lottie/icon-11.json"): resolve against
+        //    the origin where main.js is served from, NOT the page origin. The
+        //    page (Webflow) and the asset bundle (Vite dev server / deploy CDN)
+        //    can live on different origins.
+        // 3) Otherwise resolve against the page URL.
         let resolvedPath = path
         try {
-          const isAbsolute =
-            /^(https?:)?\/\//i.test(path) || (path && path.startsWith('/'))
-          if (!isAbsolute) {
-            const href =
+          const isFullUrl = /^(https?:)?\/\//i.test(path)
+          const isRootRelative = !!(path && path.startsWith('/'))
+          if (!isFullUrl) {
+            const assetBase = getAssetBaseOrigin()
+            const pageHref =
               (window && window.location && window.location.href) || ''
-            resolvedPath = new URL(path, href).href
+            const base = isRootRelative && assetBase ? assetBase : pageHref
+            resolvedPath = new URL(path, base).href
           }
         } catch (e) {
           /* ignore */

@@ -1,5 +1,4 @@
-import maplibreCssUrl from 'maplibre-gl/dist/maplibre-gl.css?url'
-
+import 'maplibre-gl/dist/maplibre-gl.css'
 import './styles/style.css'
 import { initAboutValuesScroll } from './animation/about-scroll.js'
 import { initAbout } from './animation/about-us.js'
@@ -32,44 +31,10 @@ import {
   // splitIntoWordSpans,
 } from './animation/text-display-reveal.js'
 import { initTextReveal } from './animation/text-reveal.js'
-import appCssUrl from './styles/style.css?url'
 import { initSticky50 } from './utils/base.js'
 // (deduped)
 
 document.addEventListener('DOMContentLoaded', () => {
-  const ensureStylesheet = (href) => {
-    if (!href) return
-    try {
-      const links = Array.from(
-        document.querySelectorAll('link[rel="stylesheet"][href]')
-      )
-      const alreadyLoaded = links.some((link) => {
-        const raw = link.getAttribute('href') || ''
-        return raw === href || raw.includes(href)
-      })
-      if (alreadyLoaded) return
-      const link = document.createElement('link')
-      link.rel = 'stylesheet'
-      link.href = href
-      document.head.appendChild(link)
-    } catch (e) {
-      // ignore
-    }
-  }
-  const hasMapContent = (scope = document) => {
-    try {
-      return Boolean(
-        scope.querySelector(
-          '.map, .map-wrap, .map-section, .project-item, .marker[id^="marker-"], .region[id^="region-"]'
-        )
-      )
-    } catch (e) {
-      return false
-    }
-  }
-  if (hasMapContent(document)) ensureStylesheet(maplibreCssUrl)
-  ensureStylesheet(appCssUrl)
-
   const getCurrentNamespace = (scope = document) => {
     try {
       const container = scope.querySelector('[data-barba="container"]')
@@ -103,10 +68,10 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     // ignore
   }
+  initializePageTransitionNav()
   initLoader()
   initLenis()
   initializeNav2()
-  initializePageTransitionNav()
   // Priorité home: initialiser d'abord le hero.
   initParallax()
   try {

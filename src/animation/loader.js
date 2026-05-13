@@ -98,6 +98,54 @@ export function initLoader() {
     if (bgVideos && bgVideos.length) {
       gsap.set(bgVideos, { width: '100%', height: '100%' })
     }
+
+    // Préparer la vidéo du hero pendant que le loader joue : on la promeut en
+    // couche GPU dédiée et on force le préchargement + warm-up du décodeur,
+    // de sorte que lorsque le masque révèle progressivement la page, la vidéo
+    // soit déjà composée à plein pixmap (pas de saccades de décodage / mask
+    // re-paint qui révèlent des frames non décodées).
+    try {
+      const heroVideo = document.querySelector(
+        '.hero-background .background_video video'
+      )
+      if (heroVideo) {
+        // Couche GPU propre, indépendante du re-paint du masque SVG appliqué au loader.
+        heroVideo.style.willChange = 'transform'
+        heroVideo.style.transform = heroVideo.style.transform || 'translateZ(0)'
+        heroVideo.style.backfaceVisibility = 'hidden'
+        // Force le navigateur à charger l'intégralité de la vidéo, pas seulement
+        // les métadonnées (preload="metadata" par défaut côté Webflow).
+        try {
+          heroVideo.preload = 'auto'
+        } catch (e) {
+          // ignore
+        }
+        // Décoder les premières frames en avance : on lance la lecture mute
+        // dès que possible. La vidéo est cachée par le loader donc l'utilisateur
+        // ne la voit pas tourner, mais le décodeur est chaud quand le reveal arrive.
+        const warmUp = () => {
+          try {
+            heroVideo.muted = true
+            heroVideo.playsInline = true
+            const p = heroVideo.play()
+            if (p && typeof p.then === 'function') {
+              p.catch(() => {
+                // autoplay bloqué : tant pis, heroAnimation() relancera le play().
+              })
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+        if (heroVideo.readyState >= 2) {
+          warmUp()
+        } else {
+          heroVideo.addEventListener('loadeddata', warmUp, { once: true })
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
     try {
       const bgInner = document.querySelector('.background-inner')
       if (bgInner) {

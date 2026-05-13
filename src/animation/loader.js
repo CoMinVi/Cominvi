@@ -135,6 +135,8 @@ export function initLoader() {
     const logoTargetWidthPx = logoInner.getBoundingClientRect().width || 0
     const widthAfterEm = 7.46
     const widthAfterPx = computePxFromEm(logoWrap, widthAfterEm)
+    const heroBgOverscanScale = 1.2
+    const heroBgIntroStartScale = 1 / heroBgOverscanScale
 
     // ----------------- Build the timeline
     const tl = gsap.timeline({ defaults: { ease: 'power2.out' } })
@@ -146,7 +148,10 @@ export function initLoader() {
     try {
       const bgInner = document.querySelector('.background-inner')
       if (bgInner) {
-        gsap.set(bgInner, { transformOrigin: '50% 50%', scale: 1 })
+        gsap.set(bgInner, {
+          transformOrigin: '50% 50%',
+          scale: heroBgIntroStartScale,
+        })
       }
     } catch (e) {
       // ignore
@@ -282,7 +287,7 @@ export function initLoader() {
       tl.to(
         '.background-inner',
         {
-          scale: 1.2,
+          scale: 1,
           transformOrigin: '50% 50%',
           duration: 1.2,
           ease: loaderEase,
@@ -517,7 +522,7 @@ export function initLoader() {
     tl.to(
       '.background-inner',
       {
-        scale: 1.2,
+        scale: 1,
         transformOrigin: '50% 50%',
         duration: 1.2,
         ease: loaderEase,

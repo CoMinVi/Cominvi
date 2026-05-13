@@ -235,7 +235,14 @@ h1 > .is-h1-span-wrap:last-child > span {
    The video and its wrappers must NOT be promoted independently,
    otherwise the compositor desyncs the video from the parent scale
    and produces a visible jitter during the hero intro scale. */
+.hero-background {
+  overflow: hidden;
+}
+
 .hero-background .background-inner {
+  width: 120%;
+  height: 120%;
+  flex: 0 0 auto;
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;

@@ -15,21 +15,31 @@ const LOTTIE_URLS = {
   9: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6e5660af13ca675fd_CoMinVi%20-%20Icon%2004%202.json',
   10: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c68f1decbc32255f9d_CoMinVi%20-%20Icon%2005.json',
 }
+const STATS_CARD_SELECTOR = '.stats-card, .stat-card'
+const ICON_SELECTOR =
+  '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie], .stat-card [data-lottie]'
 
 export function initIcons(root = document) {
   try {
     const scope = root && root.querySelector ? root : document
     const ensureStatsIconStructure = () => {
       try {
-        const statsCards = Array.from(scope.querySelectorAll('.stats-card'))
+        const statsCards = Array.from(
+          scope.querySelectorAll(STATS_CARD_SELECTOR)
+        )
         if (!statsCards.length) return
         statsCards.forEach((card, index) => {
           try {
             if (card.querySelector('.service-icon_icon')) return
             const iconWrap = document.createElement('div')
             iconWrap.className = 'icon-wrap'
+            iconWrap.style.display = iconWrap.style.display || 'block'
+            iconWrap.style.flex = iconWrap.style.flex || '0 0 auto'
             const icon = document.createElement('div')
             icon.className = 'service-icon_icon is-2'
+            icon.style.display = icon.style.display || 'block'
+            icon.style.width = icon.style.width || '4.9375rem'
+            icon.style.height = icon.style.height || '4.9375rem'
             const iconNumber = 11 + (index % 6)
             icon.setAttribute(
               'data-src',
@@ -40,6 +50,24 @@ export function initIcons(root = document) {
             icon.setAttribute('data-renderer', 'svg')
             iconWrap.appendChild(icon)
             card.insertBefore(iconWrap, card.firstChild)
+            if (
+              !card.__svcStatsIconObs &&
+              typeof MutationObserver !== 'undefined'
+            ) {
+              const obs = new MutationObserver(() => {
+                try {
+                  if (!card.querySelector('.service-icon_icon')) {
+                    card.__svcStatsIconObs = null
+                    obs.disconnect()
+                    ensureStatsIconStructure()
+                  }
+                } catch (e) {
+                  /* ignore */
+                }
+              })
+              obs.observe(card, { childList: true, subtree: false })
+              card.__svcStatsIconObs = obs
+            }
           } catch (e) {
             /* ignore */
           }
@@ -68,11 +96,7 @@ export function initIcons(root = document) {
     }
     // hover binding is now enabled on all devices; desktop check removed
 
-    let icons = Array.from(
-      scope.querySelectorAll(
-        '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie]'
-      )
-    )
+    let icons = Array.from(scope.querySelectorAll(ICON_SELECTOR))
 
     // If none found yet (e.g., DOM not fully attached by Barba), watch container and retry once
     if (!icons.length && scope && scope.nodeType === 1) {
@@ -84,7 +108,7 @@ export function initIcons(root = document) {
           const waitObs = new MutationObserver(() => {
             try {
               const found = scope.querySelector(
-                '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon'
+                '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon'
               )
               if (found) {
                 waitObs.disconnect()
@@ -103,11 +127,7 @@ export function initIcons(root = document) {
         /* ignore */
       }
       ensureStatsIconStructure()
-      icons = Array.from(
-        scope.querySelectorAll(
-          '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie]'
-        )
-      )
+      icons = Array.from(scope.querySelectorAll(ICON_SELECTOR))
       if (!icons.length) return
     }
 
@@ -292,7 +312,8 @@ export function initIcons(root = document) {
     const bindIcon = (icon) => {
       if (!icon || icon.__svcIconBound) return
       const card =
-        icon.closest('.service-card, .team-card, .stats-card') || icon
+        icon.closest('.service-card, .team-card, .stats-card, .stat-card') ||
+        icon
       // const debugId =
       //   icon.getAttribute('data-w-id') || icon.getAttribute('data-src') || ''
 
@@ -483,20 +504,17 @@ export function initIcons(root = document) {
       if (!icon || icon.__svcIconBound) return
       let anim = null
       try {
-        // Prefer our own controlled instance to avoid Webflow defers
+        // Keep existing Webflow Lottie instances when available.
+        // Recreating aggressively can blank icons if asset paths differ by env.
         if (!icon.__svcOwned) {
           const existing = getAnim(icon)
-          try {
-            existing &&
-              typeof existing.destroy === 'function' &&
-              existing.destroy()
-          } catch (e) {
-            /* ignore */
-          }
-          anim = recreateAnimation(icon)
-          if (anim) {
-            icon.__svcOwned = true
-            icon.__svcAnim = anim
+          if (existing) anim = existing
+          else {
+            anim = recreateAnimation(icon)
+            if (anim) {
+              icon.__svcOwned = true
+              icon.__svcAnim = anim
+            }
           }
         } else {
           anim = icon.__svcAnim || getAnim(icon)
@@ -755,7 +773,7 @@ export function resetServiceCardIcons(root = document) {
     const scope = root && root.querySelector ? root : document
     const icons = Array.from(
       scope.querySelectorAll(
-        '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon'
+        '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon'
       )
     )
     if (!icons.length) return
@@ -870,7 +888,7 @@ export function destroyIcons(root = document) {
 
     const icons = Array.from(
       scope.querySelectorAll(
-        '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon'
+        '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon'
       )
     )
     const getAnimForIcon = (icon) => {

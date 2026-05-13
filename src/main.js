@@ -84,10 +84,18 @@ document.addEventListener('DOMContentLoaded', () => {
     initButtonHover(document)
     initNextBackgroundParallax()
     initServiceCards()
-    try {
-      initIcons(document)
-    } catch (e) {
-      /* ignore */
+    const initIconsSafely = () => {
+      try {
+        initIcons(document)
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    if (isHomeNamespace(document)) {
+      // Avoid contention with hero intro animation.
+      setTimeout(initIconsSafely, 2200)
+    } else {
+      initIconsSafely()
     }
     initTextReveal()
     initMinerals()

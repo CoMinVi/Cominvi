@@ -204,7 +204,8 @@ function startLoop() {
       // Direction-aware toggles for first/last at threshold (2em + top .page-wrap)
       try {
         const threshold = state.offsetPx
-        const eps = 0
+        // Small hysteresis to avoid fixed/unfixed oscillation around the threshold.
+        const eps = 1
         if (state.firstVideo && state.firstVideo.isConnected) {
           const curr = state.firstVideo.getBoundingClientRect().top
           const prev = state.prevFirstTop
@@ -310,7 +311,11 @@ function startLoop() {
           scaleY || 1
         )
         // Force: on remplace le transform pour assurer la position exacte
-        if (!Number.isFinite(entry.lastY) || y !== entry.lastY) {
+        const minStep = 1 / (window.devicePixelRatio || 1)
+        if (
+          !Number.isFinite(entry.lastY) ||
+          Math.abs(y - entry.lastY) >= minStep
+        ) {
           el.style.transform = `translate3d(0, ${y}px, 0)`
           entry.lastY = y
         }

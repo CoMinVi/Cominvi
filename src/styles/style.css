@@ -231,6 +231,16 @@ h1 > .is-h1-span-wrap:last-child > span {
   inset: 0;
 }
 
+/* Stabilize hero background video while parent transforms/scroll animate */
+.hero-background .background-inner,
+.hero-background .background_video,
+.hero-background .background_video video {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 /* Loader outline overlay: always on top and non-interactive */
 .loader-logo_outline {
   position: fixed;

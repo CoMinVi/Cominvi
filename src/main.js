@@ -4,6 +4,7 @@ import { initAboutValuesScroll } from './animation/about-scroll.js'
 import { initAbout } from './animation/about-us.js'
 import { blogArticleInit } from './animation/blog-article.js'
 import { initBlog } from './animation/blog.js'
+import { initButtonHover } from './animation/button-hover.js'
 import { initContact } from './animation/contact.js'
 import { initCylinder } from './animation/cylinder.js'
 import { initTeam } from './animation/join-the-team.js'
@@ -72,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initLoader()
   initLenis()
   initializeNav2()
+  initButtonHover(document)
   // Priorité home: initialiser d'abord le hero.
   initParallax()
   try {

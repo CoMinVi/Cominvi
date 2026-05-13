@@ -1,6 +1,7 @@
 import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 
+import { initContact, initContactHero } from './contact.js'
 import { heroAnimation } from './landing.js'
 import { addMenuLinksCloseToTimeline } from './nav.js'
 
@@ -18,46 +19,6 @@ function getNavbarBaseOffset() {
 }
 
 gsap.registerPlugin(CustomEase)
-
-let contactModulePromise = null
-const loadContactModule = () => {
-  if (!contactModulePromise) {
-    contactModulePromise = import('./contact.js')
-  }
-  return contactModulePromise
-}
-const initContactLazy = (container) =>
-  loadContactModule()
-    .then((m) => {
-      try {
-        m.initContact(container)
-      } catch (e) {
-        // ignore
-      }
-    })
-    .catch(() => {})
-const initContactHeroLazy = (container, options) =>
-  loadContactModule()
-    .then((m) => {
-      try {
-        m.initContactHero(container, options)
-      } catch (e) {
-        // ignore
-      }
-    })
-    .catch(() => {})
-const isContactNamespace = (scope) => {
-  try {
-    const ns =
-      (scope &&
-        scope.getAttribute &&
-        scope.getAttribute('data-barba-namespace')) ||
-      ''
-    return String(ns).trim().toLowerCase() === 'contact'
-  } catch (e) {
-    return false
-  }
-}
 
 let lastTopOffsetPx = 0
 const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
@@ -110,9 +71,7 @@ export function slideScaleEnter({ next }) {
 
   // Initialize Contact page SDK map as early as possible for destination
   try {
-    if (isContactNamespace(next && next.container)) {
-      initContactLazy(next && next.container)
-    }
+    initContact(next && next.container)
   } catch (e) {
     // ignore
   }
@@ -206,13 +165,11 @@ export function slideScaleEnter({ next }) {
           ease: gsap.parseEase(`custom(${easeCurve})`),
         })
         // Contact hero width adjustment at descale-equivalent moment (lift)
-        if (isContactNamespace(next && next.container)) {
-          initContactHeroLazy(next && next.container, {
-            animate: true,
-            duration: 1.2,
-            ease: gsap.parseEase(`custom(${easeCurve})`),
-          })
-        }
+        initContactHero(next && next.container, {
+          animate: true,
+          duration: 1.2,
+          ease: gsap.parseEase(`custom(${easeCurve})`),
+        })
       } catch (err) {
         // ignore
       }

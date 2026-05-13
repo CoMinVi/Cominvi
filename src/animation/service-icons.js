@@ -1,11 +1,11 @@
 // Lottie hover handling for service and team icons
 import lottieWeb from 'lottie-web'
 
-// Optional ID -> URL mapping. If an element has data-lottie="1", it will
-// use LOTTIE_URLS["1"]. If data-lottie contains a full URL, that URL is used.
+// Optional ID → URL mapping. If an element has data-lottie="1", it will
+// use LOTTIE_URLS['1']. If data-lottie contains a full URL, that URL is used.
 const LOTTIE_URLS = {
   1: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6333c80ebd3a6425e_CoMinVi%20-%20Icon%2006.json',
-  2: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68ee3bb5ad89a89f23fecbf9_CoMinVi%20-%20Icon%2007.json',
+  2: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6913c3a60d5253cff_CoMinVi%20-%20Icon%2007.json',
   3: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c64f785b294dba99cd_CoMinVi%20-%20Icon%2008.json',
   4: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6913c3a60d5253d16_CoMinVi%20-%20Icon%2009.json',
   5: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c666caf1a2edf01a39_CoMinVi%20-%20Icon%2010.json',
@@ -14,17 +14,21 @@ const LOTTIE_URLS = {
   8: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c67409f539e5703fd4_CoMinVi%20-%20Icon%2003.json',
   9: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c6e5660af13ca675fd_CoMinVi%20-%20Icon%2004%202.json',
   10: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68db86c68f1decbc32255f9d_CoMinVi%20-%20Icon%2005.json',
-  11: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68ee3c8541710eee4cdba05b_CoMinVi%20-%20Icon%2011.json',
-  12: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68ee3c857e752aa197197654_CoMinVi%20-%20Icon%2012.json',
-  13: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68ee3c85e34b5da5a7a7ea93_CoMinVi%20-%20Icon%2013.json',
-  14: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68ee3c855ca0ae03727f7cb0_CoMinVi%20-%20Icon%2014.json',
-  15: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68ee3c85c85cc82ce9b2a518_CoMinVi%20-%20Icon%2015.json',
-  16: 'https://cdn.prod.website-files.com/6899a2f3f7995d5e3e31b7c6/68ee3c8528f84d1971d155d9_CoMinVi%20-%20Icon%2016.json',
 }
 
 export function initIcons(root = document) {
   try {
     const scope = root && root.querySelector ? root : document
+    // Ensure a globally accessible Lottie library from Webflow on every page
+    try {
+      const wf = typeof window !== 'undefined' ? window.Webflow : null
+      const mod =
+        wf && typeof wf.require === 'function' ? wf.require('lottie') : null
+      const lib = (mod && (mod.lottie || mod)) || null
+      if (lib && !window.lottie) window.lottie = lib
+    } catch (e) {
+      /* ignore */
+    }
     try {
       scope && scope.getAttribute
         ? scope.getAttribute('data-barba-namespace')
@@ -72,6 +76,35 @@ export function initIcons(root = document) {
     }
 
     const getAnim = (icon) => {
+      // Try Webflow registry first
+      try {
+        const wf = typeof window !== 'undefined' ? window.Webflow : null
+        const mod =
+          wf && typeof wf.require === 'function' ? wf.require('lottie') : null
+        const lottie = mod && mod.lottie
+        const regs =
+          (lottie &&
+            typeof lottie.getRegisteredAnimations === 'function' &&
+            lottie.getRegisteredAnimations()) ||
+          []
+        for (let i = 0; i < regs.length; i++) {
+          const a = regs[i]
+          const container = a.wrapper || a.container || a.renderer?.svg
+          if (!container) continue
+          const closest =
+            typeof container.closest === 'function'
+              ? container.closest('.service-icon_icon')
+              : null
+          if (
+            closest === icon ||
+            container === icon ||
+            icon.contains(container)
+          )
+            return a
+        }
+      } catch (e) {
+        // ignore
+      }
       // Fallback to injected SVG handles
       try {
         const svg = icon.querySelector('svg')
@@ -91,7 +124,10 @@ export function initIcons(root = document) {
         /* ignore */
       }
       try {
-        const lib = window && window.lottie
+        const wf = typeof window !== 'undefined' ? window.Webflow : null
+        const mod =
+          wf && typeof wf.require === 'function' ? wf.require('lottie') : null
+        const lib = (mod && (mod.lottie || mod)) || (window && window.lottie)
         return lib || null
       } catch (e) {
         try {
@@ -102,31 +138,13 @@ export function initIcons(root = document) {
       }
     }
 
-    const getDataLottieValue = (icon) => {
-      try {
-        const ownValue = icon?.getAttribute?.('data-lottie')
-        if (ownValue) return ownValue
-      } catch (e) {
-        /* ignore */
-      }
-      try {
-        const owner = icon?.closest?.('[data-lottie]')
-        if (owner && owner !== icon) {
-          return owner.getAttribute('data-lottie')
-        }
-      } catch (e) {
-        /* ignore */
-      }
-      return null
-    }
-
     const recreateAnimation = (icon) => {
       try {
         const lottie = getLottieLib()
         // Resolve path from data-lottie (URL or id) or legacy WF attributes
         let path = null
         try {
-          const dl = getDataLottieValue(icon)
+          const dl = icon?.getAttribute?.('data-lottie')
           if (dl) {
             if (/^(https?:)?\/\//i.test(dl) || (dl && dl.startsWith('/')))
               path = dl
@@ -690,6 +708,34 @@ export function resetServiceCardIcons(root = document) {
 
     const getAnimForIcon = (icon) => {
       try {
+        const wf = typeof window !== 'undefined' ? window.Webflow : null
+        const mod =
+          wf && typeof wf.require === 'function' ? wf.require('lottie') : null
+        const lottie = mod && mod.lottie
+        const regs =
+          (lottie &&
+            typeof lottie.getRegisteredAnimations === 'function' &&
+            lottie.getRegisteredAnimations()) ||
+          []
+        for (let i = 0; i < regs.length; i++) {
+          const a = regs[i]
+          const container = a.wrapper || a.container || a.renderer?.svg
+          if (!container) continue
+          const closest =
+            typeof container.closest === 'function'
+              ? container.closest('.service-icon_icon')
+              : null
+          if (
+            closest === icon ||
+            container === icon ||
+            icon.contains(container)
+          )
+            return a
+        }
+      } catch (e) {
+        /* ignore */
+      }
+      try {
         const svg = icon.querySelector('svg')
         const inst = svg && (svg.__lottie || svg._lottie)
         if (inst)
@@ -746,7 +792,7 @@ export function destroyIcons(root = document) {
   try {
     const scope = root && root.querySelector ? root : document
     const cards = Array.from(
-      scope.querySelectorAll('.service-card, .team-card, .stats-card')
+      scope.querySelectorAll('.service-card, .team-card')
     )
     cards.forEach((card) => {
       try {
@@ -774,6 +820,34 @@ export function destroyIcons(root = document) {
       )
     )
     const getAnimForIcon = (icon) => {
+      try {
+        const wf = typeof window !== 'undefined' ? window.Webflow : null
+        const mod =
+          wf && typeof wf.require === 'function' ? wf.require('lottie') : null
+        const lottie = mod && mod.lottie
+        const regs =
+          (lottie &&
+            typeof lottie.getRegisteredAnimations === 'function' &&
+            lottie.getRegisteredAnimations()) ||
+          []
+        for (let i = 0; i < regs.length; i++) {
+          const a = regs[i]
+          const container = a.wrapper || a.container || a.renderer?.svg
+          if (!container) continue
+          const closest =
+            typeof container.closest === 'function'
+              ? container.closest('.service-icon_icon')
+              : null
+          if (
+            closest === icon ||
+            container === icon ||
+            icon.contains(container)
+          )
+            return a
+        }
+      } catch (e) {
+        /* ignore */
+      }
       try {
         const svg = icon.querySelector('svg')
         const inst = svg && (svg.__lottie || svg._lottie)

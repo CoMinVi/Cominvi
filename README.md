@@ -1,54 +1,60 @@
-# Cominvi Frontend (Webflow + Vite)
+# ViteJs + JS + Webflow = ❤️
 
-Ce dépôt contient le JavaScript/CSS custom chargé sur le site Webflow.
+This is a basic setup with [ViteJs](https://vitejs.dev/) that you can use for your Webflow website.
+`jQuery` is already installed and declared as an external dependency.
 
-## Commandes (Yarn uniquement)
+I'm using [Netlify](https://www.netlify.com/) to build and host my code because it's easy to use, free, and has serverless functions out of the box. Feel free to use your favorite CDN.
+
+**If you prefer TypeScript you can use [this template](https://github.com/armandsalle/vite-typescript-webflow)**
+
+<br />
+
+## Live demo
+
+You can find a simple example of a Webflow site using this setup [here](https://vite-javascript.webflow.io/). The code is hosted on Netlify [here](https://vite-javascript-webflow.netlify.app/main.js). If you want to see the Webflow preview, it's [here](https://preview.webflow.com/preview/vite-javascript?utm_medium=preview_link&utm_source=designer&utm_content=vite-javascript&preview=65fac120c82ee6a81780f5a5cd5ecc59&workflow=preview) 👍
+
+<br />
+
+## How to use with Webflow
+
+### 🇫🇷 French
+The doc is [here](https://github.com/armandsalle/vite-javascript-webflow/blob/main/HowToUse_JS_FR.md) 
+
+### 🇬🇧 English
+The doc is [here](https://github.com/armandsalle/vite-javascript-webflow/blob/main/HowToUse_JS_EN.md) 
+
+<br />
+
+## Building and running on localhost
+
+This project is using `yarn`.
+
+First, install dependencies:
 
 ```sh
 yarn
-yarn dev
-yarn build
-yarn clean
-yarn lint:fix
 ```
 
-## Fonctionnement global
-
-- Webflow reste la source de vérité pour le HTML/CSS structurel.
-- Ce projet produit un bundle JS/CSS Vite chargé dans Webflow.
-- Le build utilise du code-splitting : `main.js` + chunks dynamiques (ex: `deferred-inits`).
-- Les initialisations non critiques sont déportées en différé pour améliorer la priorité du hero (notamment home).
-
-## Intégration Webflow (important)
-
-Charger le script de production en **module** :
-
-```html
-<script type="module" src="https://precious-hotteok-8da21f.netlify.app/main.js"></script>
-```
-
-Ne pas conserver un second chargement `main.js` sans `type="module"` (sinon conflits/404 sur les chunks).
-
-## Netlify, CORS et chunks
-
-- Le fichier `public/_headers` ajoute les headers CORS nécessaires pour le chargement cross-origin depuis Webflow.
-- Le build Vite est configuré avec une base d’assets de production (`base`) pointant vers Netlify, afin que les chunks/CSS dynamiques soient résolus sur le bon domaine.
-
-## Changement de domaine Netlify
-
-Si l’URL Netlify change, mettre à jour la variable d’environnement :
+To launch a local dev server:
 
 ```sh
-VITE_ASSET_BASE=https://votre-nouveau-domaine.netlify.app/
+yarn dev
 ```
 
-Puis rebuilder/redéployer.
+To create a production build:
 
-Par défaut, le projet est configuré pour :
+```sh
+yarn build
+```
 
-`https://precious-hotteok-8da21f.netlify.app/`
+To clean the local `/dist` folder:
 
-## Notes build
+```sh
+yarn clean
+```
 
-- Des warnings CSS peuvent apparaître (Swiper/minification) sans bloquer le build.
-- Le build est valide si la commande se termine avec `Done` et un code de sortie `0`.
+To lint the code with ESLint and Prettier:
+
+```sh
+yarn lint:fix
+```

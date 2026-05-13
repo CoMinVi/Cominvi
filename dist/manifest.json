@@ -2,9 +2,6 @@
   "src/main.js": {
     "file": "main.js",
     "src": "src/main.js",
-    "isEntry": true,
-    "css": [
-      "assets/main.caadc505.css"
-    ]
+    "isEntry": true
   }
 }

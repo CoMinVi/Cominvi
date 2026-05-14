@@ -8,14 +8,13 @@ const ALLOWED_NAMESPACES = new Set(['home', 'services'])
 const LOOP_COUNT = 1
 const SCRUB_SMOOTHING = 0.4
 const ENABLE_FRAME_BLEND = false
-const DEFAULT_INITIAL_PRELOAD = 4
+const DEFAULT_INITIAL_PRELOAD = 40
 const DEFAULT_PRELOAD_AHEAD = 6
 const DEFAULT_PRELOAD_BEHIND = 2
 const DEFAULT_MEDIUM_PRELOAD_AHEAD = 16
 const DEFAULT_FAST_PRELOAD_AHEAD = 32
 const DEFAULT_MAX_LOAD_PLAN = 40
-const DEFAULT_SPARSE_WARMUP_STRIDE = 18
-const DEFAULT_SPARSE_WARMUP_MAX_PLAN = 40
+const DEFAULT_BACKGROUND_BATCH_SIZE = 30
 const DEFAULT_CONCURRENCY = 4
 const DEFAULT_ACTIVE_CONCURRENCY = 6
 
@@ -74,28 +73,25 @@ export function getMineralsFrameLoadPlan({
   return plan
 }
 
-export function getMineralsSparseWarmupPlan({
+export function getMineralsBatchPreloadPlan({
   total,
-  stride = DEFAULT_SPARSE_WARMUP_STRIDE,
-  maxPlan = DEFAULT_SPARSE_WARMUP_MAX_PLAN,
-  includeFirst = true,
+  startIndex = 0,
+  batchSize = DEFAULT_BACKGROUND_BATCH_SIZE,
 } = {}) {
   const frameCount = Math.max(0, Math.floor(total || 0))
   if (!frameCount) return []
 
-  const step = Math.max(1, Math.floor(stride || 1))
-  const boundedMaxPlan = Math.max(1, Math.min(frameCount, maxPlan))
+  const start = Math.max(0, Math.floor(startIndex || 0))
+  const size = Math.max(1, Math.floor(batchSize || 1))
+  if (start >= frameCount) return []
+
   const plan = []
   const seen = new Set()
 
-  if (includeFirst) {
-    addPlanItem(plan, seen, 0, frameCount, false)
-  }
-
   for (
-    let index = step;
-    index < frameCount && plan.length < boundedMaxPlan;
-    index += step
+    let index = start;
+    index < frameCount && index < start + size;
+    index += 1
   ) {
     addPlanItem(plan, seen, index, frameCount, false)
   }
@@ -241,13 +237,9 @@ export function initMineralsCanvas(root = document) {
       component.getAttribute('fc-image-scrubbing-max-load-plan'),
       DEFAULT_MAX_LOAD_PLAN
     )
-    const sparseWarmupStride = parsePositiveInt(
-      component.getAttribute('fc-image-scrubbing-sparse-warmup-stride'),
-      DEFAULT_SPARSE_WARMUP_STRIDE
-    )
-    const sparseWarmupMaxPlan = parsePositiveInt(
-      component.getAttribute('fc-image-scrubbing-sparse-warmup-max-plan'),
-      DEFAULT_SPARSE_WARMUP_MAX_PLAN
+    const backgroundBatchSize = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-background-batch-size'),
+      DEFAULT_BACKGROUND_BATCH_SIZE
     )
     const maxConcurrency = Math.max(
       1,
@@ -269,7 +261,7 @@ export function initMineralsCanvas(root = document) {
     const images = new Array(urls.length)
     const loadStates = new Array(urls.length).fill('idle')
     const pendingQueue = []
-    const sparseWarmupIndices = new Set()
+    const backgroundBatchIndices = new Set()
     let firstLoadedIndex = -1
     let loadedCount = 0
     let activeLoads = 0
@@ -462,7 +454,7 @@ export function initMineralsCanvas(root = document) {
         const queuedIndex = pendingQueue[i]
         if (
           keepIndices.has(queuedIndex) ||
-          sparseWarmupIndices.has(queuedIndex)
+          backgroundBatchIndices.has(queuedIndex)
         ) {
           continue
         }
@@ -607,42 +599,85 @@ export function initMineralsCanvas(root = document) {
     }
     pumpQueue()
 
-    const triggerAdaptiveWarmup = () => {
-      if (destroyed) return
-      if (!sparseWarmupTriggered) {
-        sparseWarmupTriggered = true
-        const sparsePlan = getMineralsSparseWarmupPlan({
-          total: urls.length,
-          stride: sparseWarmupStride,
-          maxPlan: sparseWarmupMaxPlan,
-          includeFirst: false,
-        })
-        sparsePlan.forEach((item) => {
-          sparseWarmupIndices.add(item.index)
-          queueLoad(item.index, item.highPriority)
-        })
+    let backgroundBatchStarted = false
+    let nextBackgroundBatchIndex = initialCap
+    let backgroundBatchTimer = null
+
+    const clearBackgroundBatchTimer = () => {
+      if (backgroundBatchTimer) {
+        clearTimeout(backgroundBatchTimer)
+        backgroundBatchTimer = null
       }
-      scheduleDirectionalPreload(state.frame)
     }
 
-    let sparseWarmupTriggered = false
-    const BACKGROUND_PRELOAD_DELAY_AFTER_LOADER = 0
+    const queueNextBackgroundBatch = () => {
+      if (destroyed || !backgroundBatchStarted) return
+
+      while (
+        nextBackgroundBatchIndex < urls.length &&
+        loadStates[nextBackgroundBatchIndex] !== 'idle'
+      ) {
+        nextBackgroundBatchIndex += 1
+      }
+
+      if (nextBackgroundBatchIndex >= urls.length) return
+
+      const batch = getMineralsBatchPreloadPlan({
+        total: urls.length,
+        startIndex: nextBackgroundBatchIndex,
+        batchSize: backgroundBatchSize,
+      })
+      if (!batch.length) return
+
+      batch.forEach((item) => {
+        backgroundBatchIndices.add(item.index)
+        queueLoad(item.index, item.highPriority)
+      })
+      nextBackgroundBatchIndex = batch[batch.length - 1].index + 1
+      pumpQueue()
+
+      const waitForBatch = () => {
+        if (destroyed) return
+        const hasActiveBatchWork = batch.some((item) => {
+          const stateName = loadStates[item.index]
+          return stateName === 'queued' || stateName === 'loading'
+        })
+        if (hasActiveBatchWork) {
+          backgroundBatchTimer = setTimeout(waitForBatch, 120)
+          return
+        }
+        batch.forEach((item) => backgroundBatchIndices.delete(item.index))
+        backgroundBatchTimer = setTimeout(queueNextBackgroundBatch, 120)
+      }
+
+      clearBackgroundBatchTimer()
+      backgroundBatchTimer = setTimeout(waitForBatch, 120)
+    }
+
+    const startBackgroundBatchPreload = () => {
+      if (destroyed || backgroundBatchStarted) return
+      backgroundBatchStarted = true
+      currentMaxConcurrency = activeConcurrency
+      queueNextBackgroundBatch()
+    }
+
+    const BACKGROUND_PRELOAD_DELAY_AFTER_HERO = 0
     const BACKGROUND_PRELOAD_DELAY_AFTER_LOAD = 1000
     const cleanupCallbacks = []
 
     const scheduleBackgroundPreload = (delay) => {
-      const timerId = setTimeout(triggerAdaptiveWarmup, delay)
+      const timerId = setTimeout(startBackgroundBatchPreload, delay)
       cleanupCallbacks.push(() => clearTimeout(timerId))
     }
 
-    if (window.__loaderDone) {
-      scheduleBackgroundPreload(BACKGROUND_PRELOAD_DELAY_AFTER_LOADER)
+    if (window.__heroAnimationStarted) {
+      scheduleBackgroundPreload(BACKGROUND_PRELOAD_DELAY_AFTER_HERO)
     } else {
-      const onLoaderDone = () =>
-        scheduleBackgroundPreload(BACKGROUND_PRELOAD_DELAY_AFTER_LOADER)
-      document.addEventListener('loader:done', onLoaderDone, { once: true })
+      const onHeroReady = () =>
+        scheduleBackgroundPreload(BACKGROUND_PRELOAD_DELAY_AFTER_HERO)
+      document.addEventListener('hero:ready', onHeroReady, { once: true })
       cleanupCallbacks.push(() =>
-        document.removeEventListener('loader:done', onLoaderDone)
+        document.removeEventListener('hero:ready', onHeroReady)
       )
 
       // Filet de sécurité si l'event ne se déclenche pas (pages sans loader, etc.)
@@ -666,7 +701,7 @@ export function initMineralsCanvas(root = document) {
         (entries) => {
           if (entries.some((entry) => entry.isIntersecting)) {
             isSequenceNearViewport = true
-            triggerAdaptiveWarmup()
+            scheduleDirectionalPreload(state.frame)
             if (proximityObserver) {
               proximityObserver.disconnect()
               proximityObserver = null
@@ -728,8 +763,7 @@ export function initMineralsCanvas(root = document) {
       mediumPreloadAhead,
       fastPreloadAhead,
       maxLoadPlan,
-      sparseWarmupStride,
-      sparseWarmupMaxPlan,
+      backgroundBatchSize,
       maxConcurrency,
       activeConcurrency,
       canvasWidth: canvas.clientWidth,
@@ -749,6 +783,7 @@ export function initMineralsCanvas(root = document) {
       } catch (e) {
         // ignore
       }
+      clearBackgroundBatchTimer()
       if (!resizeObserver) {
         window.removeEventListener('resize', onResize)
       }
@@ -770,7 +805,7 @@ export function initMineralsCanvas(root = document) {
       images,
       loadStates,
       pendingQueue,
-      sparseWarmupIndices,
+      backgroundBatchIndices,
       render: renderCurrentFrame,
       canvas,
       component,

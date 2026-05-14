@@ -19,13 +19,13 @@ async function loadPlanners() {
     'getMineralsFrameLoadPlan should remain an explicit export'
   )
   assert(
-    /export function getMineralsSparseWarmupPlan/.test(source),
-    'getMineralsSparseWarmupPlan should remain an explicit export'
+    /export function getMineralsBatchPreloadPlan/.test(source),
+    'getMineralsBatchPreloadPlan should remain an explicit export'
   )
   const testableSource = `${source
     .replace(/^import .*$/gm, '')
     .replace(/export function /g, 'function ')}
-;({ getMineralsFrameLoadPlan, getMineralsSparseWarmupPlan })`
+;({ getMineralsFrameLoadPlan, getMineralsBatchPreloadPlan })`
 
   return vm.runInNewContext(
     testableSource,
@@ -41,7 +41,7 @@ function indices(plan) {
   return plan.map((item) => item.index)
 }
 
-const { getMineralsFrameLoadPlan, getMineralsSparseWarmupPlan } =
+const { getMineralsFrameLoadPlan, getMineralsBatchPreloadPlan } =
   await loadPlanners()
 
 assert(
@@ -49,8 +49,8 @@ assert(
   'getMineralsFrameLoadPlan must be exported'
 )
 assert(
-  typeof getMineralsSparseWarmupPlan === 'function',
-  'getMineralsSparseWarmupPlan must be exported'
+  typeof getMineralsBatchPreloadPlan === 'function',
+  'getMineralsBatchPreloadPlan must be exported'
 )
 
 assert(
@@ -72,41 +72,48 @@ assert(
   'maxPlan should cap even fast scroll plans'
 )
 
-const sparseWarmupPlan = getMineralsSparseWarmupPlan({
+const firstBatchPlan = getMineralsBatchPreloadPlan({
   total: 600,
-  stride: 24,
-  maxPlan: 32,
-  includeFirst: false,
+  startIndex: 40,
+  batchSize: 30,
 })
-const sparseWarmupIndices = indices(sparseWarmupPlan)
+const firstBatchIndices = indices(firstBatchPlan)
 
 assert(
-  sparseWarmupPlan.length <= 32,
-  'sparse warmup should stay bounded by maxPlan'
+  firstBatchPlan.length === 30,
+  'background batch should load exactly 30 frames when available'
 )
 assert(
-  sparseWarmupIndices[0] === 24,
-  'sparse warmup should start after already-loaded initial frames when includeFirst is false'
+  firstBatchIndices[0] === 40 && firstBatchIndices[29] === 69,
+  'first background batch should continue immediately after the initial 40 frames'
 )
 assert(
-  sparseWarmupIndices.includes(576),
-  'sparse warmup should cover the end of a 600-frame sequence'
+  firstBatchPlan.every((item) => item.highPriority === false),
+  'background batches should be low priority'
+)
+
+const finalBatchPlan = getMineralsBatchPreloadPlan({
+  total: 600,
+  startIndex: 580,
+  batchSize: 30,
+})
+const finalBatchIndices = indices(finalBatchPlan)
+
+assert(
+  finalBatchPlan.length === 20,
+  'final background batch should stop at the end of the sequence'
 )
 assert(
-  sparseWarmupPlan.every((item) => item.highPriority === false),
-  'sparse warmup should be low priority'
+  finalBatchIndices[0] === 580 && finalBatchIndices[19] === 599,
+  'final background batch should include the final frame'
 )
 assert(
-  sparseWarmupIndices.every((index, position, list) => position === 0 || index > list[position - 1]),
-  'sparse warmup should be ordered and deduplicated'
-)
-assert(
-  Math.max(
-    ...Array.from({ length: 600 }, (_, index) =>
-      Math.min(...sparseWarmupIndices.map((loadedIndex) => Math.abs(loadedIndex - index)))
-    )
-  ) <= 24,
-  'sparse warmup should keep any target near a fallback frame'
+  getMineralsBatchPreloadPlan({
+    total: 600,
+    startIndex: 600,
+    batchSize: 30,
+  }).length === 0,
+  'background batches should be empty after the sequence end'
 )
 
 const initialPlan = getMineralsFrameLoadPlan({

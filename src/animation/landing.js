@@ -23,6 +23,12 @@ const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
 // Fait slider les .is-h1-span de y:110% à y:0 avec la même durée/ease que le dé-scale
 export function heroAnimation(root = document, opts = {}) {
   const scope = root && root.querySelector ? root : document
+  try {
+    window.__heroAnimationStarted = true
+    document.dispatchEvent(new CustomEvent('hero:ready'))
+  } catch (err) {
+    // ignore
+  }
   // Start hero background video immediately
   try {
     requestHeroVideoPlayback(scope)

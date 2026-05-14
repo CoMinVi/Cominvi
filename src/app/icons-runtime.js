@@ -6,6 +6,9 @@ const ICON_CARD_SELECTOR = '.service-card, .team-card, .stats-card, .stat-card'
 const ICON_PREPARED_ATTR = 'data-lottie-lazy-prepared'
 const ICON_PLACEHOLDER_ATTR = 'data-lottie-placeholder-ready'
 const ICON_WARMUP_ROOT_MARGIN = '900px 0px'
+const ICON_SECTION_WARMUP_ROOT_MARGIN = '1200px 0px'
+const ICON_SECTION_SELECTOR =
+  '.section_about, .section_services, .section_work-team'
 const ICON_SELECTOR =
   '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie], .stat-card [data-lottie]'
 
@@ -133,6 +136,55 @@ function attachIntersectionWarmup(root, icons) {
   }
 }
 
+function attachSectionWarmup(root, icons) {
+  if (typeof IntersectionObserver === 'undefined') return false
+  try {
+    const scope = getScope(root)
+    const sections = Array.from(scope.querySelectorAll(ICON_SECTION_SELECTOR))
+      .map((section) => ({
+        section,
+        icons: icons.filter((icon) => section.contains(icon)),
+      }))
+      .filter((item) => item.icons.length)
+
+    if (!sections.length) return false
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return
+          const section = entry.target
+          observer.unobserve(section)
+          const item = sections.find(
+            (candidate) => candidate.section === section
+          )
+          if (!item) return
+          item.icons.forEach((icon) => {
+            loadIconsFor(root, 'section-intersection', icon)
+          })
+        })
+      },
+      {
+        root: null,
+        rootMargin: ICON_SECTION_WARMUP_ROOT_MARGIN,
+        threshold: 0.01,
+      }
+    )
+
+    sections.forEach(({ section, icons: sectionIcons }) => {
+      if (section.__lottieLazySectionObserver) return
+      observer.observe(section)
+      section.__lottieLazySectionObserver = observer
+      sectionIcons.forEach((icon) => {
+        icon.__lottieLazySectionObserver = observer
+      })
+    })
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
 function attachPointerWarmup(root, icons) {
   icons.forEach((icon) => {
     const card = getIconCard(icon)
@@ -165,6 +217,7 @@ function attachPointerWarmup(root, icons) {
 }
 
 function attachLazyTriggers(root, icons) {
+  attachSectionWarmup(root, icons)
   const hasIntersection = attachIntersectionWarmup(root, icons)
   attachPointerWarmup(root, icons)
 
@@ -195,6 +248,7 @@ function destroyLazyRuntime(root = document) {
         icon.__lottieLazyIntersectionObserver.unobserve(icon)
       }
       icon.__lottieLazyIntersectionObserver = null
+      icon.__lottieLazySectionObserver = null
       icon.__lottieLazyPendingHover = null
     } catch (e) {
       // ignore
@@ -216,6 +270,17 @@ function destroyLazyRuntime(root = document) {
       card.__lottieLazyPointerLeave = null
       card.__lottieLazyPointerBound = false
     })
+    Array.from(scope.querySelectorAll(ICON_SECTION_SELECTOR)).forEach(
+      (section) => {
+        if (
+          section.__lottieLazySectionObserver &&
+          typeof section.__lottieLazySectionObserver.unobserve === 'function'
+        ) {
+          section.__lottieLazySectionObserver.unobserve(section)
+        }
+        section.__lottieLazySectionObserver = null
+      }
+    )
   } catch (e) {
     // ignore
   }

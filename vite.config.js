@@ -1,8 +1,11 @@
 import { defineConfig } from 'vite'
 import eslintPlugin from 'vite-plugin-eslint'
 
+const productionAssetBase = 'https://precious-hotteok-8da21f.netlify.app/'
+
 // vite.config.js
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? productionAssetBase : '/',
   plugins: [eslintPlugin({ cache: false })],
   server: {
     host: 'localhost',
@@ -27,4 +30,4 @@ export default defineConfig({
       external: ['jquery'],
     },
   },
-})
+}))

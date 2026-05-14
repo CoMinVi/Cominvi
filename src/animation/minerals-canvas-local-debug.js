@@ -8,10 +8,69 @@ const ALLOWED_NAMESPACES = new Set(['home', 'services'])
 const LOOP_COUNT = 1
 const SCRUB_SMOOTHING = 0.4
 const ENABLE_FRAME_BLEND = false
-const DEFAULT_INITIAL_PRELOAD = 12
+const DEFAULT_INITIAL_PRELOAD = 4
 const DEFAULT_PRELOAD_AHEAD = 6
 const DEFAULT_PRELOAD_BEHIND = 2
-const DEFAULT_CONCURRENCY = 6
+const DEFAULT_MEDIUM_PRELOAD_AHEAD = 16
+const DEFAULT_FAST_PRELOAD_AHEAD = 32
+const DEFAULT_MAX_LOAD_PLAN = 40
+const DEFAULT_CONCURRENCY = 4
+const DEFAULT_ACTIVE_CONCURRENCY = 6
+
+function clampIndex(index, total) {
+  return Math.max(0, Math.min(total - 1, index))
+}
+
+function addPlanItem(plan, seen, index, total, highPriority) {
+  const normalizedIndex = clampIndex(index, total)
+  if (seen.has(normalizedIndex)) return
+  seen.add(normalizedIndex)
+  plan.push({ index: normalizedIndex, highPriority: !!highPriority })
+}
+
+export function getMineralsFrameLoadPlan({
+  targetIndex,
+  previousIndex = targetIndex,
+  total,
+  baseAhead = DEFAULT_PRELOAD_AHEAD,
+  baseBehind = DEFAULT_PRELOAD_BEHIND,
+  mediumAhead = DEFAULT_MEDIUM_PRELOAD_AHEAD,
+  fastAhead = DEFAULT_FAST_PRELOAD_AHEAD,
+  maxPlan = DEFAULT_MAX_LOAD_PLAN,
+} = {}) {
+  const frameCount = Math.max(0, Math.floor(total || 0))
+  if (!frameCount) return []
+
+  const target = clampIndex(Math.floor(targetIndex || 0), frameCount)
+  const previous = clampIndex(Math.floor(previousIndex || 0), frameCount)
+  const delta = target - previous
+  const direction = delta >= 0 ? 1 : -1
+  const speed = Math.abs(delta)
+  const ahead = speed >= 24 ? fastAhead : speed >= 8 ? mediumAhead : baseAhead
+  const boundedMaxPlan = Math.max(1, Math.min(frameCount, maxPlan))
+  const plan = []
+  const seen = new Set()
+
+  addPlanItem(plan, seen, target, frameCount, true)
+
+  for (
+    let offset = 1;
+    offset <= ahead && plan.length < boundedMaxPlan;
+    offset += 1
+  ) {
+    addPlanItem(plan, seen, target + direction * offset, frameCount, true)
+  }
+
+  for (
+    let offset = 1;
+    offset <= baseBehind && plan.length < boundedMaxPlan;
+    offset += 1
+  ) {
+    addPlanItem(plan, seen, target - direction * offset, frameCount, false)
+  }
+
+  return plan
+}
 
 function info(...args) {
   // eslint-disable-next-line no-console
@@ -139,11 +198,30 @@ export function initMineralsCanvas(root = document) {
       component.getAttribute('fc-image-scrubbing-preload-behind'),
       DEFAULT_PRELOAD_BEHIND
     )
+    const mediumPreloadAhead = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-medium-preload-ahead'),
+      DEFAULT_MEDIUM_PRELOAD_AHEAD
+    )
+    const fastPreloadAhead = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-fast-preload-ahead'),
+      DEFAULT_FAST_PRELOAD_AHEAD
+    )
+    const maxLoadPlan = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-max-load-plan'),
+      DEFAULT_MAX_LOAD_PLAN
+    )
     const maxConcurrency = Math.max(
       1,
       parsePositiveInt(
         component.getAttribute('fc-image-scrubbing-concurrency'),
         DEFAULT_CONCURRENCY
+      )
+    )
+    const activeConcurrency = Math.max(
+      maxConcurrency,
+      parsePositiveInt(
+        component.getAttribute('fc-image-scrubbing-active-concurrency'),
+        DEFAULT_ACTIVE_CONCURRENCY
       )
     )
 
@@ -159,6 +237,8 @@ export function initMineralsCanvas(root = document) {
     let lastRenderSignature = ''
     let lastLinearFrame = 0
     let hasDrawnFrameZero = false
+    let isSequenceNearViewport = false
+    let currentMaxConcurrency = maxConcurrency
     let tween = null
     let resizeObserver = null
 
@@ -299,7 +379,9 @@ export function initMineralsCanvas(root = document) {
               canvasWidth: canvas.clientWidth,
               canvasHeight: canvas.clientHeight,
             })
-            renderCurrentFrame()
+            if (index === 0 || hasDrawnFrameZero) {
+              renderCurrentFrame()
+            }
           }
           resolve()
         }
@@ -318,7 +400,7 @@ export function initMineralsCanvas(root = document) {
     const pumpQueue = () => {
       if (destroyed) return
 
-      while (activeLoads < maxConcurrency && pendingQueue.length > 0) {
+      while (activeLoads < currentMaxConcurrency && pendingQueue.length > 0) {
         const index = pendingQueue.shift()
         if (typeof index !== 'number') continue
         if (loadStates[index] !== 'queued') continue
@@ -333,22 +415,46 @@ export function initMineralsCanvas(root = document) {
       }
     }
 
+    const prunePendingQueue = (keepIndices) => {
+      if (!keepIndices || !pendingQueue.length) return
+
+      for (let i = pendingQueue.length - 1; i >= 0; i -= 1) {
+        const queuedIndex = pendingQueue[i]
+        if (keepIndices.has(queuedIndex)) continue
+        pendingQueue.splice(i, 1)
+        if (loadStates[queuedIndex] === 'queued') {
+          loadStates[queuedIndex] = 'idle'
+        }
+      }
+    }
+
     const scheduleDirectionalPreload = (linearFrame) => {
       const baseIndex = Math.max(
         0,
         Math.min(urls.length - 1, Math.floor(linearFrame))
       )
-      const direction = baseIndex >= lastLinearFrame ? 1 : -1
+      const previousIndex = lastLinearFrame
+      const speed = Math.abs(baseIndex - previousIndex)
       lastLinearFrame = baseIndex
+      currentMaxConcurrency =
+        isSequenceNearViewport || speed >= 8
+          ? activeConcurrency
+          : maxConcurrency
 
-      // Toujours prioriser la frame courante pour éviter les trous visuels.
-      queueLoad(baseIndex, true)
-
-      for (let i = 1; i <= preloadAhead; i += 1) {
-        queueLoad(baseIndex + direction * i, true)
-      }
-      for (let i = 1; i <= preloadBehind; i += 1) {
-        queueLoad(baseIndex - direction * i, false)
+      const plan = getMineralsFrameLoadPlan({
+        targetIndex: baseIndex,
+        previousIndex,
+        total: urls.length,
+        baseAhead: preloadAhead,
+        baseBehind: preloadBehind,
+        mediumAhead: mediumPreloadAhead,
+        fastAhead: fastPreloadAhead,
+        maxPlan: maxLoadPlan,
+      })
+      prunePendingQueue(new Set(plan.map((item) => item.index)))
+      for (let i = plan.length - 1; i >= 0; i -= 1) {
+        const item = plan[i]
+        queueLoad(item.index, item.highPriority)
       }
 
       pumpQueue()
@@ -456,16 +562,9 @@ export function initMineralsCanvas(root = document) {
     }
     pumpQueue()
 
-    // Reste de la séquence: chargée en arrière-plan une fois le loader / hero terminés
-    // afin de ne pas concurrencer la peinture initiale (LCP/Speed Index).
-    let backgroundPreloadTriggered = false
-    const triggerBackgroundPreload = () => {
-      if (backgroundPreloadTriggered || destroyed) return
-      backgroundPreloadTriggered = true
-      for (let index = initialCap; index < urls.length; index += 1) {
-        queueLoad(index, false)
-      }
-      pumpQueue()
+    const triggerAdaptiveWarmup = () => {
+      if (destroyed) return
+      scheduleDirectionalPreload(state.frame)
     }
 
     const BACKGROUND_PRELOAD_DELAY_AFTER_LOADER = 800
@@ -473,7 +572,7 @@ export function initMineralsCanvas(root = document) {
     const cleanupCallbacks = []
 
     const scheduleBackgroundPreload = (delay) => {
-      const timerId = setTimeout(triggerBackgroundPreload, delay)
+      const timerId = setTimeout(triggerAdaptiveWarmup, delay)
       cleanupCallbacks.push(() => clearTimeout(timerId))
     }
 
@@ -500,21 +599,22 @@ export function initMineralsCanvas(root = document) {
       }
     }
 
-    // Backup: si la section approche du viewport avant que le preload différé
-    // n'ait été déclenché, on l'amorce immédiatement.
+    // Backup: si la section approche du viewport, on active seulement le buffer
+    // adaptatif autour de la frame courante au lieu de charger les 600 frames.
     let proximityObserver = null
     if ('IntersectionObserver' in window) {
       proximityObserver = new IntersectionObserver(
         (entries) => {
           if (entries.some((entry) => entry.isIntersecting)) {
-            triggerBackgroundPreload()
+            isSequenceNearViewport = true
+            triggerAdaptiveWarmup()
             if (proximityObserver) {
               proximityObserver.disconnect()
               proximityObserver = null
             }
           }
         },
-        { rootMargin: '300% 0px' }
+        { rootMargin: '100% 0px' }
       )
       proximityObserver.observe(component)
       cleanupCallbacks.push(() => {
@@ -566,7 +666,11 @@ export function initMineralsCanvas(root = document) {
       initialPreloadCount: initialCap,
       preloadAhead,
       preloadBehind,
+      mediumPreloadAhead,
+      fastPreloadAhead,
+      maxLoadPlan,
       maxConcurrency,
+      activeConcurrency,
       canvasWidth: canvas.clientWidth,
       canvasHeight: canvas.clientHeight,
     })
@@ -603,10 +707,13 @@ export function initMineralsCanvas(root = document) {
     window.__mineralsCanvasDebug = {
       state,
       images,
+      loadStates,
+      pendingQueue,
       render: renderCurrentFrame,
       canvas,
       component,
       cleanup,
+      getLoadPlan: getMineralsFrameLoadPlan,
     }
 
     return { cleanup, component, canvas }

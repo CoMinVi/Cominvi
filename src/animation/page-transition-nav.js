@@ -755,6 +755,18 @@ export function initializePageTransitionNav() {
     } catch (e) {
       /* ignore */
     }
+    try {
+      ;(current && current.container
+        ? current.container.querySelectorAll('[fc-image-scrubbing="component"]')
+        : []
+      ).forEach((component) => {
+        if (typeof component.__mineralsCanvasCleanup === 'function') {
+          component.__mineralsCanvasCleanup()
+        }
+      })
+    } catch (e) {
+      /* ignore */
+    }
     destroyContactIfNeeded(current && current.container)
   })
 

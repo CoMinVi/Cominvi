@@ -22,6 +22,52 @@ export function buildHeroImagePreloadAttrs(href) {
   }
 }
 
+function getHeroVideoSources(video) {
+  if (!video || typeof video.querySelectorAll !== 'function') return []
+  return Array.from(video.querySelectorAll('source'))
+}
+
+export function deferHeroVideoSources(video) {
+  if (!video) return false
+
+  let changed = false
+  getHeroVideoSources(video).forEach((source) => {
+    const src = source.getAttribute && source.getAttribute('src')
+    if (!src) return
+    if (source.setAttribute && !source.getAttribute('data-src')) {
+      source.setAttribute('data-src', src)
+    }
+    if (source.removeAttribute) {
+      source.removeAttribute('src')
+      changed = true
+    }
+  })
+
+  video.preload = 'none'
+  if (video.setAttribute) {
+    video.setAttribute('preload', 'none')
+  }
+
+  return changed
+}
+
+export function restoreHeroVideoSources(video) {
+  if (!video) return false
+
+  let changed = false
+  getHeroVideoSources(video).forEach((source) => {
+    const dataSrc = source.getAttribute && source.getAttribute('data-src')
+    if (!dataSrc) return
+    if (source.getAttribute('src') === dataSrc) return
+    if (source.setAttribute) {
+      source.setAttribute('src', dataSrc)
+      changed = true
+    }
+  })
+
+  return changed
+}
+
 function getPosterFromVideo(video) {
   if (!video) return ''
 
@@ -62,7 +108,7 @@ function ensureHeroPosterPreload(posterUrl) {
   return link
 }
 
-export function prepareHeroMedia(root = document) {
+export function prepareHeroMedia(root = document, opts = {}) {
   const scope = root && root.querySelector ? root : document
   const video =
     (scope.querySelector && scope.querySelector(HERO_VIDEO_SELECTOR)) ||
@@ -83,13 +129,17 @@ export function prepareHeroMedia(root = document) {
   video.playsInline = true
   video.setAttribute('playsinline', '')
   video.setAttribute('muted', '')
-  video.preload = 'metadata'
+  if (opts.deferSources === false) {
+    video.preload = 'metadata'
+  } else {
+    deferHeroVideoSources(video)
+  }
 
   return { video, posterUrl }
 }
 
 export function requestHeroVideoPlayback(root = document) {
-  const prepared = prepareHeroMedia(root)
+  const prepared = prepareHeroMedia(root, { deferSources: false })
   const video = prepared && prepared.video
   if (!video) return null
 
@@ -98,6 +148,7 @@ export function requestHeroVideoPlayback(root = document) {
   }
 
   video.__cominviHeroPlayRequested = true
+  restoreHeroVideoSources(video)
   const playPromise = video.play()
   if (playPromise && typeof playPromise.catch === 'function') {
     playPromise.catch(() => {

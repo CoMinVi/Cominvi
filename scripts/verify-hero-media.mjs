@@ -30,9 +30,15 @@ async function assertHeroMediaHelpers() {
     /export function /g,
     'function '
   )}
-;({ normalizeHeroPosterUrl, buildHeroImagePreloadAttrs })`
-  const { normalizeHeroPosterUrl, buildHeroImagePreloadAttrs } =
-    vm.runInNewContext(testableSource, {}, { filename: heroMediaPath.pathname })
+;({ normalizeHeroPosterUrl, buildHeroImagePreloadAttrs, deferHeroVideoSources, restoreHeroVideoSources })`
+  const {
+    normalizeHeroPosterUrl,
+    buildHeroImagePreloadAttrs,
+    deferHeroVideoSources,
+    restoreHeroVideoSources,
+  } = vm.runInNewContext(testableSource, {}, {
+    filename: heroMediaPath.pathname,
+  })
 
   assert(
     typeof normalizeHeroPosterUrl === 'function',
@@ -41,6 +47,14 @@ async function assertHeroMediaHelpers() {
   assert(
     typeof buildHeroImagePreloadAttrs === 'function',
     'buildHeroImagePreloadAttrs must be exported'
+  )
+  assert(
+    typeof deferHeroVideoSources === 'function',
+    'deferHeroVideoSources must be exported'
+  )
+  assert(
+    typeof restoreHeroVideoSources === 'function',
+    'restoreHeroVideoSources must be exported'
   )
 
   const dirtyUrl =
@@ -56,6 +70,60 @@ async function assertHeroMediaHelpers() {
   assert(attrs.as === 'image', 'hero preload must use as=image')
   assert(attrs.fetchPriority === 'high', 'hero preload must be high priority')
   assert(attrs.href === cleanUrl, 'hero preload href must use normalized poster')
+
+  function createFakeSource(attrs = {}) {
+    return {
+      attrs: { ...attrs },
+      getAttribute(name) {
+        return this.attrs[name] || null
+      },
+      setAttribute(name, value) {
+        this.attrs[name] = String(value)
+      },
+      removeAttribute(name) {
+        delete this.attrs[name]
+      },
+    }
+  }
+
+  const mp4Source = createFakeSource({ src: '/home-background.mp4' })
+  const webmSource = createFakeSource({ 'data-src': '/hero-transcode.webm' })
+  const fakeVideo = {
+    preload: 'auto',
+    sources: [mp4Source, webmSource],
+    querySelectorAll(selector) {
+      return selector === 'source' ? this.sources : []
+    },
+    setAttribute(name, value) {
+      this[name] = String(value)
+    },
+  }
+
+  const didDefer = deferHeroVideoSources(fakeVideo)
+  assert(didDefer === true, 'hero video sources should be deferred')
+  assert(
+    mp4Source.getAttribute('src') === null,
+    'existing source src should be removed during defer'
+  )
+  assert(
+    mp4Source.getAttribute('data-src') === '/home-background.mp4',
+    'existing source src should be preserved as data-src'
+  )
+  assert(
+    fakeVideo.preload === 'none',
+    'deferred hero video preload should be none'
+  )
+
+  const didRestore = restoreHeroVideoSources(fakeVideo)
+  assert(didRestore === true, 'hero video sources should be restored before play')
+  assert(
+    mp4Source.getAttribute('src') === '/home-background.mp4',
+    'mp4 source src should be restored from data-src'
+  )
+  assert(
+    webmSource.getAttribute('src') === '/hero-transcode.webm',
+    'existing data-src sources should be restored'
+  )
 }
 
 await assertFastStartMp4(publicMp4Path)

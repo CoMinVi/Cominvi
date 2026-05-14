@@ -1,12 +1,33 @@
 import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 
-import { initContact, initContactHero } from './contact.js'
+import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
 
 gsap.registerPlugin(CustomEase)
 
 const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
+
+function initContactMapWhenNeeded(container) {
+  try {
+    const isContact =
+      container &&
+      container.matches &&
+      container.matches('[data-barba-namespace="Contact"]')
+    if (!isContact) return
+    import('./contact.js')
+      .then(({ initContact }) => {
+        try {
+          initContact(container)
+        } catch (e) {
+          // ignore
+        }
+      })
+      .catch(() => {})
+  } catch (e) {
+    // ignore
+  }
+}
 
 function scrollToSectionNext(root) {
   try {
@@ -168,11 +189,7 @@ export function nextLeave({ current, trigger, next }) {
           inset: 0,
           zIndex: 0,
         })
-        try {
-          initContact(next && next.container)
-        } catch (e) {
-          // ignore
-        }
+        initContactMapWhenNeeded(next && next.container)
         // Pre-scale destination hero background immediately
         try {
           const bgInner =

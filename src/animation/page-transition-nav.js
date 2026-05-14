@@ -1,51 +1,29 @@
 import barba from '@barba/core'
 import { gsap } from 'gsap'
 
-import { reinitializeWebflowAnimations, initSticky50 } from '../utils/base.js'
-import { initAboutValuesScroll } from './about-scroll.js'
-import { initAbout } from './about-us.js'
-import { blogArticleInit } from './blog-article.js'
-import { initBlog } from './blog.js'
-import { initContact } from './contact.js'
-import { initCylinder } from './cylinder.js'
-import { initTeam } from './join-the-team.js'
-import { initMap } from './map.js'
-import { initMineralsCanvas } from './minerals-canvas-local-debug.js'
-import { initMinerals } from './minerals.js'
-import { initializeNav2, resetMenuLinksAnimationState } from './nav.js'
-import {
-  initParallax,
-  initHeroBackgroundParallax,
-  initNextBackgroundParallax,
-} from './parallax.js'
-import {
-  initVideoClipStickyTransform,
-  destroyVideoClipStickyTransform,
-} from './process-images.js'
-import { initProcessProgression } from './process-progression.js'
-import { initScrollList } from './scroll-list.js'
-import { initLenis, destroyLenis } from './scroll.js'
-import { initServiceCards } from './service-cards.js'
 import {
   initIcons,
   resetServiceCardIcons,
   destroyIcons,
-} from './service-icons.js'
+} from '../app/icons-runtime.js'
+import {
+  initAfterEnterModules,
+  initContainerModules,
+} from '../app/page-registry.js'
+import { reinitializeWebflowAnimations } from '../utils/base.js'
+import { initializeNav2, resetMenuLinksAnimationState } from './nav.js'
+import { initHeroBackgroundParallax } from './parallax.js'
+import { initLenis, destroyLenis } from './scroll.js'
 import {
   createViewportClipOverlay,
   resetOverlayClipBaseState,
 } from './svg-clip-overlay.js'
-import { initTechnology } from './technology.js'
-import { initTestimonials } from './testimonials.js'
-import { initTextDisplayReveal } from './text-display-reveal.js'
-import { initTextReveal } from './text-reveal.js'
 import {
   slideScaleLeave as innerLeave,
   slideScaleEnter as innerEnter,
 } from './transition-inner.js'
 import { nextLeave, nextEnter } from './transition-next.js'
 import { slideScaleLeave, slideScaleEnter } from './transition-slide-scale.js'
-import { destroyWorkshopsStickyImages } from './workshops.js'
 
 // Minimal Barba setup that focuses only on nav-related transitions
 export function initializePageTransitionNav() {
@@ -342,6 +320,26 @@ export function initializePageTransitionNav() {
     return ns === 'home'
   }
 
+  const destroyContactIfNeeded = (container) => {
+    try {
+      const ns = (getNamespaceFromContainer(container) || '')
+        .trim()
+        .toLowerCase()
+      if (ns !== 'contact') return
+      import('./contact.js')
+        .then(({ destroyContact }) => {
+          try {
+            if (typeof destroyContact === 'function') destroyContact(container)
+          } catch (e) {
+            // ignore
+          }
+        })
+        .catch(() => {})
+    } catch (e) {
+      // ignore
+    }
+  }
+
   const scheduleAfterHero = (fn) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -358,99 +356,11 @@ export function initializePageTransitionNav() {
     container,
     { includeScrollRefresh = false, includeTransitionEvent = false } = {}
   ) => {
-    initParallax(container)
-    initNextBackgroundParallax(container)
-    initServiceCards(container)
-    try {
-      initIcons(container)
-    } catch (e) {
-      /* ignore */
-    }
-    initTextReveal()
-    initMinerals()
-    initMineralsCanvas(container)
-    initScrollList()
-    initProcessProgression(container)
-    initTestimonials()
-    initTextDisplayReveal()
-    try {
-      initCylinder(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initSticky50(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initBlog(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      blogArticleInit(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initTeam(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      destroyWorkshopsStickyImages()
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initAbout(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initAboutValuesScroll(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      destroyVideoClipStickyTransform()
-    } catch (e) {
-      /* ignore */
-    }
-    initVideoClipStickyTransform(container)
-    try {
-      initMap(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initTechnology(container)
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      initContact(container)
-    } catch (e) {
-      /* ignore */
-    }
-    if (includeScrollRefresh) {
-      try {
-        const st = window.ScrollTrigger
-        if (st && typeof st.refresh === 'function') {
-          requestAnimationFrame(() => st.refresh())
-        }
-      } catch (e) {
-        /* ignore */
-      }
-    }
-    if (includeTransitionEvent) {
-      try {
-        window.dispatchEvent(new Event('page:transition:after'))
-      } catch (e) {
-        /* ignore */
-      }
-    }
+    initContainerModules(container, {
+      includeScrollRefresh,
+      includeTransitionEvent,
+      includeParallax: true,
+    })
   }
 
   const runPostTransitionInits = (
@@ -844,6 +754,7 @@ export function initializePageTransitionNav() {
     } catch (e) {
       /* ignore */
     }
+    destroyContactIfNeeded(current && current.container)
   })
 
   // Global fallback for nav that bypasses custom transitions
@@ -915,16 +826,6 @@ export function initializePageTransitionNav() {
     const isHome = isHomeNamespace(container)
     const runAfterEnterNonCritical = () => {
       try {
-        initServiceCards(container)
-      } catch (e) {
-        /* ignore */
-      }
-      try {
-        initAboutValuesScroll(container)
-      } catch (e) {
-        /* ignore */
-      }
-      try {
         requestAnimationFrame(() => {
           // If icons still not ready in this frame, queue one more microtask
           try {
@@ -946,7 +847,7 @@ export function initializePageTransitionNav() {
             /* ignore */
           }
           try {
-            initIcons(container)
+            initAfterEnterModules(container)
           } catch (e) {
             /* ignore */
           }

@@ -1,7 +1,7 @@
 import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 
-import { initContact, initContactHero } from './contact.js'
+import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
 import { addMenuLinksCloseToTimeline } from './nav.js'
 
@@ -22,6 +22,27 @@ gsap.registerPlugin(CustomEase)
 
 let lastTopOffsetPx = 0
 const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
+
+function initContactMapWhenNeeded(container) {
+  try {
+    const isContact =
+      container &&
+      container.matches &&
+      container.matches('[data-barba-namespace="Contact"]')
+    if (!isContact) return
+    import('./contact.js')
+      .then(({ initContact }) => {
+        try {
+          initContact(container)
+        } catch (e) {
+          // ignore
+        }
+      })
+      .catch(() => {})
+  } catch (e) {
+    // ignore
+  }
+}
 
 // Récupération sûre du thème destination sans ternaires/parenthèses qui gênent Prettier
 function getDestinationTheme() {
@@ -69,12 +90,8 @@ export function slideScaleLeave({ current }) {
 export function slideScaleEnter({ next }) {
   const nextPage = next.container.querySelector('.page-wrap') || next.container
 
-  // Initialize Contact page SDK map as early as possible for destination
-  try {
-    initContact(next && next.container)
-  } catch (e) {
-    // ignore
-  }
+  // Initialize Contact page SDK map early without keeping MapLibre in the shell.
+  initContactMapWhenNeeded(next && next.container)
 
   // Ensure next container is on top and visible while we animate its page
   gsap.set(next.container, {

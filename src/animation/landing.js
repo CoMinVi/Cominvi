@@ -1,6 +1,8 @@
 import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 
+import { requestHeroVideoPlayback } from '../app/hero-media.js'
+
 // Helper local pour éviter les retours d'import/order
 function getNavbarBaseOffset() {
   try {
@@ -23,23 +25,7 @@ export function heroAnimation(root = document, opts = {}) {
   const scope = root && root.querySelector ? root : document
   // Start hero background video immediately
   try {
-    const videoEl =
-      scope.querySelector('.hero-background .background_video video') ||
-      document.querySelector('.hero-background .background_video video')
-    if (videoEl) {
-      // Ensure autoplay-eligible state and restart from beginning
-      videoEl.muted = true
-      videoEl.playsInline = true
-      if (typeof videoEl.currentTime === 'number') videoEl.currentTime = 0
-      const p = videoEl.play()
-      if (p && typeof p.then === 'function') {
-        p.catch(() => {
-          // Retry muted play if the first attempt is blocked
-          videoEl.muted = true
-          videoEl.play().catch(() => void 0)
-        })
-      }
-    }
+    requestHeroVideoPlayback(scope)
   } catch (err) {
     // ignore
   }

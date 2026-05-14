@@ -360,6 +360,7 @@ export function initializePageTransitionNav() {
       includeScrollRefresh,
       includeTransitionEvent,
       includeParallax: true,
+      includeButtonHover: true,
     })
   }
 

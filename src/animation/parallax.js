@@ -438,12 +438,18 @@ export function initNextBackgroundParallax(root = document) {
       const section = bg.closest('.section_next') || bg.parentElement
       const cs = window.getComputedStyle(bg)
       if (cs.position === 'static') bg.style.position = 'absolute'
-      bg.style.inset = '0%'
+      bg.style.inset = 'auto'
+      bg.style.left = '50%'
+      bg.style.top = '50%'
+      bg.style.width = '120%'
+      bg.style.height = '120%'
       bg.style.overflow = 'hidden'
-      // Align with hero logic: animate the wrapper with a base scale(1.2)
+      // Match the hero background: 120% base size plus scale(1.2).
       gsap.set(bg, {
         transformOrigin: '50% 50%',
         willChange: 'transform',
+        xPercent: -50,
+        yPercent: -50,
         scale: 1.2,
       })
       return section || bg

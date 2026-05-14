@@ -90,7 +90,11 @@ async function assertHeroMediaHelpers() {
   const webmSource = createFakeSource({ 'data-src': '/hero-transcode.webm' })
   const fakeVideo = {
     preload: 'auto',
+    loadCalls: 0,
     sources: [mp4Source, webmSource],
+    load() {
+      this.loadCalls += 1
+    },
     querySelectorAll(selector) {
       return selector === 'source' ? this.sources : []
     },
@@ -116,6 +120,7 @@ async function assertHeroMediaHelpers() {
 
   const didRestore = restoreHeroVideoSources(fakeVideo)
   assert(didRestore === true, 'hero video sources should be restored before play')
+  assert(fakeVideo.loadCalls === 1, 'hero video should load after source restore')
   assert(
     mp4Source.getAttribute('src') === '/home-background.mp4',
     'mp4 source src should be restored from data-src'

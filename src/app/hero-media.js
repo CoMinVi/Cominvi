@@ -65,6 +65,10 @@ export function restoreHeroVideoSources(video) {
     }
   })
 
+  if (changed && typeof video.load === 'function') {
+    video.load()
+  }
+
   return changed
 }
 

@@ -26,10 +26,14 @@ async function loadPlanners() {
     /export function getMineralsInitialPreloadCount/.test(source),
     'getMineralsInitialPreloadCount should remain an explicit export'
   )
+  assert(
+    /export function shouldKeepMineralsQueuedIndex/.test(source),
+    'shouldKeepMineralsQueuedIndex should remain an explicit export'
+  )
   const testableSource = `${source
     .replace(/^import .*$/gm, '')
     .replace(/export function /g, 'function ')}
-;({ getMineralsFrameLoadPlan, getMineralsBatchPreloadPlan, getMineralsInitialPreloadCount })`
+;({ getMineralsFrameLoadPlan, getMineralsBatchPreloadPlan, getMineralsInitialPreloadCount, shouldKeepMineralsQueuedIndex })`
 
   return vm.runInNewContext(
     testableSource,
@@ -49,6 +53,7 @@ const {
   getMineralsFrameLoadPlan,
   getMineralsBatchPreloadPlan,
   getMineralsInitialPreloadCount,
+  shouldKeepMineralsQueuedIndex,
 } =
   await loadPlanners()
 
@@ -63,6 +68,10 @@ assert(
 assert(
   typeof getMineralsInitialPreloadCount === 'function',
   'getMineralsInitialPreloadCount must be exported'
+)
+assert(
+  typeof shouldKeepMineralsQueuedIndex === 'function',
+  'shouldKeepMineralsQueuedIndex must be exported'
 )
 
 assert(
@@ -151,6 +160,25 @@ assert(
     total: 32,
   }) === 32,
   'initial preload should not exceed sequence length'
+)
+
+assert(
+  shouldKeepMineralsQueuedIndex({
+    index: 24,
+    plannedIndices: new Set([0, 1, 2, 3, 4, 5, 6]),
+    initialPreloadIndices: new Set(Array.from({ length: 40 }, (_, index) => index)),
+    backgroundBatchIndices: new Set(),
+  }) === true,
+  'queued initial frames should be protected from directional pruning'
+)
+assert(
+  shouldKeepMineralsQueuedIndex({
+    index: 120,
+    plannedIndices: new Set([0, 1, 2, 3, 4, 5, 6]),
+    initialPreloadIndices: new Set(Array.from({ length: 40 }, (_, index) => index)),
+    backgroundBatchIndices: new Set(),
+  }) === false,
+  'unplanned non-initial queued frames should still be pruned'
 )
 
 const initialPlan = getMineralsFrameLoadPlan({

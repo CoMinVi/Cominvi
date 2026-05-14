@@ -112,6 +112,19 @@ export function getMineralsInitialPreloadCount({
   return Math.min(frameCount, Math.max(requested, minimum))
 }
 
+export function shouldKeepMineralsQueuedIndex({
+  index,
+  plannedIndices,
+  initialPreloadIndices,
+  backgroundBatchIndices,
+} = {}) {
+  return !!(
+    (plannedIndices && plannedIndices.has(index)) ||
+    (initialPreloadIndices && initialPreloadIndices.has(index)) ||
+    (backgroundBatchIndices && backgroundBatchIndices.has(index))
+  )
+}
+
 function info(...args) {
   // eslint-disable-next-line no-console
   console.log(LOG, ...args)
@@ -274,6 +287,7 @@ export function initMineralsCanvas(root = document) {
     const images = new Array(urls.length)
     const loadStates = new Array(urls.length).fill('idle')
     const pendingQueue = []
+    const initialPreloadIndices = new Set()
     const backgroundBatchIndices = new Set()
     let firstLoadedIndex = -1
     let loadedCount = 0
@@ -466,8 +480,12 @@ export function initMineralsCanvas(root = document) {
       for (let i = pendingQueue.length - 1; i >= 0; i -= 1) {
         const queuedIndex = pendingQueue[i]
         if (
-          keepIndices.has(queuedIndex) ||
-          backgroundBatchIndices.has(queuedIndex)
+          shouldKeepMineralsQueuedIndex({
+            index: queuedIndex,
+            plannedIndices: keepIndices,
+            initialPreloadIndices,
+            backgroundBatchIndices,
+          })
         ) {
           continue
         }
@@ -611,7 +629,9 @@ export function initMineralsCanvas(root = document) {
     })
     // Priorité absolue: index 0, pour affichage immédiat de la première frame.
     queueLoad(0, true)
+    initialPreloadIndices.add(0)
     for (let index = 1; index < initialCap; index += 1) {
+      initialPreloadIndices.add(index)
       queueLoad(index, false)
     }
     pumpQueue()
@@ -822,6 +842,7 @@ export function initMineralsCanvas(root = document) {
       images,
       loadStates,
       pendingQueue,
+      initialPreloadIndices,
       backgroundBatchIndices,
       render: renderCurrentFrame,
       canvas,

@@ -1,6 +1,16 @@
 import { initSticky50 } from '../utils/base.js'
 import { initIcons, resetServiceCardIcons } from './icons-runtime.js'
 
+const DEBUG_PREFIX = '[cominvi-registry]'
+
+function logRegistryDebug(label, data = {}) {
+  try {
+    console.log(DEBUG_PREFIX, label, data)
+  } catch (e) {
+    // ignore
+  }
+}
+
 function getScope(root = document) {
   return root && root.querySelector ? root : document
 }
@@ -57,11 +67,32 @@ function idle() {
 
 async function importAndRun(importer, exportName, root, ...args) {
   try {
+    logRegistryDebug('import:start', {
+      exportName,
+      namespace: getNamespace(root),
+    })
     const mod = await importer()
     const fn = mod && mod[exportName]
-    if (typeof fn === 'function') fn(root, ...args)
+    if (typeof fn === 'function') {
+      fn(root, ...args)
+      logRegistryDebug('import:ran', {
+        exportName,
+        namespace: getNamespace(root),
+      })
+    } else {
+      logRegistryDebug('import:missing-export', {
+        exportName,
+        keys: mod && Object.keys(mod),
+      })
+    }
     return mod
   } catch (e) {
+    logRegistryDebug('import:error', {
+      exportName,
+      namespace: getNamespace(root),
+      message: e && e.message,
+      stack: e && e.stack,
+    })
     return null
   }
 }
@@ -321,6 +352,11 @@ export async function initContainerModules(root = document, options = {}) {
     waitForIdle = false,
   } = options
 
+  logRegistryDebug('init:start', {
+    namespace: getNamespace(root),
+    options,
+  })
+
   if (waitForIdle) await idle()
 
   await initSharedSections(root, {
@@ -329,6 +365,9 @@ export async function initContainerModules(root = document, options = {}) {
     destroyVideoBeforeInit: true,
   })
   await initNamespace(root)
+  logRegistryDebug('init:modules-done', {
+    namespace: getNamespace(root),
+  })
 
   if (includeScrollRefresh) {
     try {
@@ -348,6 +387,9 @@ export async function initContainerModules(root = document, options = {}) {
       // ignore
     }
   }
+  logRegistryDebug('init:done', {
+    namespace: getNamespace(root),
+  })
 }
 
 export async function initAfterEnterModules(root = document) {

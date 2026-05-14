@@ -25,13 +25,10 @@
       "src/animation/blog.js",
       "src/animation/blog-article.js",
       "src/animation/join-the-team.js"
-    ],
-    "css": [
-      "assets/main-ecd60a45.css"
     ]
   },
   "src/animation/cylinder.js": {
-    "file": "assets/cylinder-ff0ae90d.js",
+    "file": "assets/cylinder-3a627b65.js",
     "src": "src/animation/cylinder.js",
     "isDynamicEntry": true,
     "imports": [
@@ -53,7 +50,7 @@
     "file": "assets/_commonjsHelpers-4cd88791.js"
   },
   "src/animation/button-hover.js": {
-    "file": "assets/button-hover-8900bfe4.js",
+    "file": "assets/button-hover-960b0667.js",
     "src": "src/animation/button-hover.js",
     "isDynamicEntry": true,
     "imports": [
@@ -61,7 +58,7 @@
     ]
   },
   "src/animation/service-cards.js": {
-    "file": "assets/service-cards-72fabdee.js",
+    "file": "assets/service-cards-cfbae77a.js",
     "src": "src/animation/service-cards.js",
     "isDynamicEntry": true,
     "imports": [
@@ -73,7 +70,7 @@
     "file": "assets/index-013926a7.js"
   },
   "src/animation/text-reveal.js": {
-    "file": "assets/text-reveal-ce4820ea.js",
+    "file": "assets/text-reveal-b36c4396.js",
     "src": "src/animation/text-reveal.js",
     "isDynamicEntry": true,
     "imports": [
@@ -82,7 +79,7 @@
     ]
   },
   "src/animation/minerals.js": {
-    "file": "assets/minerals-b2690d5a.js",
+    "file": "assets/minerals-e5677bb9.js",
     "src": "src/animation/minerals.js",
     "isDynamicEntry": true,
     "imports": [
@@ -90,7 +87,7 @@
     ]
   },
   "src/animation/minerals-canvas-local-debug.js": {
-    "file": "assets/minerals-canvas-local-debug-1dc1543d.js",
+    "file": "assets/minerals-canvas-local-debug-adcd2434.js",
     "src": "src/animation/minerals-canvas-local-debug.js",
     "isDynamicEntry": true,
     "imports": [
@@ -98,7 +95,7 @@
     ]
   },
   "src/animation/scroll-list.js": {
-    "file": "assets/scroll-list-1ec62c9c.js",
+    "file": "assets/scroll-list-a812cae9.js",
     "src": "src/animation/scroll-list.js",
     "isDynamicEntry": true,
     "imports": [
@@ -106,7 +103,7 @@
     ]
   },
   "src/animation/process-progression.js": {
-    "file": "assets/process-progression-7bea3bb4.js",
+    "file": "assets/process-progression-4bcd6d2c.js",
     "src": "src/animation/process-progression.js",
     "isDynamicEntry": true,
     "imports": [
@@ -114,7 +111,7 @@
     ]
   },
   "src/animation/testimonials.js": {
-    "file": "assets/testimonials-fc3a4208.js",
+    "file": "assets/testimonials-d5d152c2.js",
     "src": "src/animation/testimonials.js",
     "isDynamicEntry": true,
     "imports": [
@@ -122,7 +119,7 @@
     ]
   },
   "src/animation/text-display-reveal.js": {
-    "file": "assets/text-display-reveal-87a08e9d.js",
+    "file": "assets/text-display-reveal-55c5772b.js",
     "src": "src/animation/text-display-reveal.js",
     "isDynamicEntry": true,
     "imports": [
@@ -135,7 +132,7 @@
     "isDynamicEntry": true
   },
   "src/animation/map.js": {
-    "file": "assets/map-b2569418.js",
+    "file": "assets/map-3b452adc.js",
     "src": "src/animation/map.js",
     "isDynamicEntry": true,
     "imports": [
@@ -146,7 +143,7 @@
     ]
   },
   "src/animation/technology.js": {
-    "file": "assets/technology-14b2d052.js",
+    "file": "assets/technology-08f567e3.js",
     "src": "src/animation/technology.js",
     "isDynamicEntry": true,
     "imports": [
@@ -155,7 +152,7 @@
     ]
   },
   "src/animation/workshops.js": {
-    "file": "assets/workshops-77817b8c.js",
+    "file": "assets/workshops-de91da97.js",
     "src": "src/animation/workshops.js",
     "isDynamicEntry": true,
     "imports": [
@@ -163,7 +160,7 @@
     ]
   },
   "src/animation/about-us.js": {
-    "file": "assets/about-us-55692132.js",
+    "file": "assets/about-us-e70e153f.js",
     "src": "src/animation/about-us.js",
     "isDynamicEntry": true,
     "imports": [
@@ -173,7 +170,7 @@
     ]
   },
   "src/animation/about-scroll.js": {
-    "file": "assets/about-scroll-94141216.js",
+    "file": "assets/about-scroll-2d204960.js",
     "src": "src/animation/about-scroll.js",
     "isDynamicEntry": true,
     "imports": [
@@ -187,7 +184,7 @@
     "isDynamicEntry": true
   },
   "src/animation/blog-article.js": {
-    "file": "assets/blog-article-2bd20b4e.js",
+    "file": "assets/blog-article-a9eade8c.js",
     "src": "src/animation/blog-article.js",
     "isDynamicEntry": true,
     "imports": [
@@ -195,7 +192,7 @@
     ]
   },
   "src/animation/join-the-team.js": {
-    "file": "assets/join-the-team-1e0e5811.js",
+    "file": "assets/join-the-team-c33bebad.js",
     "src": "src/animation/join-the-team.js",
     "isDynamicEntry": true,
     "imports": [

@@ -1,5 +1,6 @@
 let iconsModule = null
 let iconsModulePromise = null
+const DEBUG_PREFIX = '[cominvi-icons]'
 
 const ICON_SELECTOR =
   '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie], .stat-card [data-lottie]'
@@ -24,8 +25,18 @@ export function hasIconTargets(root = document) {
 export function preloadIcons() {
   if (iconsModule) return Promise.resolve(iconsModule)
   if (!iconsModulePromise) {
+    try {
+      console.log(DEBUG_PREFIX, 'preload:start')
+    } catch (e) {
+      // ignore
+    }
     iconsModulePromise = import('../animation/service-icons.js').then((mod) => {
       iconsModule = mod
+      try {
+        console.log(DEBUG_PREFIX, 'preload:done', Object.keys(mod))
+      } catch (e) {
+        // ignore
+      }
       return mod
     })
   }

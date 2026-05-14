@@ -662,6 +662,12 @@ button.maplibregl-ctrl-compass {
   }
 }
 
+@media (min-width: 768px) and (max-width: 991px) {
+  .section_latest-technology .machines-grid-wrapper {
+    display: flex;
+  }
+}
+
 /* Hide machines sections on mobile and large mobile */
 @media (max-width: 767px) {
   .machines-wrapper,

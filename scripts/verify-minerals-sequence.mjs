@@ -22,10 +22,14 @@ async function loadPlanners() {
     /export function getMineralsBatchPreloadPlan/.test(source),
     'getMineralsBatchPreloadPlan should remain an explicit export'
   )
+  assert(
+    /export function getMineralsInitialPreloadCount/.test(source),
+    'getMineralsInitialPreloadCount should remain an explicit export'
+  )
   const testableSource = `${source
     .replace(/^import .*$/gm, '')
     .replace(/export function /g, 'function ')}
-;({ getMineralsFrameLoadPlan, getMineralsBatchPreloadPlan })`
+;({ getMineralsFrameLoadPlan, getMineralsBatchPreloadPlan, getMineralsInitialPreloadCount })`
 
   return vm.runInNewContext(
     testableSource,
@@ -41,7 +45,11 @@ function indices(plan) {
   return plan.map((item) => item.index)
 }
 
-const { getMineralsFrameLoadPlan, getMineralsBatchPreloadPlan } =
+const {
+  getMineralsFrameLoadPlan,
+  getMineralsBatchPreloadPlan,
+  getMineralsInitialPreloadCount,
+} =
   await loadPlanners()
 
 assert(
@@ -51,6 +59,10 @@ assert(
 assert(
   typeof getMineralsBatchPreloadPlan === 'function',
   'getMineralsBatchPreloadPlan must be exported'
+)
+assert(
+  typeof getMineralsInitialPreloadCount === 'function',
+  'getMineralsInitialPreloadCount must be exported'
 )
 
 assert(
@@ -114,6 +126,31 @@ assert(
     batchSize: 30,
   }).length === 0,
   'background batches should be empty after the sequence end'
+)
+
+assert(
+  getMineralsInitialPreloadCount({
+    requestedCount: 7,
+    minimumCount: 40,
+    total: 600,
+  }) === 40,
+  'initial preload should enforce 40 frames even when Webflow attr is lower'
+)
+assert(
+  getMineralsInitialPreloadCount({
+    requestedCount: 60,
+    minimumCount: 40,
+    total: 600,
+  }) === 60,
+  'initial preload should preserve higher explicit values'
+)
+assert(
+  getMineralsInitialPreloadCount({
+    requestedCount: 60,
+    minimumCount: 40,
+    total: 32,
+  }) === 32,
+  'initial preload should not exceed sequence length'
 )
 
 const initialPlan = getMineralsFrameLoadPlan({

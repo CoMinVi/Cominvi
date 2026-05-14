@@ -99,6 +99,19 @@ export function getMineralsBatchPreloadPlan({
   return plan
 }
 
+export function getMineralsInitialPreloadCount({
+  requestedCount,
+  minimumCount = DEFAULT_INITIAL_PRELOAD,
+  total,
+} = {}) {
+  const frameCount = Math.max(0, Math.floor(total || 0))
+  if (!frameCount) return 0
+
+  const requested = Math.max(1, Math.floor(requestedCount || 0))
+  const minimum = Math.max(1, Math.floor(minimumCount || 1))
+  return Math.min(frameCount, Math.max(requested, minimum))
+}
+
 function info(...args) {
   // eslint-disable-next-line no-console
   console.log(LOG, ...args)
@@ -591,7 +604,11 @@ export function initMineralsCanvas(root = document) {
       lastRenderSignature = signature
     }
 
-    const initialCap = Math.min(urls.length, Math.max(1, initialPreloadCount))
+    const initialCap = getMineralsInitialPreloadCount({
+      requestedCount: initialPreloadCount,
+      minimumCount: DEFAULT_INITIAL_PRELOAD,
+      total: urls.length,
+    })
     // Priorité absolue: index 0, pour affichage immédiat de la première frame.
     queueLoad(0, true)
     for (let index = 1; index < initialCap; index += 1) {

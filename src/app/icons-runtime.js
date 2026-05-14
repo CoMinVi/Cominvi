@@ -5,6 +5,7 @@ const DEBUG_PREFIX = '[cominvi-icons]'
 const ICON_CARD_SELECTOR = '.service-card, .team-card, .stats-card, .stat-card'
 const ICON_PREPARED_ATTR = 'data-lottie-lazy-prepared'
 const ICON_PLACEHOLDER_ATTR = 'data-lottie-placeholder-ready'
+const ICON_WARMUP_ROOT_MARGIN = '900px 0px'
 const ICON_SELECTOR =
   '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie], .stat-card [data-lottie]'
 
@@ -116,7 +117,7 @@ function attachIntersectionWarmup(root, icons) {
       },
       {
         root: null,
-        rootMargin: '350px 0px',
+        rootMargin: ICON_WARMUP_ROOT_MARGIN,
         threshold: 0.01,
       }
     )

@@ -4,6 +4,7 @@ import { initializePageTransitionNav } from './animation/page-transition-nav.js'
 import { initParallax } from './animation/parallax.js'
 import { initLenis } from './animation/scroll.js'
 import { createViewportClipOverlay } from './animation/svg-clip-overlay.js'
+import { prepareIcons } from './app/icons-runtime.js'
 import { initContainerModules } from './app/page-registry.js'
 import siteStyles from './styles/style.css?inline'
 
@@ -94,6 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Priorité home: initialiser d'abord le hero.
   initParallax()
   logDebug('shell:hero-parallax-ready')
+  try {
+    prepareIcons(document)
+    logDebug('shell:icons-prepared')
+  } catch (e) {
+    logDebug('shell:icons-prepare-error', { message: e && e.message })
+  }
   try {
     if (document.querySelector('.cylindar__wrapper')) {
       import('./animation/cylinder.js')

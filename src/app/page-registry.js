@@ -1,5 +1,5 @@
 import { initSticky50 } from '../utils/base.js'
-import { initIcons, resetServiceCardIcons } from './icons-runtime.js'
+import { prepareIcons, resetServiceCardIcons } from './icons-runtime.js'
 
 const DEBUG_PREFIX = '[cominvi-registry]'
 
@@ -153,7 +153,11 @@ async function initSharedSections(root, options = {}) {
       '.service-icon_icon, [data-lottie], .stats-card, .stat-card, .service-card, .team-card'
     )
   ) {
-    jobs.push(initIcons(root))
+    try {
+      prepareIcons(root)
+    } catch (e) {
+      // keep page init resilient
+    }
   }
 
   if (has(root, '[tr="1"], .section_process')) {
@@ -414,5 +418,9 @@ export async function initAfterEnterModules(root = document) {
   } catch (e) {
     // ignore
   }
-  await initIcons(root)
+  try {
+    prepareIcons(root)
+  } catch (e) {
+    // keep transition resilient
+  }
 }

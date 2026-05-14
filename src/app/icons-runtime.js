@@ -2,11 +2,55 @@ let iconsModule = null
 let iconsModulePromise = null
 const DEBUG_PREFIX = '[cominvi-icons]'
 
+const ICON_CARD_SELECTOR = '.service-card, .team-card, .stats-card, .stat-card'
+const ICON_PREPARED_ATTR = 'data-lottie-lazy-prepared'
+const ICON_PLACEHOLDER_ATTR = 'data-lottie-placeholder-ready'
 const ICON_SELECTOR =
   '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie], .stat-card [data-lottie]'
 
 function getScope(root = document) {
   return root && root.querySelector ? root : document
+}
+
+function getIconTargets(root = document) {
+  try {
+    const scope = getScope(root)
+    return Array.from(scope.querySelectorAll(ICON_SELECTOR))
+  } catch (e) {
+    return []
+  }
+}
+
+function getIconCard(icon) {
+  try {
+    return icon.closest(ICON_CARD_SELECTOR) || icon
+  } catch (e) {
+    return icon
+  }
+}
+
+function prepareIconPlaceholder(icon) {
+  try {
+    if (!icon || icon.getAttribute(ICON_PLACEHOLDER_ATTR) === 'true') return
+    icon.setAttribute(ICON_PLACEHOLDER_ATTR, 'true')
+    icon.setAttribute('aria-hidden', 'true')
+
+    if (icon.innerHTML.trim()) {
+      icon.__lottieLazyPlaceholderHTML = icon.innerHTML
+    }
+
+    icon.style.visibility = 'visible'
+    icon.style.opacity = '1'
+    if (!icon.style.display) icon.style.display = 'block'
+  } catch (e) {
+    // keep the existing visual state
+  }
+}
+
+function prepareIconPlaceholders(root = document) {
+  const icons = getIconTargets(root)
+  icons.forEach(prepareIconPlaceholder)
+  return icons
 }
 
 export function hasIconTargets(root = document) {
@@ -43,18 +87,157 @@ export function preloadIcons() {
   return iconsModulePromise
 }
 
-export function initIcons(root = document) {
-  if (!hasIconTargets(root)) return Promise.resolve(null)
+function loadIconsFor(root, reason, icon = null) {
   return preloadIcons()
     .then((mod) => {
       try {
-        mod.initIcons(root)
+        if (typeof mod.initIcons === 'function') {
+          mod.initIcons(root, { reason, icon })
+        }
       } catch (e) {
-        // ignore
+        // keep placeholders visible
       }
       return mod
     })
     .catch(() => null)
+}
+
+function attachIntersectionWarmup(root, icons) {
+  if (typeof IntersectionObserver === 'undefined') return false
+  try {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return
+          const icon = entry.target
+          observer.unobserve(icon)
+          loadIconsFor(root, 'intersection', icon)
+        })
+      },
+      {
+        root: null,
+        rootMargin: '350px 0px',
+        threshold: 0.01,
+      }
+    )
+
+    icons.forEach((icon) => {
+      if (icon.__lottieLazyIntersectionObserver) return
+      observer.observe(icon)
+      icon.__lottieLazyIntersectionObserver = observer
+    })
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
+function attachPointerWarmup(root, icons) {
+  icons.forEach((icon) => {
+    const card = getIconCard(icon)
+    if (!card || card.__lottieLazyPointerBound) return
+
+    const onPointerEnter = () => {
+      try {
+        icon.__lottieLazyPendingHover = 'enter'
+      } catch (e) {
+        // ignore
+      }
+      loadIconsFor(root, 'pointerenter', icon)
+    }
+    const onPointerLeave = () => {
+      try {
+        icon.__lottieLazyPendingHover = null
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    card.addEventListener('pointerenter', onPointerEnter, { passive: true })
+    card.addEventListener('mouseenter', onPointerEnter)
+    card.addEventListener('pointerleave', onPointerLeave, { passive: true })
+    card.addEventListener('mouseleave', onPointerLeave)
+    card.__lottieLazyPointerEnter = onPointerEnter
+    card.__lottieLazyPointerLeave = onPointerLeave
+    card.__lottieLazyPointerBound = true
+  })
+}
+
+function attachLazyTriggers(root, icons) {
+  const hasIntersection = attachIntersectionWarmup(root, icons)
+  attachPointerWarmup(root, icons)
+
+  if (!hasIntersection) {
+    try {
+      window.requestIdleCallback
+        ? window.requestIdleCallback(
+            () => loadIconsFor(root, 'idle-fallback'),
+            {
+              timeout: 2000,
+            }
+          )
+        : setTimeout(() => loadIconsFor(root, 'timer-fallback'), 2000)
+    } catch (e) {
+      setTimeout(() => loadIconsFor(root, 'timer-fallback'), 2000)
+    }
+  }
+}
+
+function destroyLazyRuntime(root = document) {
+  const icons = getIconTargets(root)
+  icons.forEach((icon) => {
+    try {
+      if (
+        icon.__lottieLazyIntersectionObserver &&
+        typeof icon.__lottieLazyIntersectionObserver.unobserve === 'function'
+      ) {
+        icon.__lottieLazyIntersectionObserver.unobserve(icon)
+      }
+      icon.__lottieLazyIntersectionObserver = null
+      icon.__lottieLazyPendingHover = null
+    } catch (e) {
+      // ignore
+    }
+  })
+
+  try {
+    const scope = getScope(root)
+    Array.from(scope.querySelectorAll(ICON_CARD_SELECTOR)).forEach((card) => {
+      if (card.__lottieLazyPointerBound && card.__lottieLazyPointerEnter) {
+        card.removeEventListener('pointerenter', card.__lottieLazyPointerEnter)
+        card.removeEventListener('mouseenter', card.__lottieLazyPointerEnter)
+      }
+      if (card.__lottieLazyPointerBound && card.__lottieLazyPointerLeave) {
+        card.removeEventListener('pointerleave', card.__lottieLazyPointerLeave)
+        card.removeEventListener('mouseleave', card.__lottieLazyPointerLeave)
+      }
+      card.__lottieLazyPointerEnter = null
+      card.__lottieLazyPointerLeave = null
+      card.__lottieLazyPointerBound = false
+    })
+  } catch (e) {
+    // ignore
+  }
+}
+
+export function prepareIcons(root = document) {
+  const icons = prepareIconPlaceholders(root)
+  if (!icons.length) return
+  icons.forEach((icon) => {
+    try {
+      icon.setAttribute(ICON_PREPARED_ATTR, 'true')
+    } catch (e) {
+      // ignore
+    }
+  })
+  attachLazyTriggers(root, icons)
+}
+
+export function initIcons(root = document, opts = {}) {
+  if (!hasIconTargets(root)) return Promise.resolve(null)
+  const reason = opts && opts.reason ? opts.reason : 'manual'
+  const icon = opts && opts.icon ? opts.icon : null
+  return loadIconsFor(root, reason, icon)
 }
 
 export function resetServiceCardIcons(root = document) {
@@ -71,6 +254,7 @@ export function resetServiceCardIcons(root = document) {
 }
 
 export function destroyIcons(root = document) {
+  destroyLazyRuntime(root)
   try {
     if (iconsModule && typeof iconsModule.destroyIcons === 'function') {
       iconsModule.destroyIcons(root)

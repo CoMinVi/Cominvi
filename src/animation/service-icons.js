@@ -59,9 +59,11 @@ function getAssetBaseOrigin() {
   return __assetBaseOrigin
 }
 
-export function initIcons(root = document) {
+export function initIcons(root = document, opts = {}) {
   try {
     const scope = root && root.querySelector ? root : document
+    const requestedIcon = opts && opts.icon ? opts.icon : null
+    const reason = opts && opts.reason ? opts.reason : 'manual'
     const ensureStatsIconStructure = () => {
       try {
         const statsCards = Array.from(
@@ -186,6 +188,9 @@ export function initIcons(root = document) {
     // hover binding is now enabled on all devices; desktop check removed
 
     let icons = Array.from(scope.querySelectorAll(ICON_SELECTOR))
+    if (requestedIcon && icons.includes(requestedIcon)) {
+      icons = [requestedIcon]
+    }
 
     // If none found yet (e.g., DOM not fully attached by Barba), watch container and retry once
     if (!icons.length && scope && scope.nodeType === 1) {
@@ -203,7 +208,7 @@ export function initIcons(root = document) {
                 waitObs.disconnect()
                 scope.__svcIconWaitObs = null
                 // Re-enter init to bind icons now present
-                initIcons(scope)
+                initIcons(scope, opts)
               }
             } catch (e) {
               /* ignore */
@@ -217,6 +222,9 @@ export function initIcons(root = document) {
       }
       ensureStatsIconStructure()
       icons = Array.from(scope.querySelectorAll(ICON_SELECTOR))
+      if (requestedIcon && icons.includes(requestedIcon)) {
+        icons = [requestedIcon]
+      }
       if (!icons.length) return
     }
 
@@ -285,6 +293,24 @@ export function initIcons(root = document) {
 
     const recreateAnimation = (icon) => {
       try {
+        const restorePlaceholder = () => {
+          try {
+            if (
+              icon.__lottieLazyPlaceholderHTML &&
+              !icon.querySelector('svg')
+            ) {
+              icon.innerHTML = icon.__lottieLazyPlaceholderHTML
+            }
+            icon.__lottieLazyLoaded = false
+            icon.removeAttribute &&
+              icon.removeAttribute('data-lottie-lazy-loaded')
+            icon.style && (icon.style.visibility = 'visible')
+            icon.style && (icon.style.opacity = '1')
+            icon.style && (icon.style.display = icon.style.display || 'block')
+          } catch (e) {
+            // keep current visual state
+          }
+        }
         const lottie = getLottieLib()
         // Resolve path from data-lottie (URL or id) or legacy WF attributes
         let path = null
@@ -356,13 +382,35 @@ export function initIcons(root = document) {
         } catch (e) {
           /* ignore */
         }
-        const a = lottie.loadAnimation({
-          container: icon,
-          renderer: 'svg',
-          loop: false,
-          autoplay: false,
-          path: resolvedPath,
-        })
+        let a = null
+        try {
+          a = lottie.loadAnimation({
+            container: icon,
+            renderer: 'svg',
+            loop: false,
+            autoplay: false,
+            path: resolvedPath,
+          })
+        } catch (e) {
+          restorePlaceholder()
+          return null
+        }
+        if (!a) {
+          restorePlaceholder()
+          return null
+        }
+        try {
+          a.addEventListener &&
+            a.addEventListener('data_failed', restorePlaceholder)
+        } catch (e) {
+          // ignore
+        }
+        try {
+          icon.__lottieLazyLoaded = true
+          icon.setAttribute('data-lottie-lazy-loaded', reason)
+        } catch (e) {
+          // ignore
+        }
         // Now that we control the instance, prevent any re-init by Webflow and ensure visibility
         try {
           icon.removeAttribute && icon.removeAttribute('data-animation-type')
@@ -415,6 +463,12 @@ export function initIcons(root = document) {
       //   icon.getAttribute('data-w-id') || icon.getAttribute('data-src') || ''
 
       const onReadyWrap = (anim, pendingRef) => {
+        try {
+          icon.__lottieLazyLoaded = true
+          icon.setAttribute('data-lottie-lazy-loaded', reason)
+        } catch (e) {
+          // ignore
+        }
         try {
           anim.goToAndStop(0, true)
         } catch (e) {
@@ -566,8 +620,10 @@ export function initIcons(root = document) {
                     } catch (e) {
                       /* ignore */
                     }
+                    icon.__svcIconBound = false
                     const bound = bindIcon(icon)
                     if (bound && bound.bind) bound.bind(a2, pendingRef)
+                    icon.__svcIconBound = true
                     return true
                   }
                   if (!tryBindSwap()) {
@@ -619,7 +675,10 @@ export function initIcons(root = document) {
       } catch (e) {
         anim = getAnim(icon)
       }
-      const pending = { pending: null }
+      const pending = {
+        pending: icon.__lottieLazyPendingHover === 'enter' ? 'first' : null,
+      }
+      icon.__lottieLazyPendingHover = null
       if (!anim) {
         // Wait for Webflow to inject the SVG/Lottie instance, then bind
         try {
@@ -917,6 +976,7 @@ export function resetServiceCardIcons(root = document) {
 
     icons.forEach((icon) => {
       try {
+        if (!icon.__lottieLazyLoaded && !icon.__svcAnim) return
         const anim = getAnimForIcon(icon)
         if (!anim) return
         try {
@@ -961,7 +1021,9 @@ export function destroyIcons(root = document) {
   try {
     const scope = root && root.querySelector ? root : document
     const cards = Array.from(
-      scope.querySelectorAll('.service-card, .team-card')
+      scope.querySelectorAll(
+        '.service-card, .team-card, .stats-card, .stat-card'
+      )
     )
     cards.forEach((card) => {
       try {

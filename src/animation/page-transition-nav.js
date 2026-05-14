@@ -2,7 +2,7 @@ import barba from '@barba/core'
 import { gsap } from 'gsap'
 
 import {
-  initIcons,
+  prepareIcons,
   resetServiceCardIcons,
   destroyIcons,
 } from '../app/icons-runtime.js'
@@ -769,7 +769,7 @@ export function initializePageTransitionNav() {
         /* ignore */
       }
       try {
-        initIcons(next && next.container)
+        prepareIcons(next && next.container)
       } catch (e) {
         /* ignore */
       }
@@ -868,7 +868,7 @@ export function initializePageTransitionNav() {
                 } catch (e) {
                   /* ignore */
                 }
-                initIcons(container)
+                prepareIcons(container)
               } catch (e) {
                 /* ignore */
               }

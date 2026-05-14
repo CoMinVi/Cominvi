@@ -14,6 +14,8 @@ const DEFAULT_PRELOAD_BEHIND = 2
 const DEFAULT_MEDIUM_PRELOAD_AHEAD = 16
 const DEFAULT_FAST_PRELOAD_AHEAD = 32
 const DEFAULT_MAX_LOAD_PLAN = 40
+const DEFAULT_SPARSE_WARMUP_STRIDE = 18
+const DEFAULT_SPARSE_WARMUP_MAX_PLAN = 40
 const DEFAULT_CONCURRENCY = 4
 const DEFAULT_ACTIVE_CONCURRENCY = 6
 
@@ -67,6 +69,35 @@ export function getMineralsFrameLoadPlan({
     offset += 1
   ) {
     addPlanItem(plan, seen, target - direction * offset, frameCount, false)
+  }
+
+  return plan
+}
+
+export function getMineralsSparseWarmupPlan({
+  total,
+  stride = DEFAULT_SPARSE_WARMUP_STRIDE,
+  maxPlan = DEFAULT_SPARSE_WARMUP_MAX_PLAN,
+  includeFirst = true,
+} = {}) {
+  const frameCount = Math.max(0, Math.floor(total || 0))
+  if (!frameCount) return []
+
+  const step = Math.max(1, Math.floor(stride || 1))
+  const boundedMaxPlan = Math.max(1, Math.min(frameCount, maxPlan))
+  const plan = []
+  const seen = new Set()
+
+  if (includeFirst) {
+    addPlanItem(plan, seen, 0, frameCount, false)
+  }
+
+  for (
+    let index = step;
+    index < frameCount && plan.length < boundedMaxPlan;
+    index += step
+  ) {
+    addPlanItem(plan, seen, index, frameCount, false)
   }
 
   return plan
@@ -210,6 +241,14 @@ export function initMineralsCanvas(root = document) {
       component.getAttribute('fc-image-scrubbing-max-load-plan'),
       DEFAULT_MAX_LOAD_PLAN
     )
+    const sparseWarmupStride = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-sparse-warmup-stride'),
+      DEFAULT_SPARSE_WARMUP_STRIDE
+    )
+    const sparseWarmupMaxPlan = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-sparse-warmup-max-plan'),
+      DEFAULT_SPARSE_WARMUP_MAX_PLAN
+    )
     const maxConcurrency = Math.max(
       1,
       parsePositiveInt(
@@ -230,6 +269,7 @@ export function initMineralsCanvas(root = document) {
     const images = new Array(urls.length)
     const loadStates = new Array(urls.length).fill('idle')
     const pendingQueue = []
+    const sparseWarmupIndices = new Set()
     let firstLoadedIndex = -1
     let loadedCount = 0
     let activeLoads = 0
@@ -420,7 +460,12 @@ export function initMineralsCanvas(root = document) {
 
       for (let i = pendingQueue.length - 1; i >= 0; i -= 1) {
         const queuedIndex = pendingQueue[i]
-        if (keepIndices.has(queuedIndex)) continue
+        if (
+          keepIndices.has(queuedIndex) ||
+          sparseWarmupIndices.has(queuedIndex)
+        ) {
+          continue
+        }
         pendingQueue.splice(i, 1)
         if (loadStates[queuedIndex] === 'queued') {
           loadStates[queuedIndex] = 'idle'
@@ -564,11 +609,25 @@ export function initMineralsCanvas(root = document) {
 
     const triggerAdaptiveWarmup = () => {
       if (destroyed) return
+      if (!sparseWarmupTriggered) {
+        sparseWarmupTriggered = true
+        const sparsePlan = getMineralsSparseWarmupPlan({
+          total: urls.length,
+          stride: sparseWarmupStride,
+          maxPlan: sparseWarmupMaxPlan,
+          includeFirst: false,
+        })
+        sparsePlan.forEach((item) => {
+          sparseWarmupIndices.add(item.index)
+          queueLoad(item.index, item.highPriority)
+        })
+      }
       scheduleDirectionalPreload(state.frame)
     }
 
-    const BACKGROUND_PRELOAD_DELAY_AFTER_LOADER = 800
-    const BACKGROUND_PRELOAD_DELAY_AFTER_LOAD = 2000
+    let sparseWarmupTriggered = false
+    const BACKGROUND_PRELOAD_DELAY_AFTER_LOADER = 0
+    const BACKGROUND_PRELOAD_DELAY_AFTER_LOAD = 1000
     const cleanupCallbacks = []
 
     const scheduleBackgroundPreload = (delay) => {
@@ -669,6 +728,8 @@ export function initMineralsCanvas(root = document) {
       mediumPreloadAhead,
       fastPreloadAhead,
       maxLoadPlan,
+      sparseWarmupStride,
+      sparseWarmupMaxPlan,
       maxConcurrency,
       activeConcurrency,
       canvasWidth: canvas.clientWidth,
@@ -709,6 +770,7 @@ export function initMineralsCanvas(root = document) {
       images,
       loadStates,
       pendingQueue,
+      sparseWarmupIndices,
       render: renderCurrentFrame,
       canvas,
       component,

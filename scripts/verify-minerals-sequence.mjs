@@ -12,16 +12,20 @@ function assert(condition, message) {
   }
 }
 
-async function loadPlanner() {
+async function loadPlanners() {
   const source = await readFile(mineralsCanvasPath, 'utf8')
   assert(
     /export function getMineralsFrameLoadPlan/.test(source),
     'getMineralsFrameLoadPlan should remain an explicit export'
   )
+  assert(
+    /export function getMineralsSparseWarmupPlan/.test(source),
+    'getMineralsSparseWarmupPlan should remain an explicit export'
+  )
   const testableSource = `${source
     .replace(/^import .*$/gm, '')
     .replace(/export function /g, 'function ')}
-;({ getMineralsFrameLoadPlan })`
+;({ getMineralsFrameLoadPlan, getMineralsSparseWarmupPlan })`
 
   return vm.runInNewContext(
     testableSource,
@@ -30,18 +34,23 @@ async function loadPlanner() {
       ScrollTrigger: {},
     },
     { filename: mineralsCanvasPath.pathname }
-  ).getMineralsFrameLoadPlan
+  )
 }
 
 function indices(plan) {
   return plan.map((item) => item.index)
 }
 
-const getMineralsFrameLoadPlan = await loadPlanner()
+const { getMineralsFrameLoadPlan, getMineralsSparseWarmupPlan } =
+  await loadPlanners()
 
 assert(
   typeof getMineralsFrameLoadPlan === 'function',
   'getMineralsFrameLoadPlan must be exported'
+)
+assert(
+  typeof getMineralsSparseWarmupPlan === 'function',
+  'getMineralsSparseWarmupPlan must be exported'
 )
 
 assert(
@@ -61,6 +70,43 @@ assert(
     maxPlan: 3,
   }).length === 3,
   'maxPlan should cap even fast scroll plans'
+)
+
+const sparseWarmupPlan = getMineralsSparseWarmupPlan({
+  total: 600,
+  stride: 24,
+  maxPlan: 32,
+  includeFirst: false,
+})
+const sparseWarmupIndices = indices(sparseWarmupPlan)
+
+assert(
+  sparseWarmupPlan.length <= 32,
+  'sparse warmup should stay bounded by maxPlan'
+)
+assert(
+  sparseWarmupIndices[0] === 24,
+  'sparse warmup should start after already-loaded initial frames when includeFirst is false'
+)
+assert(
+  sparseWarmupIndices.includes(576),
+  'sparse warmup should cover the end of a 600-frame sequence'
+)
+assert(
+  sparseWarmupPlan.every((item) => item.highPriority === false),
+  'sparse warmup should be low priority'
+)
+assert(
+  sparseWarmupIndices.every((index, position, list) => position === 0 || index > list[position - 1]),
+  'sparse warmup should be ordered and deduplicated'
+)
+assert(
+  Math.max(
+    ...Array.from({ length: 600 }, (_, index) =>
+      Math.min(...sparseWarmupIndices.map((loadedIndex) => Math.abs(loadedIndex - index)))
+    )
+  ) <= 24,
+  'sparse warmup should keep any target near a fallback frame'
 )
 
 const initialPlan = getMineralsFrameLoadPlan({

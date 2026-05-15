@@ -106,7 +106,7 @@ export function initCylinder(root = document) {
   const getMobileCenterBias = () => {
     const value = parseFloat(wrapper?.dataset?.cylinderCenterBias)
     if (Number.isFinite(value)) return value
-    return 0
+    return getViewportHeight() * -0.025
   }
 
   const getMobilePinTotal = () => 2500
@@ -115,57 +115,64 @@ export function initCylinder(root = document) {
     Math.max(1, getMobilePinTotal() - getViewportHeight())
 
   let isCylinderPinned = false
-  let cylinderProgress = 0
 
-  const syncCylinderVisualOffset = (mainTrigger) => {
+  const syncCylinderVisualOffset = () => {
     try {
       if (!isMobileViewport()) {
         wrapper.style.removeProperty('--cylinder-visual-offset')
         return
       }
       if (!isCylinderPinned) {
-        if (cylinderProgress <= 0) {
-          wrapper.style.removeProperty('--cylinder-visual-offset')
+        return
+      }
+
+      for (let i = 0; i < 2; i += 1) {
+        const textSpans = Array.from(
+          wrapper.querySelectorAll('.cylindar__text__item .body-xl')
+        )
+        let top = Infinity
+        let bottom = -Infinity
+        textSpans.forEach((span) => {
+          const rect = span.getBoundingClientRect()
+          if (
+            !Number.isFinite(rect.top) ||
+            !Number.isFinite(rect.bottom) ||
+            rect.width <= 0 ||
+            rect.height <= 0
+          ) {
+            return
+          }
+
+          top = Math.min(top, rect.top)
+          bottom = Math.max(bottom, rect.bottom)
+        })
+
+        if (
+          !Number.isFinite(top) ||
+          !Number.isFinite(bottom) ||
+          bottom <= top
+        ) {
+          return
         }
-        return
+
+        const targetCenter = getViewportCenter() + getMobileCenterBias()
+        const visualCenter = top + (bottom - top) / 2
+        const delta = targetCenter - visualCenter
+        if (Math.abs(delta) < 0.5) return
+
+        const currentOffset =
+          parseFloat(
+            wrapper.style.getPropertyValue('--cylinder-visual-offset') || '0'
+          ) || 0
+        const progress =
+          trigger && Number.isFinite(trigger.progress) ? trigger.progress : 0
+        const ramp = Math.min(Math.max(progress / 0.08, 0), 1)
+        const targetOffset = currentOffset + delta
+        wrapper.style.setProperty(
+          '--cylinder-visual-offset',
+          `${targetOffset * ramp}px`
+        )
       }
-
-      // Ne pas agréger tous les .body-xl : en 3D, les éléments sur les côtés ont
-      // des getBoundingClientRect() très faux → delta énorme et saut brutal au pin.
-      const progress =
-        mainTrigger && Number.isFinite(mainTrigger.progress)
-          ? mainTrigger.progress
-          : 0
-      const n = items.length
-      const idx = Math.max(
-        0,
-        Math.min(n - 1, Math.round(progress * Math.max(1, n - 1)))
-      )
-      const itemEl = items[idx]
-      const span = itemEl && itemEl.querySelector('.body-xl')
-      if (!span) return
-
-      const rect = span.getBoundingClientRect()
-      if (
-        !Number.isFinite(rect.top) ||
-        !Number.isFinite(rect.height) ||
-        rect.width <= 0 ||
-        rect.height <= 0
-      ) {
-        return
-      }
-
-      const targetCenter = getViewportCenter() + getMobileCenterBias()
-      const visualCenter = rect.top + rect.height / 2
-      const delta = targetCenter - visualCenter
-      if (Math.abs(delta) < 0.25) return
-
-      const currentOffset =
-        parseFloat(
-          wrapper.style.getPropertyValue('--cylinder-visual-offset') || '0'
-        ) || 0
-      const nextOffset = currentOffset + delta
-      wrapper.style.setProperty('--cylinder-visual-offset', `${nextOffset}px`)
     } catch (e) {
       // ignore
     }
@@ -400,14 +407,12 @@ export function initCylinder(root = document) {
   const trigger = ScrollTrigger.create({
     trigger: triggerEl,
     scroller: cylinderScroller,
-    // Même logique que desktop : le bloc est déjà centré quand le pin démarre,
-    // ce qui évite une grosse correction --cylinder-visual-offset au passage en sticky.
-    start: 'center center',
+    start: () => (isMobileViewport() ? 'top top' : 'center center'),
     end: () =>
       isMobileViewport() ? `+=${getMobilePinDistance()}` : '+=2000svh',
     pin: wrapper,
-    // anticipatePin sur mobile peut exacerber un décalage une frame avant/après le pin
-    anticipatePin: isMobileViewport() ? 0 : 1,
+    // Prevent visual jumps when ancestors transform (menu open/close)
+    anticipatePin: 1,
     pinReparent: !usesWindowScroller,
     // keep default pinSpacing to preserve layout consistency
     invalidateOnRefresh: true,
@@ -417,13 +422,14 @@ export function initCylinder(root = document) {
     onRefresh: enforceSpacerHeight,
     onToggle: (self) => {
       isCylinderPinned = self.isActive
-      cylinderProgress = self.progress
-      syncCylinderVisualOffset(self)
+      if (!self.isActive && self.progress <= 0) {
+        wrapper.style.removeProperty('--cylinder-visual-offset')
+      }
+      if (self.isActive) syncCylinderVisualOffset()
     },
     onUpdate: (self) => {
       isCylinderPinned = self.isActive
-      cylinderProgress = self.progress
-      syncCylinderVisualOffset(self)
+      syncCylinderVisualOffset()
     },
   })
   try {

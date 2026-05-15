@@ -109,55 +109,20 @@ export function initCylinder(root = document) {
     return getViewportHeight() * -0.025
   }
 
-  const getCylinderVisualCenterLocal = () => {
-    const textSpans = Array.from(
-      wrapper.querySelectorAll('.cylindar__text__item .body-xl')
-    )
-    let top = Infinity
-    let bottom = -Infinity
-    textSpans.forEach((span) => {
-      const rect = span.getBoundingClientRect()
-      if (
-        !Number.isFinite(rect.top) ||
-        !Number.isFinite(rect.bottom) ||
-        rect.width <= 0 ||
-        rect.height <= 0
-      ) {
-        return
-      }
+  const getMobilePinTotal = () => 2500
 
-      top = Math.min(top, rect.top)
-      bottom = Math.max(bottom, rect.bottom)
-    })
-
-    if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) {
-      return null
-    }
-
-    const wrapperRect = wrapper.getBoundingClientRect()
-    return top + (bottom - top) / 2 - wrapperRect.top
-  }
-
-  const getMobilePinStart = () => {
-    const visualCenterLocal = getCylinderVisualCenterLocal()
-    if (!Number.isFinite(visualCenterLocal)) return 'top top'
-
-    const targetCenter = getViewportCenter() + getMobileCenterBias()
-    const startOffset = Math.max(
-      0,
-      Math.round(visualCenterLocal - targetCenter)
-    )
-    return startOffset > 0 ? `top+=${startOffset} top` : 'top top'
-  }
+  const getMobilePinDistance = () =>
+    Math.max(1, getMobilePinTotal() - getViewportHeight())
 
   let isCylinderPinned = false
 
   const syncCylinderVisualOffset = () => {
     try {
-      if (!isMobileViewport() || !isCylinderPinned) {
+      if (!isMobileViewport()) {
         wrapper.style.removeProperty('--cylinder-visual-offset')
         return
       }
+      if (!isCylinderPinned) return
 
       for (let i = 0; i < 2; i += 1) {
         const textSpans = Array.from(
@@ -398,6 +363,7 @@ export function initCylinder(root = document) {
     }
     // Fallback: parse svh value from end string
     try {
+      if (isMobileViewport()) return Math.round(getMobilePinDistance())
       const match = (
         typeof trigger?.vars?.end === 'string' ? trigger.vars.end : '+=2000svh'
       ).match(/\+=\s*(\d+)\s*svh/i)
@@ -411,7 +377,6 @@ export function initCylinder(root = document) {
     try {
       const spacer = getPinSpacer()
       if (!spacer) return
-      const isMobile = isMobileViewport()
       const wrapperHeight = (() => {
         try {
           const r = wrapper.getBoundingClientRect()
@@ -421,9 +386,7 @@ export function initCylinder(root = document) {
         }
       })()
       const durationPx = getDurationPx()
-      const desiredTotal = isMobile
-        ? 2500
-        : Math.max(wrapperHeight + durationPx, 1)
+      const desiredTotal = Math.max(wrapperHeight + durationPx, 1)
       const px = `${desiredTotal}px`
       spacer.style.setProperty('height', px, 'important')
       spacer.style.setProperty('min-height', px, 'important')
@@ -439,8 +402,9 @@ export function initCylinder(root = document) {
   const trigger = ScrollTrigger.create({
     trigger: triggerEl,
     scroller: cylinderScroller,
-    start: () => (isMobileViewport() ? getMobilePinStart() : 'center center'),
-    end: '+=2000svh',
+    start: () => (isMobileViewport() ? 'top top' : 'center center'),
+    end: () =>
+      isMobileViewport() ? `+=${getMobilePinDistance()}` : '+=2000svh',
     pin: wrapper,
     // Prevent visual jumps when ancestors transform (menu open/close)
     anticipatePin: 1,
@@ -453,6 +417,9 @@ export function initCylinder(root = document) {
     onRefresh: enforceSpacerHeight,
     onToggle: (self) => {
       isCylinderPinned = self.isActive
+      if (!self.isActive && self.progress <= 0) {
+        wrapper.style.removeProperty('--cylinder-visual-offset')
+      }
       syncCylinderVisualOffset()
     },
     onUpdate: (self) => {
@@ -503,7 +470,6 @@ export function initCylinder(root = document) {
 
   // Highlight: enlarge ticks closest to viewport center (like scroll-list)
   const updateTickHighlight = () => {
-    syncCylinderVisualOffset()
     // Freeze highlighting when the menu is open to keep the current active item
     try {
       if (
@@ -515,25 +481,21 @@ export function initCylinder(root = document) {
     } catch (e) {
       // ignore
     }
-    const viewportCenter = getViewportCenter()
     // Highlight text item at viewport center with .is-active
     try {
       const textSpans = Array.from(items).map((el) =>
         el.querySelector('.body-xl, .body-xxl, .body-next')
       )
       if (textSpans.length) {
-        let closestIdx = 0
-        let best = Infinity
-        textSpans.forEach((span, idx) => {
-          if (!span) return
-          const r = span.getBoundingClientRect()
-          const c = r.top + r.height / 2
-          const d = Math.abs(c - viewportCenter)
-          if (d < best) {
-            best = d
-            closestIdx = idx
-          }
-        })
+        const progress =
+          trigger && Number.isFinite(trigger.progress) ? trigger.progress : 0
+        const closestIdx = Math.max(
+          0,
+          Math.min(
+            textSpans.length - 1,
+            Math.round(progress * (textSpans.length - 1))
+          )
+        )
         textSpans.forEach(
           (s) => s && s.classList && s.classList.remove('is-active')
         )
@@ -556,17 +518,12 @@ export function initCylinder(root = document) {
     indicatorNodes.forEach((indicator) => {
       const ticks = Array.from(indicator.querySelectorAll('.scroll-tick'))
       if (!ticks.length) return
-      let closestIndex = 0
-      let closestDist = Infinity
-      ticks.forEach((tick, idx) => {
-        const r = tick.getBoundingClientRect()
-        const center = r.top + r.height / 2
-        const d = Math.abs(center - viewportCenter)
-        if (d < closestDist) {
-          closestDist = d
-          closestIndex = idx
-        }
-      })
+      const progress =
+        trigger && Number.isFinite(trigger.progress) ? trigger.progress : 0
+      const closestIndex = Math.max(
+        0,
+        Math.min(ticks.length - 1, Math.round(progress * (ticks.length - 1)))
+      )
       // Reset classes
       ticks.forEach((t) => {
         t.classList.remove('is-xxl', 'is-xl', 'is-l', 'is-m')

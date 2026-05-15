@@ -56,6 +56,32 @@ function getLogoIdentityKey(el) {
   }
 }
 
+export function computeLogoSlotShowStartTimes({
+  currentConfig,
+  nextConfig,
+  duration,
+  delayBetweenSlots,
+}) {
+  const current = Array.isArray(currentConfig) ? currentConfig : []
+  const next = Array.isArray(nextConfig) ? nextConfig : []
+  const hideEnds = next.map((_, i) => i * delayBetweenSlots + duration)
+
+  return next.map((nextIdx, i) => {
+    let showStart = hideEnds[i]
+    const adjacentSlots = [i - 1, i + 1]
+
+    adjacentSlots.forEach((adjacentIndex) => {
+      if (adjacentIndex < 0 || adjacentIndex >= next.length) return
+      const adjacentChanges = current[adjacentIndex] !== next[adjacentIndex]
+      if (adjacentChanges && current[adjacentIndex] === nextIdx) {
+        showStart = Math.max(showStart, hideEnds[adjacentIndex])
+      }
+    })
+
+    return showStart
+  })
+}
+
 export function initTechnology(root = document) {
   // Support being called with the Barba container element itself
   try {
@@ -224,7 +250,9 @@ export function initTechnology(root = document) {
           const template = logoTemplates[idx] ? logoTemplates[idx].html : ''
           const wrapper = document.createElement('div')
           wrapper.innerHTML = template
-          return wrapper.firstElementChild
+          const logo = wrapper.firstElementChild
+          if (logo) logo.dataset.logoTemplateIndex = String(idx)
+          return logo
         } catch (e) {
           return null
         }
@@ -271,6 +299,8 @@ export function initTechnology(root = document) {
             }
             if (keep) {
               gsap.set(keep, { opacity: 1, display: 'block' })
+              const keepIndex = Number(keep.dataset.logoTemplateIndex)
+              if (Number.isInteger(keepIndex)) currentConfig[i] = keepIndex
             }
             pruneSlotLogos(slot, keep)
             slotElements[i] = keep
@@ -311,6 +341,12 @@ export function initTechnology(root = document) {
           // ignore
         }
         normalizeSlotElements()
+        const showStartTimes = computeLogoSlotShowStartTimes({
+          currentConfig,
+          nextConfig,
+          duration,
+          delayBetweenSlots,
+        })
         // Préparer tous les logos pour cette config et construire la timeline cascade
         const slotAnimations = [] // { slotIndex, hide, show }
         for (let i = 0; i < slotCount; i++) {
@@ -371,6 +407,8 @@ export function initTechnology(root = document) {
             // Créer une animation cascade : chaque slot s'anime avec délai
             slotAnimations.forEach((anim, idx) => {
               const delay = idx * delayBetweenSlots
+              const showStart =
+                showStartTimes[anim.slotIndex] || delay + duration
               tl.to(anim.hide, { opacity: 0, duration }, delay)
               tl.add(() => {
                 try {
@@ -386,8 +424,8 @@ export function initTechnology(root = document) {
                 } catch (e) {
                   // ignore
                 }
-              }, delay + duration)
-              tl.to(anim.show, { opacity: 1, duration }, delay + duration)
+              }, showStart)
+              tl.to(anim.show, { opacity: 1, duration }, showStart)
             })
             tl.eventCallback('onComplete', () => {
               logosTl = null

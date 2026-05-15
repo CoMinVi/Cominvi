@@ -57,6 +57,11 @@ export function initCylinder(root = document) {
   const isMobileViewport = () =>
     Math.min(window.innerWidth || 0, getViewportHeight()) < 767
 
+  const getCylinderScroller = () => {
+    if (isMobileViewport()) return window
+    return window.__lenisWrapper || undefined
+  }
+
   const syncMobileViewportHeight = () => {
     try {
       if (!isMobileViewport()) {
@@ -82,6 +87,11 @@ export function initCylinder(root = document) {
       // ignore
     }
     return (window.innerHeight || 0) / 2
+  }
+
+  const getWrapperCenter = () => {
+    const rect = wrapper.getBoundingClientRect()
+    return rect.top + rect.height / 2
   }
 
   const syncCylinderCenterOffset = () => {
@@ -112,17 +122,42 @@ export function initCylinder(root = document) {
         return
       }
 
-      const currentOffset =
-        parseFloat(
-          wrapper.style.getPropertyValue('--cylinder-center-offset') || '0'
-        ) || 0
-      const visualCenter = top + (bottom - top) / 2
-      const delta = getViewportCenter() - visualCenter
-      if (Math.abs(delta) < 0.25) return
-      wrapper.style.setProperty(
-        '--cylinder-center-offset',
-        `${currentOffset + delta * 0.5}px`
-      )
+      for (let i = 0; i < 5; i += 1) {
+        const currentOffset =
+          parseFloat(
+            wrapper.style.getPropertyValue('--cylinder-center-offset') || '0'
+          ) || 0
+        const visualCenter = top + (bottom - top) / 2
+        const delta = getWrapperCenter() - visualCenter
+        if (Math.abs(delta) < 0.25) return
+        wrapper.style.setProperty(
+          '--cylinder-center-offset',
+          `${currentOffset + delta * 0.5}px`
+        )
+
+        top = Infinity
+        bottom = -Infinity
+        textSpans.forEach((span) => {
+          const rect = span.getBoundingClientRect()
+          if (
+            !Number.isFinite(rect.top) ||
+            !Number.isFinite(rect.bottom) ||
+            rect.width <= 0 ||
+            rect.height <= 0
+          ) {
+            return
+          }
+          top = Math.min(top, rect.top)
+          bottom = Math.max(bottom, rect.bottom)
+        })
+        if (
+          !Number.isFinite(top) ||
+          !Number.isFinite(bottom) ||
+          bottom <= top
+        ) {
+          return
+        }
+      }
     } catch (e) {
       // ignore
     }
@@ -205,7 +240,7 @@ export function initCylinder(root = document) {
   })
 
   const calculatePositions = () => {
-    syncMobileGeometry()
+    syncMobileViewportHeight()
     const count = items.length || 1
     const offset = 0.4
     const radius = Math.min(window.innerWidth, getViewportHeight()) * offset
@@ -243,6 +278,7 @@ export function initCylinder(root = document) {
         tick.style.transform = `translate3d(-50%, -50%, 0) translate3d(${x}px, ${y}px, ${z}px) rotateX(${tRot}deg)`
       })
     })
+    syncCylinderCenterOffset()
   }
 
   calculatePositions()
@@ -360,6 +396,7 @@ export function initCylinder(root = document) {
 
   const trigger = ScrollTrigger.create({
     trigger: triggerEl,
+    scroller: getCylinderScroller(),
     start: () => (isMobileViewport() ? 'top top' : 'center center'),
     end: '+=2000svh',
     pin: wrapper,
@@ -427,7 +464,6 @@ export function initCylinder(root = document) {
     } catch (e) {
       // ignore
     }
-    syncCylinderCenterOffset()
     const viewportCenter = getViewportCenter()
     // Highlight text item at viewport center with .is-active
     try {
@@ -500,6 +536,7 @@ export function initCylinder(root = document) {
   // Dedicated ScrollTrigger for tick highlighting (mirrors scroll-list logic)
   const highlightTrigger = ScrollTrigger.create({
     trigger: wrapper,
+    scroller: getCylinderScroller(),
     start: 'top bottom',
     end: 'bottom top',
     onUpdate: updateTickHighlight,

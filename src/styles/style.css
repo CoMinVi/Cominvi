@@ -641,13 +641,17 @@ button.maplibregl-ctrl-compass {
   transition: opacity 0.2s ease-in-out;
 }
 
-.navlink-social{
+.navlink-social {
   opacity: 1;
   transition: opacity 0.2s ease-in-out;
 }
 
 .link-item:has(.navlink-social:hover) .navlink-social:not(:hover) {
   opacity: 0.8;
+}
+
+.maplibregl-ctrl-group:not(:empty) {
+  drop-shadow: none !important;
 }
 
 @media (min-width: 991px) {
@@ -775,7 +779,7 @@ button.maplibregl-ctrl-compass {
     pointer-events: none;
   }
 
-  .swiper.projects-wrapper .swiper-wrapper{
+  .swiper.projects-wrapper .swiper-wrapper {
     cursor: default;
   }
 

@@ -103,6 +103,12 @@ export function initCylinder(root = document) {
     return (window.innerHeight || 0) / 2
   }
 
+  const getMobileCenterBias = () => {
+    const value = parseFloat(wrapper?.dataset?.cylinderCenterBias)
+    if (Number.isFinite(value)) return value
+    return getViewportHeight() * -0.05
+  }
+
   const syncCylinderVisualOffset = () => {
     try {
       if (!isMobileViewport()) {
@@ -126,6 +132,7 @@ export function initCylinder(root = document) {
           ) {
             return
           }
+
           top = Math.min(top, rect.top)
           bottom = Math.max(bottom, rect.bottom)
         })
@@ -139,7 +146,8 @@ export function initCylinder(root = document) {
         }
 
         const wrapperRect = wrapper.getBoundingClientRect()
-        const wrapperCenter = wrapperRect.top + wrapperRect.height / 2
+        const wrapperCenter =
+          wrapperRect.top + wrapperRect.height / 2 + getMobileCenterBias()
         const visualCenter = top + (bottom - top) / 2
         const delta = wrapperCenter - visualCenter
         if (Math.abs(delta) < 0.5) return

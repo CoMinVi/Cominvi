@@ -3316,13 +3316,6 @@ p {
   position: relative;
 }
 
-.is-grid-toggle {
-  justify-content: flex-end;
-  align-items: center;
-  width: 100%;
-  display: flex;
-}
-
 .worskshops_img-wrap {
   border-radius: .5em;
   height: calc(100vh - 4em);
@@ -6177,10 +6170,6 @@ p {
 
   .logos-slider_grid {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .is-grid-toggle {
-    display: none;
   }
 
   .workshops_left_middle {

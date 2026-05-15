@@ -115,6 +115,7 @@ export function initCylinder(root = document) {
     Math.max(1, getMobilePinTotal() - getViewportHeight())
 
   let isCylinderPinned = false
+  let cylinderProgress = 0
 
   const syncCylinderVisualOffset = () => {
     try {
@@ -123,7 +124,9 @@ export function initCylinder(root = document) {
         return
       }
       if (!isCylinderPinned) {
-        wrapper.style.removeProperty('--cylinder-visual-offset')
+        if (cylinderProgress <= 0) {
+          wrapper.style.removeProperty('--cylinder-visual-offset')
+        }
         return
       }
 
@@ -423,13 +426,12 @@ export function initCylinder(root = document) {
     onRefresh: enforceSpacerHeight,
     onToggle: (self) => {
       isCylinderPinned = self.isActive
-      if (!self.isActive && self.progress <= 0) {
-        wrapper.style.removeProperty('--cylinder-visual-offset')
-      }
+      cylinderProgress = self.progress
       syncCylinderVisualOffset()
     },
     onUpdate: (self) => {
       isCylinderPinned = self.isActive
+      cylinderProgress = self.progress
       syncCylinderVisualOffset()
     },
   })

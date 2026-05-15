@@ -651,7 +651,7 @@ button.maplibregl-ctrl-compass {
 }
 
 .maplibregl-ctrl-group:not(:empty) {
-  drop-shadow: none !important;
+  box-shadow: none !important;
 }
 
 @media (min-width: 991px) {

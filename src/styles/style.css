@@ -442,6 +442,7 @@ h1 > .is-h1-span-wrap:last-child > span {
 
 .cylindar__text__wrapper {
   position: absolute;
+  top: var(--cylinder-visual-offset, 0px);
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
@@ -462,6 +463,7 @@ h1 > .is-h1-span-wrap:last-child > span {
   transform-origin: center center;
   pointer-events: none;
   position: relative;
+  top: var(--cylinder-visual-offset, 0px);
 }
 
 /* Individual ticks (cylinder only): ensure backface culling and center anchoring for 3D transforms */
@@ -469,14 +471,14 @@ h1 > .is-h1-span-wrap:last-child > span {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   position: absolute;
-  top: calc(50% + var(--cylinder-center-offset, 0px));
+  top: 50%;
   left: 50%;
   transform-style: preserve-3d;
 }
 
 .cylindar__text__item {
   position: absolute;
-  top: calc(50% + var(--cylinder-center-offset, 0px));
+  top: 50%;
   left: 50%;
   width: 100%;
   backface-visibility: hidden;

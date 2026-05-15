@@ -18,8 +18,10 @@ const NAVLINK_BOUND_ATTR = 'data-navlink-hover-bound'
 const handlersByElement = new WeakMap()
 
 const getButtonParts = (button) => {
-  const content = button.querySelector('.button-inner_content')
-  const label = button.querySelector('.button_label')
+  const content = button.querySelector(
+    '.button-inner_content, .button-white_inner-content'
+  )
+  const label = button.querySelector('.button_label, .button-white_label')
   return { content, label }
 }
 
@@ -154,11 +156,15 @@ const bindButton = (button) => {
 
   const onPointerEnter = () => animateHoverIn(button, parts)
   const onPointerLeave = () => animateHoverOut(button, parts)
+  const onMouseEnter = () => animateHoverIn(button, parts)
+  const onMouseLeave = () => animateHoverOut(button, parts)
   const onFocus = () => animateHoverIn(button, parts)
   const onBlur = () => animateHoverOut(button, parts)
 
   button.addEventListener('pointerenter', onPointerEnter)
   button.addEventListener('pointerleave', onPointerLeave)
+  button.addEventListener('mouseenter', onMouseEnter)
+  button.addEventListener('mouseleave', onMouseLeave)
   button.addEventListener('focusin', onFocus)
   button.addEventListener('focusout', onBlur)
 
@@ -166,6 +172,8 @@ const bindButton = (button) => {
   handlersByElement.set(button, {
     onPointerEnter,
     onPointerLeave,
+    onMouseEnter,
+    onMouseLeave,
     onFocus,
     onBlur,
   })
@@ -240,11 +248,15 @@ const bindButtonSm = (card) => {
 
   const onPointerEnter = () => animateButtonSmIn(parts)
   const onPointerLeave = () => animateButtonSmOut(parts)
+  const onMouseEnter = () => animateButtonSmIn(parts)
+  const onMouseLeave = () => animateButtonSmOut(parts)
   const onFocus = () => animateButtonSmIn(parts)
   const onBlur = () => animateButtonSmOut(parts)
 
   card.addEventListener('pointerenter', onPointerEnter)
   card.addEventListener('pointerleave', onPointerLeave)
+  card.addEventListener('mouseenter', onMouseEnter)
+  card.addEventListener('mouseleave', onMouseLeave)
   card.addEventListener('focusin', onFocus)
   card.addEventListener('focusout', onBlur)
 
@@ -252,6 +264,8 @@ const bindButtonSm = (card) => {
   handlersByElement.set(card, {
     onPointerEnter,
     onPointerLeave,
+    onMouseEnter,
+    onMouseLeave,
     onFocus,
     onBlur,
   })
@@ -296,11 +310,15 @@ const bindNavlink = (link) => {
 
   const onPointerEnter = () => animateNavlinkIn(link)
   const onPointerLeave = () => animateNavlinkOut(link)
+  const onMouseEnter = () => animateNavlinkIn(link)
+  const onMouseLeave = () => animateNavlinkOut(link)
   const onFocus = () => animateNavlinkIn(link)
   const onBlur = () => animateNavlinkOut(link)
 
   link.addEventListener('pointerenter', onPointerEnter)
   link.addEventListener('pointerleave', onPointerLeave)
+  link.addEventListener('mouseenter', onMouseEnter)
+  link.addEventListener('mouseleave', onMouseLeave)
   link.addEventListener('focusin', onFocus)
   link.addEventListener('focusout', onBlur)
 
@@ -308,6 +326,8 @@ const bindNavlink = (link) => {
   handlersByElement.set(link, {
     onPointerEnter,
     onPointerLeave,
+    onMouseEnter,
+    onMouseLeave,
     onFocus,
     onBlur,
   })
@@ -335,6 +355,8 @@ export function destroyButtonHover(root = document) {
     if (handlers) {
       element.removeEventListener('pointerenter', handlers.onPointerEnter)
       element.removeEventListener('pointerleave', handlers.onPointerLeave)
+      element.removeEventListener('mouseenter', handlers.onMouseEnter)
+      element.removeEventListener('mouseleave', handlers.onMouseLeave)
       element.removeEventListener('focusin', handlers.onFocus)
       element.removeEventListener('focusout', handlers.onBlur)
       handlersByElement.delete(element)

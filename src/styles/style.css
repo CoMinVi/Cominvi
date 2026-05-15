@@ -254,8 +254,13 @@ h1 > .is-h1-span-wrap:last-child > span {
 }
 
 .hero-background .background-inner {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 120%;
   height: 120%;
+  margin-left: -10%;
+  margin-top: -10%;
   flex: 0 0 auto;
   will-change: transform;
   backface-visibility: hidden;

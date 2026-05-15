@@ -106,7 +106,7 @@ export function initCylinder(root = document) {
   const getMobileCenterBias = () => {
     const value = parseFloat(wrapper?.dataset?.cylinderCenterBias)
     if (Number.isFinite(value)) return value
-    return getViewportHeight() * -0.012
+    return 0
   }
 
   const getMobilePinTotal = () => 2500
@@ -116,30 +116,8 @@ export function initCylinder(root = document) {
 
   let isCylinderPinned = false
   let cylinderProgress = 0
-  let visualOffsetRaf = null
 
-  const cancelVisualOffsetRaf = () => {
-    if (visualOffsetRaf == null) return
-    try {
-      cancelAnimationFrame(visualOffsetRaf)
-    } catch (e) {
-      // ignore
-    }
-    visualOffsetRaf = null
-  }
-
-  const scheduleSyncCylinderVisualOffset = () => {
-    if (!isMobileViewport() || !isCylinderPinned) return
-    cancelVisualOffsetRaf()
-    visualOffsetRaf = requestAnimationFrame(() => {
-      visualOffsetRaf = requestAnimationFrame(() => {
-        visualOffsetRaf = null
-        if (isCylinderPinned && isMobileViewport()) syncCylinderVisualOffset()
-      })
-    })
-  }
-
-  const syncCylinderVisualOffset = () => {
+  const syncCylinderVisualOffset = (mainTrigger) => {
     try {
       if (!isMobileViewport()) {
         wrapper.style.removeProperty('--cylinder-visual-offset')
@@ -152,32 +130,33 @@ export function initCylinder(root = document) {
         return
       }
 
-      const textSpans = Array.from(
-        wrapper.querySelectorAll('.cylindar__text__item .body-xl')
+      // Ne pas agréger tous les .body-xl : en 3D, les éléments sur les côtés ont
+      // des getBoundingClientRect() très faux → delta énorme et saut brutal au pin.
+      const progress =
+        mainTrigger && Number.isFinite(mainTrigger.progress)
+          ? mainTrigger.progress
+          : 0
+      const n = items.length
+      const idx = Math.max(
+        0,
+        Math.min(n - 1, Math.round(progress * Math.max(1, n - 1)))
       )
-      let top = Infinity
-      let bottom = -Infinity
-      textSpans.forEach((span) => {
-        const rect = span.getBoundingClientRect()
-        if (
-          !Number.isFinite(rect.top) ||
-          !Number.isFinite(rect.bottom) ||
-          rect.width <= 0 ||
-          rect.height <= 0
-        ) {
-          return
-        }
+      const itemEl = items[idx]
+      const span = itemEl && itemEl.querySelector('.body-xl')
+      if (!span) return
 
-        top = Math.min(top, rect.top)
-        bottom = Math.max(bottom, rect.bottom)
-      })
-
-      if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) {
+      const rect = span.getBoundingClientRect()
+      if (
+        !Number.isFinite(rect.top) ||
+        !Number.isFinite(rect.height) ||
+        rect.width <= 0 ||
+        rect.height <= 0
+      ) {
         return
       }
 
       const targetCenter = getViewportCenter() + getMobileCenterBias()
-      const visualCenter = top + (bottom - top) / 2
+      const visualCenter = rect.top + rect.height / 2
       const delta = targetCenter - visualCenter
       if (Math.abs(delta) < 0.25) return
 
@@ -439,15 +418,12 @@ export function initCylinder(root = document) {
     onToggle: (self) => {
       isCylinderPinned = self.isActive
       cylinderProgress = self.progress
-      syncCylinderVisualOffset()
-      if (self.isActive && isMobileViewport())
-        scheduleSyncCylinderVisualOffset()
-      else cancelVisualOffsetRaf()
+      syncCylinderVisualOffset(self)
     },
     onUpdate: (self) => {
       isCylinderPinned = self.isActive
       cylinderProgress = self.progress
-      syncCylinderVisualOffset()
+      syncCylinderVisualOffset(self)
     },
   })
   try {
@@ -609,11 +585,6 @@ export function initCylinder(root = document) {
   }
 
   wrapper.__cylinderCleanup = () => {
-    try {
-      cancelVisualOffsetRaf()
-    } catch (e) {
-      // ignore
-    }
     try {
       if (trigger && typeof trigger.kill === 'function') trigger.kill()
     } catch (e) {

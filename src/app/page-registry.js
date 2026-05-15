@@ -397,6 +397,22 @@ export async function initContainerModules(root = document, options = {}) {
 }
 
 export async function initAfterEnterModules(root = document) {
+  if (has(root, '.section_minerals')) {
+    await importAndRun(
+      () => import('../animation/minerals.js'),
+      'initMinerals',
+      root
+    )
+  }
+
+  if (has(root, '[fc-image-scrubbing="component"]')) {
+    await importAndRun(
+      () => import('../animation/minerals-canvas-local-debug.js'),
+      'initMineralsCanvas',
+      root
+    )
+  }
+
   if (has(root, '.service-card, .team-card')) {
     await importAndRun(
       () => import('../animation/service-cards.js'),

@@ -12,6 +12,50 @@ if (!gsap.parseEase('machinesStep')) {
   CustomEase.create('machinesStep', 'M0,0 C0.6,0 0,1 1,1')
 }
 
+function getLogoIdentityKey(el) {
+  try {
+    if (!el) return ''
+    const tagName = (el.tagName || '').toLowerCase()
+    if (tagName === 'img') {
+      const src = el.getAttribute('src') || ''
+      if (src) return `img:${src.split('?')[0]}`
+    }
+
+    if (tagName === 'svg') {
+      const viewBox = el.getAttribute('viewBox') || el.getAttribute('viewbox')
+      const shapeNodes = Array.from(
+        el.querySelectorAll(
+          'path, line, rect, circle, ellipse, polygon, polyline'
+        )
+      )
+      const shapeSignature = shapeNodes
+        .map((node) => {
+          const attrs = Array.from(node.attributes || [])
+            .filter(
+              (attr) => attr && attr.name !== 'class' && attr.name !== 'id'
+            )
+            .map((attr) => `${attr.name}:${attr.value}`)
+            .sort()
+            .join(';')
+          return `${(node.tagName || '').toLowerCase()}[${attrs}]`
+        })
+        .join('|')
+      if (viewBox && shapeSignature) return `svg:${viewBox}:${shapeSignature}`
+    }
+
+    return (
+      el.getAttribute('aria-label') ||
+      el.getAttribute('data-name') ||
+      el.getAttribute('alt') ||
+      el.textContent ||
+      el.outerHTML ||
+      ''
+    )
+  } catch (e) {
+    return (el && el.outerHTML) || ''
+  }
+}
+
 export function initTechnology(root = document) {
   // Support being called with the Barba container element itself
   try {
@@ -95,11 +139,7 @@ export function initTechnology(root = document) {
       const seenKeys = new Set()
       const logoTemplates = []
       allLogos.forEach((el) => {
-        const key =
-          el.getAttribute('aria-label') ||
-          el.getAttribute('data-name') ||
-          el.getAttribute('alt') ||
-          el.outerHTML
+        const key = getLogoIdentityKey(el)
         if (seenKeys.has(key)) {
           try {
             el.parentNode && el.parentNode.removeChild(el)
@@ -140,6 +180,14 @@ export function initTechnology(root = document) {
             ? prevConfig.slice()
             : []
         const indices = Array.from({ length: totalLogos }, (_, i) => i)
+        const hasAdjacentDuplicate = (config) => {
+          for (let i = 1; i < config.length; i++) {
+            const prev = logoTemplates[config[i - 1]]
+            const current = logoTemplates[config[i]]
+            if (prev && current && prev.key === current.key) return true
+          }
+          return false
+        }
         const maxAttempts = 20
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           const shuffled = indices.slice()
@@ -159,7 +207,7 @@ export function initTechnology(root = document) {
             }
           }
           // On accepte seulement si aucun logo n'est resté dans le même slot
-          if (!hasSame) return candidate
+          if (!hasSame && !hasAdjacentDuplicate(candidate)) return candidate
         }
         if (!prev.length) {
           return Array.from({ length: slots.length }, (_, i) => i % totalLogos)

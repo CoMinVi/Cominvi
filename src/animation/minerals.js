@@ -9,10 +9,15 @@ export function initMinerals(root = document) {
   const section = root.querySelector('.section_minerals')
   if (!section) return null
 
+  if (typeof section.__mineralsCleanup === 'function') {
+    section.__mineralsCleanup()
+  }
+
   // Locate content and circles
   const content = section.querySelector('.minerals_content') || section
   const darkSvg = content.querySelector('.circle.is-2')
   if (!darkSvg) return null
+  const cleanupCallbacks = []
 
   // No pin target needed in sticky mode
 
@@ -299,8 +304,10 @@ export function initMinerals(root = document) {
     // Expose for external consumers (e.g., menu close reflow)
     section.__mineralsAlignRightEyebrow = alignRightEyebrow
     alignRightEyebrow()
-    window.addEventListener('resize', () =>
-      requestAnimationFrame(alignRightEyebrow)
+    const handleAlignResize = () => requestAnimationFrame(alignRightEyebrow)
+    window.addEventListener('resize', handleAlignResize)
+    cleanupCallbacks.push(() =>
+      window.removeEventListener('resize', handleAlignResize)
     )
 
     // Recenter active name on viewport changes
@@ -315,6 +322,9 @@ export function initMinerals(root = document) {
       })
     }
     window.addEventListener('resize', handleResize)
+    cleanupCallbacks.push(() =>
+      window.removeEventListener('resize', handleResize)
+    )
     // Expose helpers for external reflow
     section.__mineralsCenterActiveNameMobile = centerActiveNameMobile
     section.__mineralsSetActiveEyebrowIndex = setActiveEyebrowIndex
@@ -373,11 +383,18 @@ export function initMinerals(root = document) {
       markers: false,
     })
     section.__mineralsST = st
+    cleanupCallbacks.push(() => {
+      try {
+        st.kill(true)
+      } catch (e) {
+        // ignore
+      }
+    })
     return st
   }
 
   // Init progress trigger (sticky, no pin)
-  createProgressTrigger()
+  const progressTrigger = createProgressTrigger()
 
   // --- Event-driven integration with the menu ---
   const snapshotAngle = () => {
@@ -443,6 +460,10 @@ export function initMinerals(root = document) {
   }
   document.addEventListener('menu:open-start', onMenuOpenStart)
   document.addEventListener('menu:close-end', onMenuCloseEnd)
+  cleanupCallbacks.push(() => {
+    document.removeEventListener('menu:open-start', onMenuOpenStart)
+    document.removeEventListener('menu:close-end', onMenuCloseEnd)
+  })
 
   // Ensure measurements are correct once assets are loaded
   const refresh = () => {
@@ -453,7 +474,26 @@ export function initMinerals(root = document) {
     }
   }
   window.addEventListener('load', refresh)
-  setTimeout(refresh, 100)
+  cleanupCallbacks.push(() => window.removeEventListener('load', refresh))
+  const refreshTimeoutId = setTimeout(refresh, 100)
+  cleanupCallbacks.push(() => clearTimeout(refreshTimeoutId))
 
-  return section.__mineralsTL || null
+  section.__mineralsCleanup = () => {
+    cleanupCallbacks.splice(0).forEach((cleanup) => {
+      try {
+        cleanup()
+      } catch (e) {
+        // ignore
+      }
+    })
+    try {
+      if (section.__mineralsST) section.__mineralsST.kill(true)
+    } catch (e) {
+      // ignore
+    }
+    section.__mineralsST = null
+    section.__mineralsCleanup = null
+  }
+
+  return progressTrigger || section.__mineralsTL || null
 }

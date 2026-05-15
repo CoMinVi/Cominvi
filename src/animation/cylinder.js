@@ -106,7 +106,7 @@ export function initCylinder(root = document) {
   const getMobileCenterBias = () => {
     const value = parseFloat(wrapper?.dataset?.cylinderCenterBias)
     if (Number.isFinite(value)) return value
-    return getViewportHeight() * -0.025
+    return getViewportHeight() * -0.012
   }
 
   const getMobilePinTotal = () => 2500
@@ -116,6 +116,28 @@ export function initCylinder(root = document) {
 
   let isCylinderPinned = false
   let cylinderProgress = 0
+  let visualOffsetRaf = null
+
+  const cancelVisualOffsetRaf = () => {
+    if (visualOffsetRaf == null) return
+    try {
+      cancelAnimationFrame(visualOffsetRaf)
+    } catch (e) {
+      // ignore
+    }
+    visualOffsetRaf = null
+  }
+
+  const scheduleSyncCylinderVisualOffset = () => {
+    if (!isMobileViewport() || !isCylinderPinned) return
+    cancelVisualOffsetRaf()
+    visualOffsetRaf = requestAnimationFrame(() => {
+      visualOffsetRaf = requestAnimationFrame(() => {
+        visualOffsetRaf = null
+        if (isCylinderPinned && isMobileViewport()) syncCylinderVisualOffset()
+      })
+    })
+  }
 
   const syncCylinderVisualOffset = () => {
     try {
@@ -163,9 +185,6 @@ export function initCylinder(root = document) {
         parseFloat(
           wrapper.style.getPropertyValue('--cylinder-visual-offset') || '0'
         ) || 0
-      // Offset = correction mesurée (translation du groupe) : une passe suffit.
-      // Ne pas multiplier par progress/remp : au début du pin, progress scrub ≈ 0,
-      // ce qui gardait l'offset à 0 une frame puis le faisait monter → saut visible.
       const nextOffset = currentOffset + delta
       wrapper.style.setProperty('--cylinder-visual-offset', `${nextOffset}px`)
     } catch (e) {
@@ -402,12 +421,14 @@ export function initCylinder(root = document) {
   const trigger = ScrollTrigger.create({
     trigger: triggerEl,
     scroller: cylinderScroller,
-    start: () => (isMobileViewport() ? 'top top' : 'center center'),
+    // Même logique que desktop : le bloc est déjà centré quand le pin démarre,
+    // ce qui évite une grosse correction --cylinder-visual-offset au passage en sticky.
+    start: 'center center',
     end: () =>
       isMobileViewport() ? `+=${getMobilePinDistance()}` : '+=2000svh',
     pin: wrapper,
-    // Prevent visual jumps when ancestors transform (menu open/close)
-    anticipatePin: 1,
+    // anticipatePin sur mobile peut exacerber un décalage une frame avant/après le pin
+    anticipatePin: isMobileViewport() ? 0 : 1,
     pinReparent: !usesWindowScroller,
     // keep default pinSpacing to preserve layout consistency
     invalidateOnRefresh: true,
@@ -419,6 +440,9 @@ export function initCylinder(root = document) {
       isCylinderPinned = self.isActive
       cylinderProgress = self.progress
       syncCylinderVisualOffset()
+      if (self.isActive && isMobileViewport())
+        scheduleSyncCylinderVisualOffset()
+      else cancelVisualOffsetRaf()
     },
     onUpdate: (self) => {
       isCylinderPinned = self.isActive
@@ -585,6 +609,11 @@ export function initCylinder(root = document) {
   }
 
   wrapper.__cylinderCleanup = () => {
+    try {
+      cancelVisualOffsetRaf()
+    } catch (e) {
+      // ignore
+    }
     try {
       if (trigger && typeof trigger.kill === 'function') trigger.kill()
     } catch (e) {

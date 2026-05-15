@@ -58,8 +58,22 @@ export function initCylinder(root = document) {
     Math.min(window.innerWidth || 0, getViewportHeight()) < 767
 
   const getCylinderScroller = () => {
-    if (isMobileViewport()) return window
-    return window.__lenisWrapper || undefined
+    const lenisWrapper = window.__lenisWrapper || undefined
+    if (!isMobileViewport()) return lenisWrapper
+
+    try {
+      const lenisLimit = window.lenis && Number(window.lenis.limit)
+      const wrapperCanScroll =
+        lenisWrapper &&
+        lenisWrapper.scrollHeight > lenisWrapper.clientHeight + 1
+      if ((Number.isFinite(lenisLimit) && lenisLimit > 1) || wrapperCanScroll) {
+        return lenisWrapper
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return window
   }
 
   const syncMobileViewportHeight = () => {
@@ -394,15 +408,18 @@ export function initCylinder(root = document) {
     }
   }
 
+  const cylinderScroller = getCylinderScroller()
+  const usesWindowScroller = cylinderScroller === window
+
   const trigger = ScrollTrigger.create({
     trigger: triggerEl,
-    scroller: getCylinderScroller(),
+    scroller: cylinderScroller,
     start: () => (isMobileViewport() ? 'top top' : 'center center'),
     end: '+=2000svh',
     pin: wrapper,
     // Prevent visual jumps when ancestors transform (menu open/close)
     anticipatePin: 1,
-    pinReparent: true,
+    pinReparent: !usesWindowScroller,
     // keep default pinSpacing to preserve layout consistency
     invalidateOnRefresh: true,
     // pinSpacing: false,
@@ -536,7 +553,7 @@ export function initCylinder(root = document) {
   // Dedicated ScrollTrigger for tick highlighting (mirrors scroll-list logic)
   const highlightTrigger = ScrollTrigger.create({
     trigger: wrapper,
-    scroller: getCylinderScroller(),
+    scroller: cylinderScroller,
     start: 'top bottom',
     end: 'bottom top',
     onUpdate: updateTickHighlight,

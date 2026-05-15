@@ -114,15 +114,12 @@ export function initCylinder(root = document) {
   const getMobilePinDistance = () =>
     Math.max(1, getMobilePinTotal() - getViewportHeight())
 
-  let isCylinderPinned = false
-
   const syncCylinderVisualOffset = () => {
     try {
       if (!isMobileViewport()) {
         wrapper.style.removeProperty('--cylinder-visual-offset')
         return
       }
-      if (!isCylinderPinned) return
 
       for (let i = 0; i < 2; i += 1) {
         const textSpans = Array.from(
@@ -153,7 +150,11 @@ export function initCylinder(root = document) {
           return
         }
 
-        const targetCenter = getViewportCenter() + getMobileCenterBias()
+        const wrapperRect = wrapper.getBoundingClientRect()
+        const isPinned = getComputedStyle(wrapper).position === 'fixed'
+        const targetCenter = isPinned
+          ? getViewportCenter() + getMobileCenterBias()
+          : wrapperRect.top + wrapperRect.height / 2 + getMobileCenterBias()
         const visualCenter = top + (bottom - top) / 2
         const delta = targetCenter - visualCenter
         if (Math.abs(delta) < 0.5) return
@@ -304,7 +305,7 @@ export function initCylinder(root = document) {
     wrapper.querySelectorAll('.scroll-indicator_c')
   )
   if (indicatorNodes.length)
-    tl.fromTo(indicatorNodes, { rotateX: 0 }, { rotateX: 160 }, 0)
+    tl.fromTo(indicatorNodes, { rotateX: 0 }, { rotateX: 150 }, 0)
 
   // Enforce a fixed .pin-spacer height on small mobile viewports
   const getPinSpacer = () => {
@@ -415,15 +416,7 @@ export function initCylinder(root = document) {
     scrub: true,
     animation: tl,
     onRefresh: enforceSpacerHeight,
-    onToggle: (self) => {
-      isCylinderPinned = self.isActive
-      if (!self.isActive && self.progress <= 0) {
-        wrapper.style.removeProperty('--cylinder-visual-offset')
-      }
-      syncCylinderVisualOffset()
-    },
-    onUpdate: (self) => {
-      isCylinderPinned = self.isActive
+    onUpdate: () => {
       syncCylinderVisualOffset()
     },
   })

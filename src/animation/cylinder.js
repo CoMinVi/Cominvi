@@ -106,12 +106,55 @@ export function initCylinder(root = document) {
   const getMobileCenterBias = () => {
     const value = parseFloat(wrapper?.dataset?.cylinderCenterBias)
     if (Number.isFinite(value)) return value
-    return getViewportHeight() * -0.05
+    return getViewportHeight() * -0.025
   }
+
+  const getCylinderVisualCenterLocal = () => {
+    const textSpans = Array.from(
+      wrapper.querySelectorAll('.cylindar__text__item .body-xl')
+    )
+    let top = Infinity
+    let bottom = -Infinity
+    textSpans.forEach((span) => {
+      const rect = span.getBoundingClientRect()
+      if (
+        !Number.isFinite(rect.top) ||
+        !Number.isFinite(rect.bottom) ||
+        rect.width <= 0 ||
+        rect.height <= 0
+      ) {
+        return
+      }
+
+      top = Math.min(top, rect.top)
+      bottom = Math.max(bottom, rect.bottom)
+    })
+
+    if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) {
+      return null
+    }
+
+    const wrapperRect = wrapper.getBoundingClientRect()
+    return top + (bottom - top) / 2 - wrapperRect.top
+  }
+
+  const getMobilePinStart = () => {
+    const visualCenterLocal = getCylinderVisualCenterLocal()
+    if (!Number.isFinite(visualCenterLocal)) return 'top top'
+
+    const targetCenter = getViewportCenter() + getMobileCenterBias()
+    const startOffset = Math.max(
+      0,
+      Math.round(visualCenterLocal - targetCenter)
+    )
+    return startOffset > 0 ? `top+=${startOffset} top` : 'top top'
+  }
+
+  let isCylinderPinned = false
 
   const syncCylinderVisualOffset = () => {
     try {
-      if (!isMobileViewport()) {
+      if (!isMobileViewport() || !isCylinderPinned) {
         wrapper.style.removeProperty('--cylinder-visual-offset')
         return
       }
@@ -145,11 +188,9 @@ export function initCylinder(root = document) {
           return
         }
 
-        const wrapperRect = wrapper.getBoundingClientRect()
-        const wrapperCenter =
-          wrapperRect.top + wrapperRect.height / 2 + getMobileCenterBias()
+        const targetCenter = getViewportCenter() + getMobileCenterBias()
         const visualCenter = top + (bottom - top) / 2
-        const delta = wrapperCenter - visualCenter
+        const delta = targetCenter - visualCenter
         if (Math.abs(delta) < 0.5) return
 
         const currentOffset =
@@ -398,7 +439,7 @@ export function initCylinder(root = document) {
   const trigger = ScrollTrigger.create({
     trigger: triggerEl,
     scroller: cylinderScroller,
-    start: () => (isMobileViewport() ? 'top top' : 'center center'),
+    start: () => (isMobileViewport() ? getMobilePinStart() : 'center center'),
     end: '+=2000svh',
     pin: wrapper,
     // Prevent visual jumps when ancestors transform (menu open/close)
@@ -410,7 +451,14 @@ export function initCylinder(root = document) {
     scrub: true,
     animation: tl,
     onRefresh: enforceSpacerHeight,
-    onUpdate: syncCylinderVisualOffset,
+    onToggle: (self) => {
+      isCylinderPinned = self.isActive
+      syncCylinderVisualOffset()
+    },
+    onUpdate: (self) => {
+      isCylinderPinned = self.isActive
+      syncCylinderVisualOffset()
+    },
   })
   try {
     ScrollTrigger.addEventListener('refresh', enforceSpacerHeight)

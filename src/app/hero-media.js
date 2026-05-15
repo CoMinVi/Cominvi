@@ -112,18 +112,6 @@ function ensureHeroPosterPreload(posterUrl) {
   return link
 }
 
-function isTabletOrMobileViewport() {
-  try {
-    if (typeof window === 'undefined') return false
-    if (typeof window.matchMedia === 'function') {
-      return window.matchMedia('(max-width: 991px)').matches
-    }
-    return window.innerWidth <= 991
-  } catch (e) {
-    return false
-  }
-}
-
 export function prepareHeroMedia(root = document, opts = {}) {
   const scope = root && root.querySelector ? root : document
   const video =
@@ -145,15 +133,8 @@ export function prepareHeroMedia(root = document, opts = {}) {
   video.playsInline = true
   video.setAttribute('playsinline', '')
   video.setAttribute('muted', '')
-  // On mobile/tablet, keep sources attached so the video can buffer during
-  // the loader and avoid a visible poster->video jump at reveal time.
-  const shouldDeferSources =
-    opts.deferSources !== false && !isTabletOrMobileViewport()
-  if (!shouldDeferSources) {
+  if (opts.deferSources === false) {
     video.preload = 'metadata'
-    if (video.setAttribute) {
-      video.setAttribute('preload', 'metadata')
-    }
   } else {
     deferHeroVideoSources(video)
   }

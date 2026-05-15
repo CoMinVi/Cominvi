@@ -98,18 +98,10 @@ export function initLoader() {
     if (bgVideos && bgVideos.length) {
       gsap.set(bgVideos, { width: '100%', height: '100%' })
     }
-    let bgInnerEl = null
     try {
-      bgInnerEl = document.querySelector('.background-inner')
-      if (bgInnerEl) {
-        gsap.killTweensOf(bgInnerEl)
-        gsap.set(bgInnerEl, {
-          transformOrigin: '50% 50%',
-          scale: 1,
-          x: 0,
-          y: 0,
-          force3D: false,
-        })
+      const bgInner = document.querySelector('.background-inner')
+      if (bgInner) {
+        gsap.set(bgInner, { transformOrigin: '50% 50%', scale: 1 })
       }
     } catch (e) {
       // ignore
@@ -242,28 +234,25 @@ export function initLoader() {
           // ignore
         }
       }, '<')
-      if (bgInnerEl) {
-        tl.to(
-          bgInnerEl,
-          {
-            scale: 1.2,
-            transformOrigin: '50% 50%',
-            duration: 1.2,
-            ease: loaderEase,
-            force3D: false,
-            immediateRender: false,
-            overwrite: 'auto',
-            onComplete: () => {
-              try {
-                initHeroBackgroundParallax(document)
-              } catch (e) {
-                // ignore
-              }
-            },
+      tl.to(
+        '.background-inner',
+        {
+          scale: 1.2,
+          transformOrigin: '50% 50%',
+          duration: 1.2,
+          ease: loaderEase,
+          force3D: true,
+          overwrite: 'auto',
+          onComplete: () => {
+            try {
+              initHeroBackgroundParallax(document)
+            } catch (e) {
+              // ignore
+            }
           },
-          '<'
-        )
-      }
+        },
+        '<'
+      )
 
       // Fade out loader quickly
       tl.to(loader, { opacity: 0, duration: 0.5, ease: loaderEase }, '<')
@@ -440,28 +429,25 @@ export function initLoader() {
         // ignore
       }
     }, '<')
-    if (bgInnerEl) {
-      tl.to(
-        bgInnerEl,
-        {
-          scale: 1.2,
-          transformOrigin: '50% 50%',
-          duration: 1.2,
-          ease: loaderEase,
-          force3D: false,
-          immediateRender: false,
-          overwrite: 'auto',
-          onComplete: () => {
-            try {
-              initHeroBackgroundParallax(document)
-            } catch (e) {
-              // ignore
-            }
-          },
+    tl.to(
+      '.background-inner',
+      {
+        scale: 1.2,
+        transformOrigin: '50% 50%',
+        duration: 1.2,
+        ease: loaderEase,
+        force3D: true,
+        overwrite: 'auto',
+        onComplete: () => {
+          try {
+            initHeroBackgroundParallax(document)
+          } catch (e) {
+            // ignore
+          }
         },
-        '<'
-      )
-    }
+      },
+      '<'
+    )
     tl.to(logoText, { opacity: 0, duration: 1.1, ease: loaderEase }, '<')
 
     // Fin: retirer le loader et la box texte quand le reveal est terminé

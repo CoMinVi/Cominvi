@@ -7,6 +7,22 @@ gsap.registerPlugin(CustomEase)
 export function initMap(root = document) {
   const scope = root || document
 
+  const getMarkerHitboxRoot = () => {
+    try {
+      if (
+        scope &&
+        scope.matches &&
+        scope.matches('[data-barba="container"], .page-wrap')
+      ) {
+        return scope
+      }
+      const pageWrap = scope.querySelector && scope.querySelector('.page-wrap')
+      return pageWrap || window.__lenisWrapper || document.body
+    } catch (e) {
+      return document.body
+    }
+  }
+
   // Collect elements
   const markers = Array.from(scope.querySelectorAll('.marker[id^="marker-"]'))
   const regions = Array.from(scope.querySelectorAll('.region[id^="region-"]'))
@@ -33,6 +49,7 @@ export function initMap(root = document) {
   // Create larger clickable buttons over each marker
   const markerHitboxPaddingPx = 12
   const markerToButton = new Map()
+  const markerHitboxRoot = getMarkerHitboxRoot()
   const syncMarkerButton = (markerEl, btn) => {
     try {
       const rect = markerEl.getBoundingClientRect()
@@ -95,7 +112,7 @@ export function initMap(root = document) {
         // Always slide to the corresponding card; remove overlay open/close
         slideToPoint(pointKey)
       })
-      document.body.appendChild(btn)
+      markerHitboxRoot.appendChild(btn)
       markerToButton.set(markerEl, btn)
       syncMarkerButton(markerEl, btn)
     })

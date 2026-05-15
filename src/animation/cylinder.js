@@ -121,7 +121,7 @@ export function initCylinder(root = document) {
       if (Math.abs(delta) < 0.25) return
       wrapper.style.setProperty(
         '--cylinder-center-offset',
-        `${currentOffset + delta}px`
+        `${currentOffset + delta * 0.5}px`
       )
     } catch (e) {
       // ignore

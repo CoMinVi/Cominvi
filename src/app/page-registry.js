@@ -137,7 +137,7 @@ async function initSharedSections(root, options = {}) {
     )
   }
 
-  if (has(root, '.service-card, .team-card')) {
+  if (has(root, '.service-card, .team-card, .machine-card')) {
     jobs.push(
       importAndRun(
         () => import('../animation/service-cards.js'),

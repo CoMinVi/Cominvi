@@ -333,6 +333,7 @@ export function initMinerals(root = document) {
 
     const st = ScrollTrigger.create({
       trigger: stage,
+      scroller: window,
       start: 'top top',
       end: getScrollDistance,
       scrub: 1,

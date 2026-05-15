@@ -5,6 +5,14 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger, CustomEase)
 const mineralsEase = CustomEase.create('mineralsEase', 'M0,0 C0.6,0 0,1 1,1 ')
 
+export function getMineralsScrollTriggerScroller() {
+  try {
+    return window.__lenisWrapper || window
+  } catch (e) {
+    return window
+  }
+}
+
 export function initMinerals(root = document) {
   const section = root.querySelector('.section_minerals')
   if (!section) return null
@@ -333,7 +341,7 @@ export function initMinerals(root = document) {
 
     const st = ScrollTrigger.create({
       trigger: stage,
-      scroller: window,
+      scroller: getMineralsScrollTriggerScroller(),
       start: 'top top',
       end: getScrollDistance,
       scrub: 1,

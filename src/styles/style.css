@@ -554,6 +554,10 @@ h1 > .is-h1-span-wrap:last-child > span {
   margin-top: -10em;
 }
 
+.section_partners {
+  padding-bottom: 8em;
+}
+
 .cylindar__text__item .body-xl {
   transition: all 0.15s ease-in-out;
 }

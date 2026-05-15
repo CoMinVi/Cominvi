@@ -6,3 +6,6 @@ dist-ssr
 .env
 .eslintcache
 yarn-error.log
+docs
+reports
+scripts

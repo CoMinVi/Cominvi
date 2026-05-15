@@ -44,6 +44,34 @@ export function initCylinder(root = document) {
     return Number.isFinite(v) && v > 0 ? v : 1
   })()
 
+  const getViewportHeight = () => {
+    try {
+      const vv = window.visualViewport
+      if (vv && Number.isFinite(vv.height) && vv.height > 0) return vv.height
+    } catch (e) {
+      // ignore
+    }
+    return window.innerHeight || document.documentElement.clientHeight || 0
+  }
+
+  const isMobileViewport = () =>
+    Math.min(window.innerWidth || 0, getViewportHeight()) < 767
+
+  const syncMobileViewportHeight = () => {
+    try {
+      if (!isMobileViewport()) {
+        wrapper.style.removeProperty('--cylinder-viewport-height')
+        return
+      }
+      const vh = Math.round(getViewportHeight())
+      if (vh > 0) {
+        wrapper.style.setProperty('--cylinder-viewport-height', `${vh}px`)
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   try {
     if (wrapper.__cylinderCleanup) wrapper.__cylinderCleanup()
   } catch (e) {
@@ -116,9 +144,10 @@ export function initCylinder(root = document) {
   })
 
   const calculatePositions = () => {
+    syncMobileViewportHeight()
     const count = items.length || 1
     const offset = 0.4
-    const radius = Math.min(window.innerWidth, window.innerHeight) * offset
+    const radius = Math.min(window.innerWidth, getViewportHeight()) * offset
     const zoneAngle = 360 / zoneCount
     const textSweep = zoneAngle * textZones
     const tickSweep = zoneAngle * tickZones
@@ -237,18 +266,16 @@ export function initCylinder(root = document) {
         typeof trigger?.vars?.end === 'string' ? trigger.vars.end : '+=2000svh'
       ).match(/\+=\s*(\d+)\s*svh/i)
       const units = match && match[1] ? parseInt(match[1], 10) : 2000
-      return Math.max(0, Math.round(units * (window.innerHeight || 0)))
+      return Math.max(0, Math.round(units * getViewportHeight()))
     } catch (e) {
-      return Math.max(0, Math.round(2000 * (window.innerHeight || 0)))
+      return Math.max(0, Math.round(2000 * getViewportHeight()))
     }
   }
   const enforceSpacerHeight = () => {
     try {
       const spacer = getPinSpacer()
       if (!spacer) return
-      const vw = window.innerWidth
-      const vh = window.innerHeight
-      const isMobile = Math.min(vw, vh) < 767
+      const isMobile = isMobileViewport()
       const wrapperHeight = (() => {
         try {
           const r = wrapper.getBoundingClientRect()
@@ -272,7 +299,7 @@ export function initCylinder(root = document) {
 
   const trigger = ScrollTrigger.create({
     trigger: triggerEl,
-    start: 'center center',
+    start: () => (isMobileViewport() ? 'top top' : 'center center'),
     end: '+=2000svh',
     pin: wrapper,
     // Prevent visual jumps when ancestors transform (menu open/close)
@@ -302,6 +329,11 @@ export function initCylinder(root = document) {
     if (recalcRaf !== null) return
     recalcRaf = requestAnimationFrame(() => {
       recalcRaf = null
+      try {
+        syncMobileViewportHeight()
+      } catch (e) {
+        // ignore
+      }
       try {
         calculatePositions()
       } catch (e) {
@@ -334,7 +366,17 @@ export function initCylinder(root = document) {
     } catch (e) {
       // ignore
     }
-    const viewportCenter = window.innerHeight / 2
+    const viewportCenter = (() => {
+      try {
+        const vv = window.visualViewport
+        if (vv && Number.isFinite(vv.height)) {
+          return (vv.offsetTop || 0) + vv.height / 2
+        }
+      } catch (e) {
+        // ignore
+      }
+      return window.innerHeight / 2
+    })()
     // Highlight text item at viewport center with .is-active
     try {
       const textSpans = Array.from(items).map((el) =>
@@ -509,6 +551,11 @@ export function initCylinder(root = document) {
     }
     try {
       if (spacerObserver) spacerObserver.disconnect()
+    } catch (e) {
+      // ignore
+    }
+    try {
+      wrapper.style.removeProperty('--cylinder-viewport-height')
     } catch (e) {
       // ignore
     }

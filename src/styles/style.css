@@ -430,7 +430,7 @@ h1 > .is-h1-span-wrap:last-child > span {
 
 .cylindar__wrapper {
   width: 100%;
-  height: 100svh;
+  height: var(--cylinder-viewport-height, 100svh);
   position: relative;
   perspective: 70vw;
   overflow: hidden;

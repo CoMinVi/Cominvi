@@ -114,9 +114,15 @@ export function initCylinder(root = document) {
   const getMobilePinDistance = () =>
     Math.max(1, getMobilePinTotal() - getViewportHeight())
 
+  let isCylinderPinned = false
+
   const syncCylinderVisualOffset = () => {
     try {
       if (!isMobileViewport()) {
+        wrapper.style.removeProperty('--cylinder-visual-offset')
+        return
+      }
+      if (!isCylinderPinned) {
         wrapper.style.removeProperty('--cylinder-visual-offset')
         return
       }
@@ -150,11 +156,7 @@ export function initCylinder(root = document) {
           return
         }
 
-        const wrapperRect = wrapper.getBoundingClientRect()
-        const isPinned = getComputedStyle(wrapper).position === 'fixed'
-        const targetCenter = isPinned
-          ? getViewportCenter() + getMobileCenterBias()
-          : wrapperRect.top + wrapperRect.height / 2 + getMobileCenterBias()
+        const targetCenter = getViewportCenter() + getMobileCenterBias()
         const visualCenter = top + (bottom - top) / 2
         const delta = targetCenter - visualCenter
         if (Math.abs(delta) < 0.5) return
@@ -163,9 +165,13 @@ export function initCylinder(root = document) {
           parseFloat(
             wrapper.style.getPropertyValue('--cylinder-visual-offset') || '0'
           ) || 0
+        const progress =
+          trigger && Number.isFinite(trigger.progress) ? trigger.progress : 0
+        const ramp = Math.min(Math.max(progress / 0.08, 0), 1)
+        const targetOffset = currentOffset + delta
         wrapper.style.setProperty(
           '--cylinder-visual-offset',
-          `${currentOffset + delta}px`
+          `${targetOffset * ramp}px`
         )
       }
     } catch (e) {
@@ -283,7 +289,6 @@ export function initCylinder(root = document) {
         tick.style.transform = `translate3d(-50%, -50%, 0) translate3d(${x}px, ${y}px, ${z}px) rotateX(${tRot}deg)`
       })
     })
-    syncCylinderVisualOffset()
   }
 
   calculatePositions()
@@ -416,7 +421,15 @@ export function initCylinder(root = document) {
     scrub: true,
     animation: tl,
     onRefresh: enforceSpacerHeight,
-    onUpdate: () => {
+    onToggle: (self) => {
+      isCylinderPinned = self.isActive
+      if (!self.isActive && self.progress <= 0) {
+        wrapper.style.removeProperty('--cylinder-visual-offset')
+      }
+      syncCylinderVisualOffset()
+    },
+    onUpdate: (self) => {
+      isCylinderPinned = self.isActive
       syncCylinderVisualOffset()
     },
   })

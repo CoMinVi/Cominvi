@@ -103,85 +103,6 @@ export function initCylinder(root = document) {
     return (window.innerHeight || 0) / 2
   }
 
-  const getWrapperCenter = () => {
-    const rect = wrapper.getBoundingClientRect()
-    return rect.top + rect.height / 2
-  }
-
-  const syncCylinderCenterOffset = () => {
-    try {
-      if (!isMobileViewport()) {
-        wrapper.style.removeProperty('--cylinder-center-offset')
-        return
-      }
-      const textSpans = Array.from(
-        wrapper.querySelectorAll('.cylindar__text__item .body-xl')
-      )
-      let top = Infinity
-      let bottom = -Infinity
-      textSpans.forEach((span) => {
-        const rect = span.getBoundingClientRect()
-        if (
-          !Number.isFinite(rect.top) ||
-          !Number.isFinite(rect.bottom) ||
-          rect.width <= 0 ||
-          rect.height <= 0
-        ) {
-          return
-        }
-        top = Math.min(top, rect.top)
-        bottom = Math.max(bottom, rect.bottom)
-      })
-      if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) {
-        return
-      }
-
-      for (let i = 0; i < 5; i += 1) {
-        const currentOffset =
-          parseFloat(
-            wrapper.style.getPropertyValue('--cylinder-center-offset') || '0'
-          ) || 0
-        const visualCenter = top + (bottom - top) / 2
-        const delta = getWrapperCenter() - visualCenter
-        if (Math.abs(delta) < 0.25) return
-        wrapper.style.setProperty(
-          '--cylinder-center-offset',
-          `${currentOffset + delta * 0.5}px`
-        )
-
-        top = Infinity
-        bottom = -Infinity
-        textSpans.forEach((span) => {
-          const rect = span.getBoundingClientRect()
-          if (
-            !Number.isFinite(rect.top) ||
-            !Number.isFinite(rect.bottom) ||
-            rect.width <= 0 ||
-            rect.height <= 0
-          ) {
-            return
-          }
-          top = Math.min(top, rect.top)
-          bottom = Math.max(bottom, rect.bottom)
-        })
-        if (
-          !Number.isFinite(top) ||
-          !Number.isFinite(bottom) ||
-          bottom <= top
-        ) {
-          return
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  const syncMobileGeometry = () => {
-    syncMobileViewportHeight()
-    syncCylinderCenterOffset()
-  }
-
   try {
     if (wrapper.__cylinderCleanup) wrapper.__cylinderCleanup()
   } catch (e) {
@@ -219,7 +140,7 @@ export function initCylinder(root = document) {
       // Ensure absolute centering within the column so transforms match text origin
       ticks.forEach((t) => {
         t.style.position = 'absolute'
-        t.style.top = 'calc(50% + var(--cylinder-center-offset, 0px))'
+        t.style.top = '50%'
         t.style.left = '50%'
         t.style.transformStyle = 'preserve-3d'
       })
@@ -236,7 +157,7 @@ export function initCylinder(root = document) {
     for (let i = 0; i < desiredCount; i += 1) {
       const tick = base.cloneNode(true)
       tick.style.position = 'absolute'
-      tick.style.top = 'calc(50% + var(--cylinder-center-offset, 0px))'
+      tick.style.top = '50%'
       tick.style.left = '50%'
       tick.style.transformStyle = 'preserve-3d'
       frag.appendChild(tick)
@@ -292,7 +213,6 @@ export function initCylinder(root = document) {
         tick.style.transform = `translate3d(-50%, -50%, 0) translate3d(${x}px, ${y}px, ${z}px) rotateX(${tRot}deg)`
       })
     })
-    syncCylinderCenterOffset()
   }
 
   calculatePositions()
@@ -445,7 +365,7 @@ export function initCylinder(root = document) {
     recalcRaf = requestAnimationFrame(() => {
       recalcRaf = null
       try {
-        syncMobileGeometry()
+        syncMobileViewportHeight()
       } catch (e) {
         // ignore
       }
@@ -662,7 +582,6 @@ export function initCylinder(root = document) {
     }
     try {
       wrapper.style.removeProperty('--cylinder-viewport-height')
-      wrapper.style.removeProperty('--cylinder-center-offset')
     } catch (e) {
       // ignore
     }

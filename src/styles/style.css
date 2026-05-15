@@ -469,14 +469,14 @@ h1 > .is-h1-span-wrap:last-child > span {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   position: absolute;
-  top: calc(50% + var(--cylinder-center-offset, 0px));
+  top: 50%;
   left: 50%;
   transform-style: preserve-3d;
 }
 
 .cylindar__text__item {
   position: absolute;
-  top: calc(50% + var(--cylinder-center-offset, 0px));
+  top: 50%;
   left: 50%;
   width: 100%;
   backface-visibility: hidden;

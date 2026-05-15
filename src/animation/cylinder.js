@@ -130,53 +130,44 @@ export function initCylinder(root = document) {
         return
       }
 
-      for (let i = 0; i < 2; i += 1) {
-        const textSpans = Array.from(
-          wrapper.querySelectorAll('.cylindar__text__item .body-xl')
-        )
-        let top = Infinity
-        let bottom = -Infinity
-        textSpans.forEach((span) => {
-          const rect = span.getBoundingClientRect()
-          if (
-            !Number.isFinite(rect.top) ||
-            !Number.isFinite(rect.bottom) ||
-            rect.width <= 0 ||
-            rect.height <= 0
-          ) {
-            return
-          }
-
-          top = Math.min(top, rect.top)
-          bottom = Math.max(bottom, rect.bottom)
-        })
-
+      const textSpans = Array.from(
+        wrapper.querySelectorAll('.cylindar__text__item .body-xl')
+      )
+      let top = Infinity
+      let bottom = -Infinity
+      textSpans.forEach((span) => {
+        const rect = span.getBoundingClientRect()
         if (
-          !Number.isFinite(top) ||
-          !Number.isFinite(bottom) ||
-          bottom <= top
+          !Number.isFinite(rect.top) ||
+          !Number.isFinite(rect.bottom) ||
+          rect.width <= 0 ||
+          rect.height <= 0
         ) {
           return
         }
 
-        const targetCenter = getViewportCenter() + getMobileCenterBias()
-        const visualCenter = top + (bottom - top) / 2
-        const delta = targetCenter - visualCenter
-        if (Math.abs(delta) < 0.5) return
+        top = Math.min(top, rect.top)
+        bottom = Math.max(bottom, rect.bottom)
+      })
 
-        const currentOffset =
-          parseFloat(
-            wrapper.style.getPropertyValue('--cylinder-visual-offset') || '0'
-          ) || 0
-        const progress =
-          trigger && Number.isFinite(trigger.progress) ? trigger.progress : 0
-        const ramp = Math.min(Math.max(progress / 0.08, 0), 1)
-        const targetOffset = currentOffset + delta
-        wrapper.style.setProperty(
-          '--cylinder-visual-offset',
-          `${targetOffset * ramp}px`
-        )
+      if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) {
+        return
       }
+
+      const targetCenter = getViewportCenter() + getMobileCenterBias()
+      const visualCenter = top + (bottom - top) / 2
+      const delta = targetCenter - visualCenter
+      if (Math.abs(delta) < 0.25) return
+
+      const currentOffset =
+        parseFloat(
+          wrapper.style.getPropertyValue('--cylinder-visual-offset') || '0'
+        ) || 0
+      // Offset = correction mesurée (translation du groupe) : une passe suffit.
+      // Ne pas multiplier par progress/remp : au début du pin, progress scrub ≈ 0,
+      // ce qui gardait l'offset à 0 une frame puis le faisait monter → saut visible.
+      const nextOffset = currentOffset + delta
+      wrapper.style.setProperty('--cylinder-visual-offset', `${nextOffset}px`)
     } catch (e) {
       // ignore
     }

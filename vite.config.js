@@ -18,6 +18,8 @@ export default defineConfig(({ command }) => ({
   build: {
     minify: true,
     manifest: true,
+    // MapLibre and Lottie are isolated in lazy chunks; 1 MB keeps the build output focused on actionable warnings.
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       input: './src/main.js',
       output: {

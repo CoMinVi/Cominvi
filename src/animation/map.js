@@ -2,7 +2,6 @@ import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 import Swiper from 'swiper'
 import { Mousewheel } from 'swiper/modules'
-import 'swiper/css'
 gsap.registerPlugin(CustomEase)
 
 export function initMap(root = document) {

@@ -1,0 +1,18 @@
+---
+description: Contexte projet CoMinVi Webflow/Vite
+alwaysApply: true
+---
+
+# Contexte Projet
+
+- Repondre en francais pour ce projet.
+- Utiliser les commandes `yarn` pour ce projet (`yarn`, `yarn dev`, `yarn build`, `yarn preview`, `yarn clean`, `yarn lint:fix`). Ne recommander `npm` que s'il y a une raison technique claire.
+- Faire attention au lint avant de terminer une modification JS. Utiliser `yarn lint:fix` ou une commande ESLint ciblee selon le besoin.
+- Reproduire les warnings de build avec `yarn build` avant de les corriger. Ne pas masquer un warning sans comprendre sa cause.
+- Les fichiers HTML a la racine sont des copies des pages Webflow. Ils servent de reference et de test local, mais ne sont pas la source de verite structurelle.
+- Le point d'entree applicatif est `src/main.js`; les initialiseurs de page passent par `src/app/page-registry.js`.
+- Les animations sont dans `src/animation/`. Avant d'ajouter des listeners, timers, observers ou timelines, verifier que le module evite les doubles initialisations et nettoie les etats apres transition Barba.
+- `src/styles/style.css` contient les styles custom injectes par Vite. `src/styles/cominvi-staging.webflow.css` est une copie du CSS Webflow exporte.
+- `dist/` est genere par Vite et ne doit pas etre modifie manuellement.
+- Les assets statiques locaux vivent dans `public/`; ils sont recopies tels quels dans `dist/`.
+- Le build publie les assets avec la base Netlify configuree dans `vite.config.js`. Verifier cette valeur avant tout changement de deploiement.

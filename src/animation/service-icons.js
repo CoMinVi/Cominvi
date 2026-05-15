@@ -1,5 +1,5 @@
 // Lottie hover handling for service and team icons
-import lottieWeb from 'lottie-web'
+import lottieWeb from 'lottie-web/build/player/lottie_light'
 
 // Optional ID → URL mapping. If an element has data-lottie="1", it will
 // use LOTTIE_URLS['1']. If data-lottie contains a full URL, that URL is used.

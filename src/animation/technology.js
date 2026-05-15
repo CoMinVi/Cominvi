@@ -79,7 +79,8 @@ export function initTechnology(root = document) {
     const prevBtn = buttons && buttons.length ? buttons[0] : null
     const nextBtn = buttons && buttons.length > 1 ? buttons[1] : null
 
-    if (inner) {
+    if (inner && !inner.__logosSliderInitialized) {
+      inner.__logosSliderInitialized = true
       try {
         inner.style.willChange = 'transform'
       } catch (e) {
@@ -186,6 +187,50 @@ export function initTechnology(root = document) {
           cycleTimeoutId = null
         }
       }
+      const getVisibleLogos = (slot) => {
+        try {
+          return Array.from(slot.querySelectorAll('.logos-slider_logo')).filter(
+            (el) => {
+              const styles = window.getComputedStyle(el)
+              const opacity = parseFloat(styles.opacity || '1')
+              return styles.display !== 'none' && opacity > 0.01
+            }
+          )
+        } catch (e) {
+          return []
+        }
+      }
+      const pruneSlotLogos = (slot, keep) => {
+        try {
+          Array.from(slot.querySelectorAll('.logos-slider_logo')).forEach(
+            (el) => {
+              if (el !== keep && el.parentNode) el.parentNode.removeChild(el)
+            }
+          )
+        } catch (e) {
+          // ignore
+        }
+      }
+      const normalizeSlotElements = () => {
+        slots.forEach((slot, i) => {
+          try {
+            const visibleLogos = getVisibleLogos(slot)
+            let keep = null
+            if (visibleLogos.length > 0) {
+              keep = visibleLogos[visibleLogos.length - 1]
+            } else if (slotElements[i] && slot.contains(slotElements[i])) {
+              keep = slotElements[i]
+            }
+            if (keep) {
+              gsap.set(keep, { opacity: 1, display: 'block' })
+            }
+            pruneSlotLogos(slot, keep)
+            slotElements[i] = keep
+          } catch (e) {
+            // ignore
+          }
+        })
+      }
       const scheduleNextCycle = () => {
         clearCycleTimeout()
         try {
@@ -217,6 +262,7 @@ export function initTechnology(root = document) {
         } catch (e) {
           // ignore
         }
+        normalizeSlotElements()
         // Préparer tous les logos pour cette config et construire la timeline cascade
         const slotAnimations = [] // { slotIndex, hide, show }
         for (let i = 0; i < slotCount; i++) {
@@ -237,6 +283,7 @@ export function initTechnology(root = document) {
           if (!animate || !prevLogo) {
             try {
               gsap.set(nextLogo, { opacity: 1, display: 'block' })
+              pruneSlotLogos(slot, nextLogo)
             } catch (e) {
               // ignore
             }
@@ -297,6 +344,20 @@ export function initTechnology(root = document) {
             tl.eventCallback('onComplete', () => {
               logosTl = null
               currentConfig = nextConfig
+              slotAnimations.forEach((anim) => {
+                try {
+                  if (anim.hide && anim.hide.parentNode) {
+                    anim.hide.parentNode.removeChild(anim.hide)
+                  }
+                  if (anim.show) {
+                    gsap.set(anim.show, { opacity: 1, display: 'block' })
+                    pruneSlotLogos(slots[anim.slotIndex], anim.show)
+                    slotElements[anim.slotIndex] = anim.show
+                  }
+                } catch (e) {
+                  // ignore
+                }
+              })
               scheduleNextCycle()
             })
           }

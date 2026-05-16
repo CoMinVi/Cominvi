@@ -27,6 +27,18 @@ function getHeroVideoSources(video) {
   return Array.from(video.querySelectorAll('source'))
 }
 
+function shouldEagerLoadHeroVideo() {
+  try {
+    if (typeof window === 'undefined') return false
+    if (window.matchMedia && window.matchMedia('(max-width: 991px)').matches) {
+      return true
+    }
+    return window.innerWidth <= 991
+  } catch (e) {
+    return false
+  }
+}
+
 export function deferHeroVideoSources(video) {
   if (!video) return false
 
@@ -133,8 +145,12 @@ export function prepareHeroMedia(root = document, opts = {}) {
   video.playsInline = true
   video.setAttribute('playsinline', '')
   video.setAttribute('muted', '')
-  if (opts.deferSources === false) {
+  if (opts.deferSources === false || shouldEagerLoadHeroVideo()) {
+    restoreHeroVideoSources(video)
     video.preload = 'metadata'
+    if (video.setAttribute) {
+      video.setAttribute('preload', 'metadata')
+    }
   } else {
     deferHeroVideoSources(video)
   }

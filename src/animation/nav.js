@@ -60,6 +60,7 @@ export function initializeMenuClick(options = {}, root = document) {
   const menuLabelInner = root.querySelector('.is-menu_label-inner')
   const contentWrapElement = root.querySelector('.content-wrap')
   const brandLink = root.querySelector('.navbar > a')
+  const navInnerElement = root.querySelector('.nav-inner')
   const linkAnchors = root.querySelectorAll('.links .link-item a')
   linkBaseMarginsConfig = Array.isArray(options.linkBaseMargins)
     ? options.linkBaseMargins
@@ -547,12 +548,33 @@ export function initializeMenuClick(options = {}, root = document) {
     }
   }
 
+  const getDesktopTopWhenOpen = () => {
+    try {
+      if (!navInnerElement) return '24em'
+      const navInnerRect = navInnerElement.getBoundingClientRect()
+      const pageWrapFontSize = parseFloat(
+        getComputedStyle(pageWrapElement).fontSize
+      )
+      const rootFontSize = parseFloat(
+        getComputedStyle(document.documentElement).fontSize
+      )
+      const emSize = pageWrapFontSize || rootFontSize || 16
+      return `${navInnerRect.bottom + emSize * 9}px`
+    } catch (e) {
+      return '24em'
+    }
+  }
+
   const applyResponsiveLayoutIfOpen = () => {
     if (!isOpen || !pageWrapElement) return
     const vw = window.innerWidth
     const isTabletNow = vw >= 768 && vw <= 991
     const isMobileNow = vw < 768
-    const topWhenOpen = isMobileNow ? '32em' : isTabletNow ? '15em' : '24em'
+    const topWhenOpen = isMobileNow
+      ? '32em'
+      : isTabletNow
+      ? '15em'
+      : getDesktopTopWhenOpen()
     const borderGapPxNow = isMobileNow ? 32 : 64
     const desiredWidthNow = Math.max(0, vw - borderGapPxNow)
     const scaleWhenOpen = vw > 0 ? desiredWidthNow / vw : 1
@@ -680,7 +702,7 @@ export function initializeMenuClick(options = {}, root = document) {
     } else if (isTablet) {
       targetTop = '15em'
     } else {
-      targetTop = '24em'
+      targetTop = getDesktopTopWhenOpen()
     }
     const borderGapPx = isMobile ? 32 : 64
     const desiredWidth = Math.max(0, viewportWidth - borderGapPx)

@@ -91,91 +91,23 @@ export function initCylinder(root = document) {
     }
   }
 
-  const getViewportCenter = () => {
-    try {
-      const vv = window.visualViewport
-      if (vv && Number.isFinite(vv.height)) {
-        return (vv.offsetTop || 0) + vv.height / 2
-      }
-    } catch (e) {
-      // ignore
-    }
-    return (window.innerHeight || 0) / 2
-  }
-
-  const getMobileCenterBias = () => {
-    const value = parseFloat(wrapper?.dataset?.cylinderCenterBias)
-    if (Number.isFinite(value)) return value
-    return getViewportHeight() * -0.025
-  }
-
   const getMobilePinTotal = () => 2500
 
   const getMobilePinDistance = () =>
     Math.max(1, getMobilePinTotal() - getViewportHeight())
 
-  let isCylinderPinned = false
+  const getMobileRotationDelayProgress = () => {
+    const value = parseFloat(wrapper?.dataset?.cylinderMobileRotationDelay)
+    if (Number.isFinite(value)) return Math.min(Math.max(value, 0), 0.8)
+    return 0
+  }
 
-  const syncCylinderVisualOffset = () => {
-    try {
-      if (!isMobileViewport()) {
-        wrapper.style.removeProperty('--cylinder-visual-offset')
-        return
-      }
-      if (!isCylinderPinned) {
-        return
-      }
+  const getCylinderRotationProgress = (progress) => {
+    const safeProgress = Number.isFinite(progress) ? progress : 0
+    if (!isMobileViewport()) return safeProgress
 
-      for (let i = 0; i < 2; i += 1) {
-        const textSpans = Array.from(
-          wrapper.querySelectorAll('.cylindar__text__item .body-xl')
-        )
-        let top = Infinity
-        let bottom = -Infinity
-        textSpans.forEach((span) => {
-          const rect = span.getBoundingClientRect()
-          if (
-            !Number.isFinite(rect.top) ||
-            !Number.isFinite(rect.bottom) ||
-            rect.width <= 0 ||
-            rect.height <= 0
-          ) {
-            return
-          }
-
-          top = Math.min(top, rect.top)
-          bottom = Math.max(bottom, rect.bottom)
-        })
-
-        if (
-          !Number.isFinite(top) ||
-          !Number.isFinite(bottom) ||
-          bottom <= top
-        ) {
-          return
-        }
-
-        const targetCenter = getViewportCenter() + getMobileCenterBias()
-        const visualCenter = top + (bottom - top) / 2
-        const delta = targetCenter - visualCenter
-        if (Math.abs(delta) < 0.5) return
-
-        const currentOffset =
-          parseFloat(
-            wrapper.style.getPropertyValue('--cylinder-visual-offset') || '0'
-          ) || 0
-        const progress =
-          trigger && Number.isFinite(trigger.progress) ? trigger.progress : 0
-        const ramp = Math.min(Math.max(progress / 0.08, 0), 1)
-        const targetOffset = currentOffset + delta
-        wrapper.style.setProperty(
-          '--cylinder-visual-offset',
-          `${targetOffset * ramp}px`
-        )
-      }
-    } catch (e) {
-      // ignore
-    }
+    const delay = getMobileRotationDelayProgress()
+    return gsap.utils.clamp(0, 1, (safeProgress - delay) / (1 - delay))
   }
 
   try {
@@ -310,6 +242,7 @@ export function initCylinder(root = document) {
   )
   if (indicatorNodes.length)
     tl.fromTo(indicatorNodes, { rotateX: 0 }, { rotateX: 150 }, 0)
+  tl.pause(0)
 
   // Enforce a fixed .pin-spacer height on small mobile viewports
   const getPinSpacer = () => {
@@ -403,11 +336,19 @@ export function initCylinder(root = document) {
 
   const cylinderScroller = getCylinderScroller()
   const usesWindowScroller = cylinderScroller === window
+  const syncCylinderTimeline = (self) => {
+    const progress =
+      self && Number.isFinite(self.progress) ? self.progress : trigger?.progress
+    tl.progress(getCylinderRotationProgress(progress))
+  }
 
   const trigger = ScrollTrigger.create({
     trigger: triggerEl,
     scroller: cylinderScroller,
-    start: () => (isMobileViewport() ? 'top top' : 'center center'),
+    start: () =>
+      isMobileViewport()
+        ? `center ${Math.round(getViewportHeight() / 2)}px`
+        : 'center center',
     end: () =>
       isMobileViewport() ? `+=${getMobilePinDistance()}` : '+=2000svh',
     pin: wrapper,
@@ -417,19 +358,18 @@ export function initCylinder(root = document) {
     // keep default pinSpacing to preserve layout consistency
     invalidateOnRefresh: true,
     // pinSpacing: false,
-    scrub: true,
-    animation: tl,
-    onRefresh: enforceSpacerHeight,
+    onRefresh: (self) => {
+      enforceSpacerHeight()
+      syncCylinderTimeline(self)
+    },
     onToggle: (self) => {
-      isCylinderPinned = self.isActive
+      syncCylinderTimeline(self)
       if (!self.isActive && self.progress <= 0) {
         wrapper.style.removeProperty('--cylinder-visual-offset')
       }
-      if (self.isActive) syncCylinderVisualOffset()
     },
     onUpdate: (self) => {
-      isCylinderPinned = self.isActive
-      syncCylinderVisualOffset()
+      syncCylinderTimeline(self)
     },
   })
   try {
@@ -465,13 +405,36 @@ export function initCylinder(root = document) {
         // ignore
       }
       try {
+        if (window.lenis && typeof window.lenis.resize === 'function') {
+          window.lenis.resize()
+        }
+      } catch (e) {
+        // ignore
+      }
+      try {
         ScrollTrigger.refresh()
+      } catch (e) {
+        // ignore
+      }
+      try {
+        if (window.lenis && typeof window.lenis.resize === 'function') {
+          window.lenis.resize()
+        }
       } catch (e) {
         // ignore
       }
     })
   }
   const onOrientationChange = () => scheduleRecalc()
+  const recalcTimers = []
+  const scheduleDelayedRecalc = (delay = 0) => {
+    try {
+      const id = setTimeout(scheduleRecalc, delay)
+      recalcTimers.push(id)
+    } catch (e) {
+      // ignore
+    }
+  }
 
   // Highlight: enlarge ticks closest to viewport center (like scroll-list)
   const updateTickHighlight = () => {
@@ -494,11 +457,12 @@ export function initCylinder(root = document) {
       if (textSpans.length) {
         const progress =
           trigger && Number.isFinite(trigger.progress) ? trigger.progress : 0
+        const rotationProgress = getCylinderRotationProgress(progress)
         const closestIdx = Math.max(
           0,
           Math.min(
             textSpans.length - 1,
-            Math.round(progress * (textSpans.length - 1))
+            Math.round(rotationProgress * (textSpans.length - 1))
           )
         )
         textSpans.forEach(
@@ -525,9 +489,13 @@ export function initCylinder(root = document) {
       if (!ticks.length) return
       const progress =
         trigger && Number.isFinite(trigger.progress) ? trigger.progress : 0
+      const rotationProgress = getCylinderRotationProgress(progress)
       const closestIndex = Math.max(
         0,
-        Math.min(ticks.length - 1, Math.round(progress * (ticks.length - 1)))
+        Math.min(
+          ticks.length - 1,
+          Math.round(rotationProgress * (ticks.length - 1))
+        )
       )
       // Reset classes
       ticks.forEach((t) => {
@@ -545,6 +513,13 @@ export function initCylinder(root = document) {
       add(closestIndex + 3, 'is-m')
     })
   }
+  let didRefreshOnCylinderApproach = false
+  const scheduleApproachRecalc = () => {
+    if (!isMobileViewport() || didRefreshOnCylinderApproach) return
+    didRefreshOnCylinderApproach = true
+    scheduleDelayedRecalc(0)
+    scheduleDelayedRecalc(120)
+  }
 
   // Dedicated ScrollTrigger for tick highlighting (mirrors scroll-list logic)
   const highlightTrigger = ScrollTrigger.create({
@@ -553,8 +528,14 @@ export function initCylinder(root = document) {
     start: 'top bottom',
     end: 'bottom top',
     onUpdate: updateTickHighlight,
-    onEnter: updateTickHighlight,
-    onEnterBack: updateTickHighlight,
+    onEnter: () => {
+      scheduleApproachRecalc()
+      updateTickHighlight()
+    },
+    onEnterBack: () => {
+      scheduleApproachRecalc()
+      updateTickHighlight()
+    },
   })
   // Also tick on every RAF to keep highlight smooth while pinned
   const tickerFn = () => updateTickHighlight()
@@ -565,8 +546,11 @@ export function initCylinder(root = document) {
   }
   updateTickHighlight()
 
-  const onResize = () => scheduleRecalc()
-  window.addEventListener('resize', onResize)
+  const onResizeWithApproachReset = () => {
+    didRefreshOnCylinderApproach = false
+    scheduleRecalc()
+  }
+  window.addEventListener('resize', onResizeWithApproachReset)
   // Recompute after page transitions complete (Barba after hooks)
   try {
     window.addEventListener('page:transition:after', scheduleRecalc)
@@ -578,7 +562,10 @@ export function initCylinder(root = document) {
       window.visualViewport &&
       typeof window.visualViewport.addEventListener === 'function'
     ) {
-      window.visualViewport.addEventListener('resize', scheduleRecalc)
+      window.visualViewport.addEventListener(
+        'resize',
+        onResizeWithApproachReset
+      )
       window.visualViewport.addEventListener('scroll', scheduleRecalc)
     }
   } catch (e) {
@@ -589,6 +576,28 @@ export function initCylinder(root = document) {
   } catch (e) {
     // ignore
   }
+  try {
+    window.addEventListener('load', scheduleRecalc, { once: true })
+  } catch (e) {
+    // ignore
+  }
+  try {
+    document.addEventListener('loader:done', scheduleRecalc, { once: true })
+  } catch (e) {
+    // ignore
+  }
+  try {
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(scheduleRecalc).catch(() => {})
+    }
+  } catch (e) {
+    // ignore
+  }
+  scheduleDelayedRecalc(0)
+  scheduleDelayedRecalc(120)
+  scheduleDelayedRecalc(500)
+  scheduleDelayedRecalc(1000)
+  scheduleDelayedRecalc(1800)
 
   wrapper.__cylinderCleanup = () => {
     try {
@@ -602,7 +611,7 @@ export function initCylinder(root = document) {
       // ignore
     }
     try {
-      window.removeEventListener('resize', onResize)
+      window.removeEventListener('resize', onResizeWithApproachReset)
     } catch (e) {
       // ignore
     }
@@ -616,7 +625,10 @@ export function initCylinder(root = document) {
         window.visualViewport &&
         typeof window.visualViewport.removeEventListener === 'function'
       ) {
-        window.visualViewport.removeEventListener('resize', scheduleRecalc)
+        window.visualViewport.removeEventListener(
+          'resize',
+          onResizeWithApproachReset
+        )
         window.visualViewport.removeEventListener('scroll', scheduleRecalc)
       }
     } catch (e) {
@@ -624,6 +636,18 @@ export function initCylinder(root = document) {
     }
     try {
       window.removeEventListener('orientationchange', onOrientationChange)
+    } catch (e) {
+      // ignore
+    }
+    try {
+      window.removeEventListener('load', scheduleRecalc)
+      document.removeEventListener('loader:done', scheduleRecalc)
+    } catch (e) {
+      // ignore
+    }
+    try {
+      recalcTimers.forEach((id) => clearTimeout(id))
+      recalcTimers.length = 0
     } catch (e) {
       // ignore
     }

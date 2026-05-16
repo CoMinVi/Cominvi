@@ -45,6 +45,24 @@ export function initializePageTransitionNav() {
       // ignore
     }
   }
+  const setTransitionBackground = (color, root = document) => {
+    try {
+      const targets = []
+      if (document.body) targets.push(document.body)
+      document.querySelectorAll('.page-wrap').forEach((el) => targets.push(el))
+      if (root && root.querySelector) {
+        const scopedPageWrap = root.querySelector('.page-wrap')
+        if (scopedPageWrap) targets.push(scopedPageWrap)
+      }
+      if (!targets.length) return
+      gsap.set([...new Set(targets)], {
+        backgroundColor: color,
+        overwrite: 'auto',
+      })
+    } catch (e) {
+      // ignore
+    }
+  }
   // Flag history navigations so we can route them to the same transition as pt-inner
   try {
     window.addEventListener('popstate', () => {
@@ -495,12 +513,7 @@ export function initializePageTransitionNav() {
             includeScrollRefresh: true,
             includeTransitionEvent: true,
           })
-          // Ensure body background resets to primary after transition animation
-          try {
-            gsap.set(document.body, { backgroundColor: 'var(--primary)' })
-          } catch (e) {
-            /* ignore */
-          }
+          setTransitionBackground('var(--accent)', next && next.container)
         },
       },
       {
@@ -609,12 +622,7 @@ export function initializePageTransitionNav() {
           } catch (e) {
             /* ignore */
           }
-          // Ensure body background resets to primary after transition animation
-          try {
-            gsap.set(document.body, { backgroundColor: 'var(--primary)' })
-          } catch (e) {
-            /* ignore */
-          }
+          setTransitionBackground('var(--accent)', next && next.container)
         },
       },
       {
@@ -705,12 +713,7 @@ export function initializePageTransitionNav() {
             /* ignore */
           }
           runPostTransitionInits(next && next.container)
-          // Ensure body background resets to primary after transition animation
-          try {
-            gsap.set(document.body, { backgroundColor: 'var(--primary)' })
-          } catch (e) {
-            /* ignore */
-          }
+          setTransitionBackground('var(--accent)', next && next.container)
         },
       },
       {
@@ -743,6 +746,7 @@ export function initializePageTransitionNav() {
             includeScrollRefresh: true,
             includeTransitionEvent: true,
           })
+          setTransitionBackground('var(--accent)', next && next.container)
         },
       },
     ],
@@ -750,6 +754,7 @@ export function initializePageTransitionNav() {
 
   // Ensure icon teardown on every transition
   barba.hooks.beforeLeave(({ current }) => {
+    setTransitionBackground('var(--primary)', current && current.container)
     try {
       destroyIcons(current && current.container)
     } catch (e) {
@@ -801,12 +806,7 @@ export function initializePageTransitionNav() {
       } catch (e) {
         /* ignore */
       }
-      // Ensure body background resets to primary after handled transition
-      try {
-        gsap.set(document.body, { backgroundColor: 'var(--primary)' })
-      } catch (e) {
-        /* ignore */
-      }
+      setTransitionBackground('var(--accent)', next && next.container)
       return
     }
     // Global fallback: ensure Finsweet Attributes are reinitialized
@@ -825,12 +825,7 @@ export function initializePageTransitionNav() {
       /* ignore */
     }
     runPostTransitionInits(next && next.container)
-    // Ensure body background resets to primary after fallback transition
-    try {
-      gsap.set(document.body, { backgroundColor: 'var(--primary)' })
-    } catch (e) {
-      /* ignore */
-    }
+    setTransitionBackground('var(--accent)', next && next.container)
   })
 
   // Ensure immediate init after the new container is attached

@@ -554,10 +554,15 @@ export function slideScaleEnter({ next }) {
                   gsap.set('#page-to', { y: 0 })
                   // 3) Restore base offset of page-info_inner
                   gsap.set('.page-info_inner', { y: '7.5em' })
-                  // 4) Restore body background to primary after transition completes
+                  // 4) Restore transition backgrounds after transition completes
                   try {
-                    gsap.set(document.body, {
-                      backgroundColor: 'var(--primary)',
+                    const bgTargets = [document.body, nextPage]
+                    document
+                      .querySelectorAll('.page-wrap')
+                      .forEach((el) => bgTargets.push(el))
+                    gsap.set([...new Set(bgTargets)].filter(Boolean), {
+                      backgroundColor: 'var(--accent)',
+                      overwrite: 'auto',
                     })
                   } catch (e2) {
                     // ignore

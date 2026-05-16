@@ -77,6 +77,62 @@ export function initializeMenuClick(options = {}, root = document) {
     return
   }
 
+  const getMenuTheme = () => {
+    const menuTheme =
+      (window.__theme &&
+        typeof window.__theme.getThemeFor === 'function' &&
+        window.__theme.getThemeFor('menu')) ||
+      (themeBase && themeBase.themes && themeBase.themes.menu) ||
+      {}
+
+    return {
+      menuIconBg: menuTheme.menuIconBg || 'var(--accent)',
+      menuIconBorder: menuTheme.menuIconBorder || 'var(--primary)',
+      menuIconBarsBg: menuTheme.menuIconBarsBg || 'var(--primary)',
+    }
+  }
+
+  const applyMenuThemeToIconInline = (withTransitionLock = true) => {
+    const menuTheme = getMenuTheme()
+
+    if (menuIconElement && menuIconElement.style) {
+      menuIconElement.style.setProperty(
+        'background-color',
+        menuTheme.menuIconBg,
+        'important'
+      )
+      menuIconElement.style.setProperty(
+        'border-color',
+        menuTheme.menuIconBorder,
+        'important'
+      )
+      if (withTransitionLock) {
+        menuIconElement.style.setProperty('transition', 'none', 'important')
+      }
+    }
+
+    if (menuIconBars && menuIconBars.length) {
+      menuIconBars.forEach((el) => {
+        try {
+          if (el && el.style) {
+            el.style.setProperty(
+              'background-color',
+              menuTheme.menuIconBarsBg,
+              'important'
+            )
+            if (withTransitionLock) {
+              el.style.setProperty('transition', 'none', 'important')
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      })
+    }
+
+    return menuTheme
+  }
+
   // Hover: form a "+" when menu is closed; on click it rotates into an "X"
   // Ensures no conflict when the menu is open or during page transitions
   const hoverEase = CustomEase.create('custom', 'M0,0 C0.68,0 0,1 1,1 ')
@@ -176,32 +232,7 @@ export function initializeMenuClick(options = {}, root = document) {
         }
       }
       menuIconElement.dataset.bgLocked = 'open'
-      if (menuIconElement.style) {
-        menuIconElement.style.setProperty(
-          'background-color',
-          'var(--primary)',
-          'important'
-        )
-        menuIconElement.style.setProperty(
-          'border-color',
-          'var(--primary)',
-          'important'
-        )
-        menuIconElement.style.setProperty('transition', 'none', 'important')
-      }
-      if (menuIconBars && menuIconBars.length) {
-        menuIconBars.forEach((el) => {
-          try {
-            if (el && el.style) {
-              // Keep bars white at pointer down; timeline will tween to orange
-              el.style.setProperty('background-color', '#fff', 'important')
-              el.style.setProperty('transition', 'none', 'important')
-            }
-          } catch (e) {
-            // ignore
-          }
-        })
-      }
+      applyMenuThemeToIconInline()
     } catch (e) {
       // ignore
     }
@@ -723,30 +754,7 @@ export function initializeMenuClick(options = {}, root = document) {
       try {
         if (menuIconElement) {
           menuIconElement.dataset.bgLocked = 'open'
-          if (menuIconElement.style) {
-            menuIconElement.style.setProperty(
-              'background-color',
-              'var(--primary)',
-              'important'
-            )
-            menuIconElement.style.setProperty(
-              'border-color',
-              'var(--primary)',
-              'important'
-            )
-          }
-        }
-        if (menuIconBars && menuIconBars.length) {
-          menuIconBars.forEach((el) => {
-            try {
-              if (el && el.style) {
-                // Maintain white until timeline animates to orange
-                el.style.setProperty('background-color', '#fff', 'important')
-              }
-            } catch (e) {
-              // ignore
-            }
-          })
+          applyMenuThemeToIconInline(false)
         }
       } catch (e) {
         // ignore
@@ -927,44 +935,21 @@ export function initializeMenuClick(options = {}, root = document) {
       )
       try {
         menuIconElement.dataset.bgLocked = 'open'
-        if (menuIconElement && menuIconElement.style) {
-          menuIconElement.style.setProperty(
-            'background-color',
-            'var(--primary)',
-            'important'
-          )
-          menuIconElement.style.setProperty(
-            'border-color',
-            'var(--primary)',
-            'important'
-          )
-          menuIconElement.style.setProperty('transition', 'none', 'important')
-        }
-        if (menuIconBars && menuIconBars.length) {
-          menuIconBars.forEach((el) => {
-            try {
-              if (el && el.style) {
-                el.style.setProperty(
-                  'background-color',
-                  'var(--accent)',
-                  'important'
-                )
-                el.style.setProperty('transition', 'none', 'important')
-              }
-            } catch (e) {
-              // ignore
-            }
-          })
-        }
+        applyMenuThemeToIconInline()
       } catch (e) {
         // ignore
       }
-      // Ensure direct white → orange transition without intermediate colors
+      // Ensure the bars land on the menu theme without intermediate colors
       if (menuIconBars && menuIconBars.length) {
-        tl.set(menuIconBars, { backgroundColor: '#fff', overwrite: 'auto' }, 0)
+        const menuTheme = getMenuTheme()
+        tl.set(
+          menuIconBars,
+          { backgroundColor: menuTheme.menuIconBarsBg, overwrite: 'auto' },
+          0
+        )
         tl.to(
           menuIconBars,
-          { backgroundColor: 'var(--accent)', overwrite: 'auto' },
+          { backgroundColor: menuTheme.menuIconBarsBg, overwrite: 'auto' },
           0
         )
       }
@@ -1486,6 +1471,9 @@ export function initializeThemeController() {
     }
     const isoTarget = isoSpecByKey[key]
     const isLocked = !!menuIconElement?.dataset?.bgLocked
+    const lockedState = menuIconElement?.dataset?.bgLocked
+    const lockedMenuTheme =
+      lockedState === 'open' && themes.menu ? themes.menu : null
     if (instant) {
       if (navbarElement) gsap.set(navbarElement, { color: t.navbarColor })
       if (logoBgElement) gsap.set(logoBgElement, { fill: t.logoBgFill })
@@ -1499,8 +1487,12 @@ export function initializeThemeController() {
       if (!suppressMenuIconTheme) {
         if (menuIconElement)
           gsap.set(menuIconElement, {
-            borderColor: isLocked ? 'var(--primary)' : t.menuIconBorder,
-            backgroundColor: isLocked ? 'var(--primary)' : t.menuIconBg,
+            borderColor: lockedMenuTheme
+              ? lockedMenuTheme.menuIconBorder
+              : t.menuIconBorder,
+            backgroundColor: lockedMenuTheme
+              ? lockedMenuTheme.menuIconBg
+              : t.menuIconBg,
           })
         if (menuIconBars.length) {
           const lockedHover =
@@ -1508,8 +1500,8 @@ export function initializeThemeController() {
           gsap.set(menuIconBars, {
             backgroundColor: lockedHover
               ? '#fff'
-              : isLocked
-              ? 'var(--accent)'
+              : lockedMenuTheme
+              ? lockedMenuTheme.menuIconBarsBg
               : t.menuIconBarsBg,
           })
         }
@@ -1528,8 +1520,12 @@ export function initializeThemeController() {
       if (!suppressMenuIconTheme) {
         if (menuIconElement)
           gsap.to(menuIconElement, {
-            borderColor: isLocked ? 'var(--primary)' : t.menuIconBorder,
-            backgroundColor: isLocked ? 'var(--primary)' : t.menuIconBg,
+            borderColor: lockedMenuTheme
+              ? lockedMenuTheme.menuIconBorder
+              : t.menuIconBorder,
+            backgroundColor: lockedMenuTheme
+              ? lockedMenuTheme.menuIconBg
+              : t.menuIconBg,
             ...to,
           })
         if (menuIconBars.length) {
@@ -1538,8 +1534,8 @@ export function initializeThemeController() {
           gsap.to(menuIconBars, {
             backgroundColor: lockedHover
               ? '#fff'
-              : isLocked
-              ? 'var(--accent)'
+              : lockedMenuTheme
+              ? lockedMenuTheme.menuIconBarsBg
               : t.menuIconBarsBg,
             ...to,
           })

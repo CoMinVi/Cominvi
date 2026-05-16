@@ -33,6 +33,46 @@ const isMainBreakpoint = () => {
   }
 }
 
+const parseCssLengthPx = (value, contextElement) => {
+  const normalized = String(value || '').trim()
+  if (!normalized || normalized === 'normal') return 0
+
+  const numeric = parseFloat(normalized)
+  if (!Number.isFinite(numeric)) return 0
+
+  if (normalized.endsWith('rem')) {
+    const rootFontSize = parseFloat(
+      getComputedStyle(document.documentElement).fontSize
+    )
+    return numeric * (Number.isFinite(rootFontSize) ? rootFontSize : 16)
+  }
+
+  if (normalized.endsWith('em')) {
+    const elementFontSize = parseFloat(
+      getComputedStyle(contextElement).fontSize
+    )
+    return numeric * (Number.isFinite(elementFontSize) ? elementFontSize : 16)
+  }
+
+  return numeric
+}
+
+const getNavlinkClosedX = (link) => {
+  try {
+    const icon = link.querySelector('.navlink_icon')
+    const iconWidth = icon ? icon.getBoundingClientRect().width : 0
+    const styles = getComputedStyle(link)
+    const gap = parseCssLengthPx(styles.columnGap || styles.gap, link)
+    const offset = iconWidth + gap
+
+    if (offset > 0) return -offset
+  } catch (e) {
+    // fall through to CSS-derived fallback
+  }
+
+  return '-2.3em'
+}
+
 const clearButtonInlineState = ({ content, label, button }) => {
   if (content) gsap.set(content, { clearProps: 'transform' })
   if (label) gsap.set(label, { clearProps: 'color' })
@@ -276,7 +316,7 @@ const setNavlinkBaseState = (link) => {
     gsap.set(link, { clearProps: 'transform' })
     return
   }
-  gsap.set(link, { x: '-3.6em' })
+  gsap.set(link, { x: getNavlinkClosedX(link) })
 }
 
 const animateNavlinkIn = (link) => {
@@ -295,7 +335,7 @@ const animateNavlinkOut = (link) => {
     return
   }
   gsap.to(link, {
-    x: '-3.6em',
+    x: getNavlinkClosedX(link),
     duration: INTERACTION_DURATION,
     ease: INTERACTION_EASE,
     overwrite: 'auto',

@@ -36,12 +36,43 @@ export function initParallax(root = document) {
 
   const scroller = window.__lenisWrapper || undefined
   const tweens = []
+  const isMachineCardImage = (img) => {
+    try {
+      if (!img) return false
+      if (img.classList && img.classList.contains('is-machine')) return true
+      return !!(img.closest && img.closest('.machine-card_bg'))
+    } catch (e) {
+      return false
+    }
+  }
+
+  const resetMachineCardImageLayout = (img) => {
+    try {
+      img.style.position = ''
+      img.style.left = ''
+      img.style.right = ''
+      img.style.top = ''
+      img.style.width = ''
+      img.style.height = ''
+      img.style.objectFit = ''
+      img.style.willChange = ''
+      img.style.transform = ''
+    } catch (e) {
+      // ignore
+    }
+  }
 
   const layoutImage = (img) => {
     try {
       const container =
         img.closest('.image-wrapper, .machine-card_bg') || img.parentElement
       if (!container) return null
+
+      if (isMachineCardImage(img)) {
+        // Keep machine cards visually centered: no parallax sizing/offset inline styles.
+        resetMachineCardImageLayout(img)
+        return container
+      }
 
       // Ensure container can clip the parallax overflow
       const cs = window.getComputedStyle(container)
@@ -171,6 +202,11 @@ export function initParallax(root = document) {
 
   images.forEach((img) => {
     try {
+      if (isMachineCardImage(img)) {
+        ensureLaidOut(img)
+        return
+      }
+
       gsap.set(img, { willChange: 'transform' })
 
       const triggerEl = ensureLaidOut(img) || img

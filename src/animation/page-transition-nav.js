@@ -208,6 +208,7 @@ export function initializePageTransitionNav() {
   }
   const performPreInnerUI = () => {
     try {
+      setTransitionBackground('var(--accent)')
       const isVisible = (el) => {
         if (!el) return false
         const cs = getComputedStyle(el)
@@ -272,6 +273,7 @@ export function initializePageTransitionNav() {
           : null
       if (!target) return
       try {
+        setTransitionBackground('var(--accent)')
         const navInner = document.querySelector('.nav-inner')
         const pageInfo = document.querySelector('.page-info')
         cache.wasNavVisible = isVisible(navInner)
@@ -513,7 +515,7 @@ export function initializePageTransitionNav() {
             includeScrollRefresh: true,
             includeTransitionEvent: true,
           })
-          setTransitionBackground('var(--accent)', next && next.container)
+          setTransitionBackground('var(--primary)', next && next.container)
         },
       },
       {
@@ -622,7 +624,7 @@ export function initializePageTransitionNav() {
           } catch (e) {
             /* ignore */
           }
-          setTransitionBackground('var(--accent)', next && next.container)
+          setTransitionBackground('var(--primary)', next && next.container)
         },
       },
       {
@@ -640,6 +642,10 @@ export function initializePageTransitionNav() {
           }
         },
         leave: (data) => {
+          setTransitionBackground(
+            'var(--accent)',
+            data && data.current && data.current.container
+          )
           try {
             const fromNs = getNamespaceFromContainer(
               data && data.current && data.current.container
@@ -713,7 +719,7 @@ export function initializePageTransitionNav() {
             /* ignore */
           }
           runPostTransitionInits(next && next.container)
-          setTransitionBackground('var(--accent)', next && next.container)
+          setTransitionBackground('var(--primary)', next && next.container)
         },
       },
       {
@@ -746,7 +752,7 @@ export function initializePageTransitionNav() {
             includeScrollRefresh: true,
             includeTransitionEvent: true,
           })
-          setTransitionBackground('var(--accent)', next && next.container)
+          setTransitionBackground('var(--primary)', next && next.container)
         },
       },
     ],
@@ -754,7 +760,7 @@ export function initializePageTransitionNav() {
 
   // Ensure icon teardown on every transition
   barba.hooks.beforeLeave(({ current }) => {
-    setTransitionBackground('var(--primary)', current && current.container)
+    setTransitionBackground('var(--accent)', current && current.container)
     try {
       destroyIcons(current && current.container)
     } catch (e) {
@@ -806,7 +812,7 @@ export function initializePageTransitionNav() {
       } catch (e) {
         /* ignore */
       }
-      setTransitionBackground('var(--accent)', next && next.container)
+      setTransitionBackground('var(--primary)', next && next.container)
       return
     }
     // Global fallback: ensure Finsweet Attributes are reinitialized
@@ -825,7 +831,7 @@ export function initializePageTransitionNav() {
       /* ignore */
     }
     runPostTransitionInits(next && next.container)
-    setTransitionBackground('var(--accent)', next && next.container)
+    setTransitionBackground('var(--primary)', next && next.container)
   })
 
   // Ensure immediate init after the new container is attached

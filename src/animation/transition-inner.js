@@ -561,7 +561,7 @@ export function slideScaleEnter({ next }) {
                       .querySelectorAll('.page-wrap')
                       .forEach((el) => bgTargets.push(el))
                     gsap.set([...new Set(bgTargets)].filter(Boolean), {
-                      backgroundColor: 'var(--accent)',
+                      backgroundColor: 'var(--primary)',
                       overwrite: 'auto',
                     })
                   } catch (e2) {

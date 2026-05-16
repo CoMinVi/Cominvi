@@ -1040,8 +1040,6 @@ export function initializeMenuClick(options = {}, root = document) {
     // Link animations already added above via animateMenuLinks
     tl.set(pageWrapElement, { overflow: targetOverflow }, 0)
     tl.set(document.body, { overflow: targetBodyOverflow }, 0)
-    // Switch body background to accent at menu open start
-    if (!wasOpen) tl.set(document.body, { backgroundColor: 'var(--accent)' }, 0)
     tl.set(pageWrapElement, { transformOrigin: '50% 0%' }, 0)
     tl.to(pageWrapElement, { top: targetTop, overwrite: 'auto' }, 0)
     tl.to(pageWrapElement, { scale: targetScale, overwrite: 'auto' }, 0)

@@ -223,18 +223,6 @@ export function slideScaleLeave({ current }) {
   const tl = gsap.timeline()
   const preDur = 0.75
   const slideDur = 1.0
-  // Ensure body background switches to accent at the very start of the transition
-  try {
-    tl.set(
-      document.body,
-      {
-        backgroundColor: 'var(--accent)',
-      },
-      0
-    )
-  } catch (e) {
-    // ignore
-  }
   // Sync menu theme to the same as when opening the menu ("menu") at leave start
   tl.call(
     () => {

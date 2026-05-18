@@ -114,6 +114,24 @@ export function initSticky50(root = document) {
     } catch (e) {
       // ignore
     }
+
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        window.ScrollTrigger &&
+        typeof window.ScrollTrigger.refresh === 'function'
+      ) {
+        requestAnimationFrame(() => {
+          try {
+            window.ScrollTrigger.refresh()
+          } catch (err) {
+            // ignore
+          }
+        })
+      }
+    } catch (e) {
+      // ignore
+    }
   } catch (e) {
     // ignore
   }

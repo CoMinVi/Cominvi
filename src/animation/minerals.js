@@ -74,6 +74,7 @@ export function initMinerals(root = document) {
     const NAME_TRANSITION_DURATION = 0.25
     const NAME_MOBILE_CENTER_DURATION = 0.3
     const EYEBROW_TRANSITION_DURATION = 0.25
+    const EYEBROW_SLIDE_STEP_EM = 0.75
     const isMobileViewport = () => {
       const mm =
         window.matchMedia && window.matchMedia('(max-width: 767px)').matches
@@ -237,8 +238,6 @@ export function initMinerals(root = document) {
       sliderTrack.__mineralsSlideIndex = next
     }
 
-    // Removed dynamic step calc; we use yPercent slides instead
-
     const setActiveEyebrowIndex = (activeIndex) => {
       eyebrowSliders.forEach((slider) => {
         const items = Array.from(slider.querySelectorAll('span'))
@@ -258,9 +257,8 @@ export function initMinerals(root = document) {
           else el.classList.remove('is-active')
         })
 
-        // Move the track so that item `next` is visible (each item height = 100%)
         gsap.to(slider, {
-          yPercent: -100 * next,
+          y: `${-EYEBROW_SLIDE_STEP_EM * next}em`,
           duration: EYEBROW_TRANSITION_DURATION,
           ease: mineralsEase,
           overwrite: 'auto',

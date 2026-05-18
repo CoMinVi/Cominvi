@@ -74,8 +74,6 @@ export function initAbout(root = document) {
       dateNumber3,
       dateNumber4,
     ].filter(Boolean)
-    const DATE_SHIFT_DESKTOP_EM = 3.5
-    const DATE_SHIFT_TOUCH_EM = 2
     const DATE_STAGGER_OFFSET = 0.12
     const DATE_OVERLAY_ANIM_DURATION = 500
     const DATE_OVERLAY_DEFAULT_TARGET = trackedDateNumbers.map(() => 0)
@@ -243,27 +241,24 @@ export function initAbout(root = document) {
       }
     }
     const overlayEase = cubicBezier(0.25, 0.1, 0.25, 1)
-    const getViewportWidth = () => {
+    const getDateShiftEm = () => {
       try {
-        if (
-          typeof window !== 'undefined' &&
-          typeof window.innerWidth === 'number'
-        ) {
-          return window.innerWidth
-        }
-        if (
-          document.documentElement &&
-          typeof document.documentElement.clientWidth === 'number'
-        ) {
-          return document.documentElement.clientWidth
+        const sample = trackedDateNumbers.find((dn) =>
+          dn?.querySelector?.('.body-xl')
+        )
+        if (!sample) return 3
+        const span = sample.querySelector('.body-xl')
+        if (!span) return 3
+        const h = span.offsetHeight
+        const base = parseFloat(getComputedStyle(sample).fontSize)
+        if (Number.isFinite(h) && h > 0 && Number.isFinite(base) && base > 0) {
+          return h / base
         }
       } catch (e) {
         // ignore
       }
-      return 0
+      return 3
     }
-    const getDateShiftEm = () =>
-      getViewportWidth() >= 992 ? DATE_SHIFT_DESKTOP_EM : DATE_SHIFT_TOUCH_EM
     const prepareDateNumber = (el) => {
       if (!el) return
       try {

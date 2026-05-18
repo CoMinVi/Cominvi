@@ -8,7 +8,6 @@ const INTERACTION_EASE = CustomEase.create(
   'button-hover-webflow-ease',
   'M0,0 C0.6,0 0,1 1,1'
 )
-const COLOR_PRIMARY = 'rgb(21, 21, 21)'
 const COLOR_ACCENT = 'rgb(244, 121, 32)'
 const COLOR_WHITE = 'rgb(255, 255, 255)'
 
@@ -21,8 +20,7 @@ const getButtonParts = (button) => {
   const content = button.querySelector(
     '.button-inner_content, .button-white_inner-content'
   )
-  const label = button.querySelector('.button_label, .button-white_label')
-  return { content, label }
+  return { content }
 }
 
 const isMainBreakpoint = () => {
@@ -73,67 +71,25 @@ const getNavlinkClosedX = (link) => {
   return '-2.3em'
 }
 
-const clearButtonInlineState = ({ content, label, button }) => {
+const clearButtonInlineState = ({ content }) => {
   if (content) gsap.set(content, { clearProps: 'transform' })
-  if (label) gsap.set(label, { clearProps: 'color' })
-  if (button) gsap.set(button, { clearProps: 'backgroundColor' })
 }
 
-const setBaseState = (button, { content, label }) => {
+const setBaseState = ({ content }) => {
   if (!isMainBreakpoint()) {
-    clearButtonInlineState({ content, label, button })
+    clearButtonInlineState({ content })
     return
   }
 
   if (content) gsap.set(content, { x: '0em' })
-
-  if (button.classList.contains('button')) {
-    gsap.set(button, { backgroundColor: COLOR_PRIMARY })
-    if (label && !label.classList.contains('is-black')) {
-      gsap.set(label, { color: COLOR_WHITE })
-    }
-    return
-  }
-
-  if (button.classList.contains('button-white')) {
-    gsap.set(button, { backgroundColor: COLOR_WHITE })
-  }
 }
 
-const animateHoverIn = (button, { content, label }) => {
+const animateHoverIn = ({ content }) => {
   if (!isMainBreakpoint()) return
 
   if (content) {
     gsap.to(content, {
-      x: '2.5em',
-      duration: INTERACTION_DURATION,
-      ease: INTERACTION_EASE,
-      overwrite: 'auto',
-    })
-  }
-
-  if (button.classList.contains('button')) {
-    gsap.to(button, {
-      backgroundColor: COLOR_ACCENT,
-      duration: INTERACTION_DURATION,
-      ease: INTERACTION_EASE,
-      overwrite: 'auto',
-    })
-
-    if (label && !label.classList.contains('is-black')) {
-      gsap.to(label, {
-        color: COLOR_PRIMARY,
-        duration: INTERACTION_DURATION,
-        ease: INTERACTION_EASE,
-        overwrite: 'auto',
-      })
-    }
-    return
-  }
-
-  if (button.classList.contains('button-white')) {
-    gsap.to(button, {
-      backgroundColor: COLOR_ACCENT,
+      x: '2.25em',
       duration: INTERACTION_DURATION,
       ease: INTERACTION_EASE,
       overwrite: 'auto',
@@ -141,43 +97,15 @@ const animateHoverIn = (button, { content, label }) => {
   }
 }
 
-const animateHoverOut = (button, { content, label }) => {
+const animateHoverOut = ({ content }) => {
   if (!isMainBreakpoint()) {
-    setBaseState(button, { content, label })
+    setBaseState({ content })
     return
   }
 
   if (content) {
     gsap.to(content, {
       x: '0em',
-      duration: INTERACTION_DURATION,
-      ease: INTERACTION_EASE,
-      overwrite: 'auto',
-    })
-  }
-
-  if (button.classList.contains('button')) {
-    gsap.to(button, {
-      backgroundColor: COLOR_PRIMARY,
-      duration: INTERACTION_DURATION,
-      ease: INTERACTION_EASE,
-      overwrite: 'auto',
-    })
-
-    if (label && !label.classList.contains('is-black')) {
-      gsap.to(label, {
-        color: COLOR_WHITE,
-        duration: INTERACTION_DURATION,
-        ease: INTERACTION_EASE,
-        overwrite: 'auto',
-      })
-    }
-    return
-  }
-
-  if (button.classList.contains('button-white')) {
-    gsap.to(button, {
-      backgroundColor: COLOR_WHITE,
       duration: INTERACTION_DURATION,
       ease: INTERACTION_EASE,
       overwrite: 'auto',
@@ -192,14 +120,14 @@ const bindButton = (button) => {
   const parts = getButtonParts(button)
   if (!parts.content) return
 
-  setBaseState(button, parts)
+  setBaseState(parts)
 
-  const onPointerEnter = () => animateHoverIn(button, parts)
-  const onPointerLeave = () => animateHoverOut(button, parts)
-  const onMouseEnter = () => animateHoverIn(button, parts)
-  const onMouseLeave = () => animateHoverOut(button, parts)
-  const onFocus = () => animateHoverIn(button, parts)
-  const onBlur = () => animateHoverOut(button, parts)
+  const onPointerEnter = () => animateHoverIn(parts)
+  const onPointerLeave = () => animateHoverOut(parts)
+  const onMouseEnter = () => animateHoverIn(parts)
+  const onMouseLeave = () => animateHoverOut(parts)
+  const onFocus = () => animateHoverIn(parts)
+  const onBlur = () => animateHoverOut(parts)
 
   button.addEventListener('pointerenter', onPointerEnter)
   button.addEventListener('pointerleave', onPointerLeave)

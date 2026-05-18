@@ -2083,6 +2083,28 @@ export function initTechnology(root = document) {
 
           const ease = gsap.parseEase('machinesStep') || ((t) => t)
 
+          const getMachineNameHoverTranslateYPx = (wrap) => {
+            if (!wrap) return 0
+            try {
+              const line = wrap.querySelector('.body-m')
+              if (line) {
+                let h = line.offsetHeight
+                if (!h) {
+                  const cs = getComputedStyle(line)
+                  const lh = cs.lineHeight
+                  if (lh && lh !== 'normal') h = parseFloat(lh) || 0
+                }
+                if (h > 0) return -Math.round(h)
+              }
+              const clip = wrap.closest('.machines-grid_name-wrap')
+              const ch = clip?.offsetHeight ?? 0
+              if (ch > 0) return -Math.round(ch)
+            } catch (e) {
+              /* ignore */
+            }
+            return 0
+          }
+
           const bindHoverHandlers = (item) => {
             if (!item || item.__gridHoverBound) return
             item.__gridHoverBound = true
@@ -2097,8 +2119,9 @@ export function initTechnology(root = document) {
                 } catch (e) {
                   // ignore
                 }
+                const yPx = getMachineNameHoverTranslateYPx(nameWrap)
                 gsap.to(nameWrap, {
-                  y: '-1.8em',
+                  y: yPx !== 0 ? yPx : '-1.8em',
                   opacity: 1,
                   duration: 0.3,
                   ease,
@@ -2126,7 +2149,7 @@ export function initTechnology(root = document) {
                 } catch (e) {
                   // ignore
                 }
-                gsap.to(nameWrap, { y: '0em', duration: 0.3, ease })
+                gsap.to(nameWrap, { y: 0, duration: 0.3, ease })
               }
               // Restore others
               try {

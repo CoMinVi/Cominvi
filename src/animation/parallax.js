@@ -28,7 +28,7 @@ export function initParallax(root = document) {
   }
 
   const scope = root && root.querySelector ? root : document
-  const images = scope.querySelectorAll('.image-p')
+  const images = scope.querySelectorAll('.image-p, .image-h-p')
   if (!images.length) {
     window.__parallaxTweens = []
     return []
@@ -41,6 +41,14 @@ export function initParallax(root = document) {
       if (!img) return false
       if (img.classList && img.classList.contains('is-machine')) return true
       return !!(img.closest && img.closest('.machine-card_bg'))
+    } catch (e) {
+      return false
+    }
+  }
+
+  const isHorizontalParallaxImage = (img) => {
+    try {
+      return !!(img && img.classList && img.classList.contains('image-h-p'))
     } catch (e) {
       return false
     }
@@ -153,18 +161,18 @@ export function initParallax(root = document) {
         computeAndApplyHeight()
       }
 
-      // Image should be larger than container to avoid gaps during travel
-      // Use absolute positioning + calibrated top offset so that at the
-      // extreme (+A) there is no top gap. With amplitude A=10%, height is
-      // (1 + 2A) and top is -(A * (1 + 2A)). For A=0.10 → height:120%, top:-12%.
+      // Image should be larger than container to avoid gaps during travel.
       const amplitude = 10 // percent used in tween below
+      const isHorizontal = isHorizontalParallaxImage(img)
       const overscanFactor = 1 + (2 * amplitude) / 100 // 1.2 when A=10
+      const horizontalOverscanFactor = 1.25
       const topCompPercent = -((amplitude / 100) * overscanFactor * 100) // -12 when A=10
+      const leftCompPercent = -(((horizontalOverscanFactor - 1) / 2) * 100)
 
       img.style.position = 'absolute'
-      img.style.left = '0'
+      img.style.left = isHorizontal ? `${leftCompPercent}%` : '0'
       img.style.right = '0'
-      img.style.top = `${topCompPercent}%`
+      img.style.top = isHorizontal ? '0' : `${topCompPercent}%`
       if (!(isImageSafety && inBigSafetySection)) {
         if (
           container.classList &&
@@ -172,10 +180,12 @@ export function initParallax(root = document) {
         ) {
           img.style.width = '100%'
         } else {
-          img.style.width = '120%'
+          img.style.width = isHorizontal
+            ? `${horizontalOverscanFactor * 100}%`
+            : '120%'
         }
       }
-      img.style.height = `${overscanFactor * 100}%`
+      img.style.height = isHorizontal ? '100%' : `${overscanFactor * 100}%`
       img.style.objectFit = 'cover'
       img.style.willChange = 'transform'
 
@@ -200,6 +210,47 @@ export function initParallax(root = document) {
     return laidOutContainer
   }
 
+  /**
+   * About : sticky texte + image courte — début sur le wrapper image,
+   * fin alignée sur le bas de la rangée (.content.is-about) pour couvrir tout le scroll utile.
+   */
+  const getAboutParallaxScrollTrigger = (img, laidOutContainer) => {
+    const base =
+      laidOutContainer || (img.closest && img.closest('.image-wrapper')) || img
+
+    let aboutRow = null
+    try {
+      aboutRow =
+        (img.closest && img.closest('.content.is-about')) ||
+        (img.closest && img.closest('.content.is-p-2.is-about')) ||
+        null
+    } catch (e) {
+      aboutRow = null
+    }
+
+    const defaults = {
+      trigger: base,
+      start: 'top bottom',
+      end: 'bottom top',
+      scrub: true,
+      scroller,
+      invalidateOnRefresh: true,
+      markers: !!aboutRow,
+    }
+    try {
+      if (aboutRow) {
+        return {
+          ...defaults,
+          endTrigger: aboutRow,
+          end: 'bottom top',
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return defaults
+  }
+
   images.forEach((img) => {
     try {
       if (isMachineCardImage(img)) {
@@ -209,20 +260,16 @@ export function initParallax(root = document) {
 
       gsap.set(img, { willChange: 'transform' })
 
-      const triggerEl = ensureLaidOut(img) || img
+      const laidOut = ensureLaidOut(img) || null
+      const isHorizontal = isHorizontalParallaxImage(img)
       const tween = gsap.fromTo(
         img,
-        { yPercent: -10 },
+        isHorizontal ? { xPercent: -10 } : { yPercent: -10 },
         {
-          yPercent: 10,
+          ...(isHorizontal ? { xPercent: 10 } : { yPercent: 10 }),
           ease: 'none',
-          scrollTrigger: {
-            trigger: triggerEl,
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: true,
-            scroller,
-          },
+          immediateRender: false,
+          scrollTrigger: getAboutParallaxScrollTrigger(img, laidOut),
         }
       )
       tweens.push(tween)
@@ -246,6 +293,16 @@ export function initParallax(root = document) {
 
   window.__parallaxTweens = tweens
   ScrollTrigger.refresh()
+  // Layout Webflow / fonts / Lenis : les métriques peuvent bouger après le premier refresh.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        ScrollTrigger.refresh()
+      } catch (e) {
+        // ignore
+      }
+    })
+  })
   return tweens
 }
 

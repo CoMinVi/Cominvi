@@ -1,5 +1,4 @@
 import barba from '@barba/core'
-import { gsap } from 'gsap'
 
 import {
   prepareIcons,
@@ -45,24 +44,7 @@ export function initializePageTransitionNav() {
       // ignore
     }
   }
-  const setTransitionBackground = (color, root = document) => {
-    try {
-      const targets = []
-      if (document.body) targets.push(document.body)
-      document.querySelectorAll('.page-wrap').forEach((el) => targets.push(el))
-      if (root && root.querySelector) {
-        const scopedPageWrap = root.querySelector('.page-wrap')
-        if (scopedPageWrap) targets.push(scopedPageWrap)
-      }
-      if (!targets.length) return
-      gsap.set([...new Set(targets)], {
-        backgroundColor: color,
-        overwrite: 'auto',
-      })
-    } catch (e) {
-      // ignore
-    }
-  }
+  const setTransitionBackground = () => {}
   // Flag history navigations so we can route them to the same transition as pt-inner
   try {
     window.addEventListener('popstate', () => {

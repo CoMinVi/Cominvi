@@ -413,7 +413,7 @@ export async function initAfterEnterModules(root = document) {
     )
   }
 
-  if (has(root, '.service-card, .team-card')) {
+  if (has(root, '.service-card, .team-card, .machine-card')) {
     await importAndRun(
       () => import('../animation/service-cards.js'),
       'initServiceCards',

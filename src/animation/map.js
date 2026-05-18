@@ -4,6 +4,77 @@ import Swiper from 'swiper'
 import { Mousewheel } from 'swiper/modules'
 gsap.registerPlugin(CustomEase)
 
+const PROJECT_DESCRIPTION_SELECTOR =
+  '.project-card_infos-col.is-left .eyebrow-l-alt'
+const PROJECT_DESCRIPTION_EXPANDED_CLASS = 'is-project-description-open'
+const PROJECT_READ_MORE_CLASS = 'project-card_read-more'
+
+function hasClampedOverflow(textEl) {
+  if (!textEl) return false
+  const wasExpanded = textEl.classList.contains(
+    PROJECT_DESCRIPTION_EXPANDED_CLASS
+  )
+
+  textEl.classList.remove(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+  const hasOverflow = textEl.scrollHeight > textEl.clientHeight + 1
+  if (wasExpanded) textEl.classList.add(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+
+  return hasOverflow
+}
+
+function syncProjectCardReadMore(root = document) {
+  const scope = root && root.querySelector ? root : document
+  const descriptions = Array.from(
+    scope.querySelectorAll(PROJECT_DESCRIPTION_SELECTOR)
+  )
+
+  descriptions.forEach((textEl) => {
+    const text = (textEl.textContent || '').trim()
+    const col = textEl.closest('.project-card_infos-col')
+    if (!col || !text) return
+
+    let button = col.querySelector(`.${PROJECT_READ_MORE_CLASS}`)
+    if (!button) {
+      button = document.createElement('button')
+      button.type = 'button'
+      button.className = PROJECT_READ_MORE_CLASS
+      button.textContent = 'Show more'
+      button.setAttribute('aria-expanded', 'false')
+      col.appendChild(button)
+    }
+
+    if (!textEl.__projectReadMoreBound) {
+      textEl.__projectReadMoreBound = true
+      button.addEventListener('click', (ev) => {
+        ev.preventDefault()
+        const isExpanded = textEl.classList.toggle(
+          PROJECT_DESCRIPTION_EXPANDED_CLASS
+        )
+        button.textContent = isExpanded ? 'Show less' : 'Show more'
+        button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false')
+      })
+    }
+
+    const shouldShowButton = hasClampedOverflow(textEl)
+    button.hidden = !shouldShowButton
+    textEl.classList.toggle('has-project-read-more', shouldShowButton)
+  })
+}
+
+function initProjectCardReadMore(root = document) {
+  syncProjectCardReadMore(root)
+
+  try {
+    if (window.__projectReadMoreResizeBound) return
+    window.__projectReadMoreResizeBound = true
+    window.addEventListener('resize', () => {
+      window.requestAnimationFrame(() => syncProjectCardReadMore(document))
+    })
+  } catch (e) {
+    // ignore
+  }
+}
+
 export function initMap(root = document) {
   const scope = root || document
 
@@ -32,6 +103,8 @@ export function initMap(root = document) {
   )
 
   if (!markers.length && !regions.length && !projectItems.length) return
+
+  initProjectCardReadMore(scope)
 
   // Build lookups
   const pointToMarker = new Map()

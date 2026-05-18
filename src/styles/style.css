@@ -24,6 +24,11 @@
   white-space: nowrap;
 }
 
+.nav-inner .navlink.w--current,
+.nav-inner .navlink[aria-current='page'] {
+  opacity: 0.5;
+}
+
 .scroll-item > .body-xl,
 .scroll-item > .body-xxl,
 .scroll-item > .body-next {
@@ -404,6 +409,31 @@ h1 > .is-h1-span-wrap:last-child > span {
   fill: var(--primary);
 }
 
+.button,
+.button-white {
+  clip-path: inset(0 round 0.5em);
+  contain: paint;
+}
+
+.button[data-wf--button--variant='button-white'] {
+  transition: background-color 0.5s cubic-bezier(0.6, 0, 0, 1);
+}
+
+.button[data-wf--button--variant='button-white'] .button_label-small {
+  transition: color 0.5s cubic-bezier(0.6, 0, 0, 1);
+}
+
+.button[data-wf--button--variant='button-white']:hover,
+.button[data-wf--button--variant='button-white']:focus-visible {
+  background-color: var(--primary);
+}
+
+.button[data-wf--button--variant='button-white']:hover .button_label-small,
+.button[data-wf--button--variant='button-white']:focus-visible
+  .button_label-small {
+  color: var(--white) !important;
+}
+
 .w-richtext {
   font-size: var(--size-font);
 }
@@ -572,6 +602,58 @@ h1 > .is-h1-span-wrap:last-child > span {
 .swiper.projects-wrapper .project-item {
   -webkit-user-drag: none;
   user-select: none;
+}
+
+.swiper.projects-wrapper .project-card_infos-col.is-left {
+  width: 100%;
+  opacity: 1;
+}
+
+.swiper.projects-wrapper .project-card_infos-col.is-left .eyebrow-l-alt {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  opacity: 0.6;
+}
+
+.swiper.projects-wrapper
+  .project-card_infos-col.is-left
+  .eyebrow-l-alt.is-project-description-open {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+.project-card_read-more {
+  align-self: flex-end;
+  margin-top: 1.25em;
+  border: 0;
+  background: transparent;
+  color: var(--white);
+  font-family: Helvetica Now Display, Arial, sans-serif;
+  font-size: 0.813em;
+  font-weight: 700;
+  line-height: 120%;
+  opacity: 0.6;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
+  transition: opacity 0.2s ease-out;
+}
+
+.project-card_read-more:hover,
+.project-card_read-more:focus-visible {
+  color: var(--white);
+  opacity: 1;
+}
+
+.project-card_read-more[hidden] {
+  display: none;
 }
 
 .section_partners .content.is-12-col {
@@ -874,6 +956,23 @@ button.maplibregl-ctrl-compass {
 /* Preserve original object-fit for machine card images (don't apply cover from parallax) */
 .machine-card_bg img {
   object-fit: contain !important;
+}
+
+@media screen and (min-width: 992px) {
+  .machine-card_bg {
+    transition: opacity 0.4s cubic-bezier(0.5, 0, 0, 1);
+  }
+
+  .machines-grid:has(.machine-card:hover)
+    .machine-card:not(:hover)
+    .machine-card_bg {
+    opacity: 0.4;
+  }
+
+  .machine-card:hover .machine-card_inner .line-inner,
+  .machine-card:focus-visible .machine-card_inner .line-inner {
+    transform: translateY(0) !important;
+  }
 }
 
 /* Enable machine card expand animation on tablet and mobile */

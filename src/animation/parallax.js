@@ -23,6 +23,20 @@ export function initParallax(root = document) {
     if (window.__parallaxResizeHandler) {
       window.removeEventListener('resize', window.__parallaxResizeHandler)
     }
+    if (
+      Array.isArray(window.__parallaxDebugObservers) &&
+      window.__parallaxDebugObservers.length
+    ) {
+      window.__parallaxDebugObservers.forEach((observer) => {
+        try {
+          if (observer && typeof observer.disconnect === 'function') {
+            observer.disconnect()
+          }
+        } catch (e) {
+          // ignore
+        }
+      })
+    }
   } catch (err) {
     // ignore
   }
@@ -36,6 +50,23 @@ export function initParallax(root = document) {
 
   const scroller = window.__lenisWrapper || undefined
   const tweens = []
+  const debugObservers = []
+  let parallaxRefreshTimer = null
+  const scheduleParallaxRefresh = () => {
+    clearTimeout(parallaxRefreshTimer)
+    parallaxRefreshTimer = setTimeout(() => {
+      try {
+        images.forEach((img) => layoutImage(img))
+      } catch (e) {
+        // ignore
+      }
+      try {
+        ScrollTrigger.refresh()
+      } catch (e) {
+        // ignore
+      }
+    }, 120)
+  }
   const isMachineCardImage = (img) => {
     try {
       if (!img) return false
@@ -55,6 +86,22 @@ export function initParallax(root = document) {
   }
 
   const resetMachineCardImageLayout = (img) => {
+    try {
+      img.style.position = ''
+      img.style.left = ''
+      img.style.right = ''
+      img.style.top = ''
+      img.style.width = ''
+      img.style.height = ''
+      img.style.objectFit = ''
+      img.style.willChange = ''
+      img.style.transform = ''
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const resetParallaxImageLayout = (img) => {
     try {
       img.style.position = ''
       img.style.left = ''
@@ -102,11 +149,25 @@ export function initParallax(root = document) {
         if (inBigSafetySection) return
         const containerWidth = container.clientWidth || img.clientWidth
         let ratio = 0
-        if (img.naturalWidth && img.naturalHeight) {
+        let canUseRenderedRatio = false
+        try {
+          const imgComputedStyle = window.getComputedStyle(img)
+          const isAbsolute = imgComputedStyle.position === 'absolute'
+          canUseRenderedRatio = !isAbsolute
+        } catch (e) {
+          canUseRenderedRatio = false
+        }
+        if (canUseRenderedRatio) {
+          const renderedRect = img.getBoundingClientRect()
+          if (renderedRect.width && renderedRect.height) {
+            ratio = renderedRect.height / renderedRect.width
+          }
+        }
+        if (!ratio && img.naturalWidth && img.naturalHeight) {
           ratio = img.naturalHeight / img.naturalWidth
-        } else if (img.clientWidth && img.clientHeight) {
+        } else if (!ratio && img.clientWidth && img.clientHeight) {
           ratio = img.clientHeight / img.clientWidth
-        } else {
+        } else if (!ratio) {
           ratio = 9 / 16
         }
         if (containerWidth) {
@@ -215,40 +276,38 @@ export function initParallax(root = document) {
    * fin alignée sur le bas de la rangée (.content.is-about) pour couvrir tout le scroll utile.
    */
   const getAboutParallaxScrollTrigger = (img, laidOutContainer) => {
+    const closestContainer =
+      (img.closest && img.closest('.image-wrapper, .machine-card_bg')) || null
+    const parentContainer = img.parentElement || null
+    // Keep trigger tied to the visual clipping container of the image.
+    // Using a higher-level section causes start/end drift on pages that animate layout.
     const base =
-      laidOutContainer || (img.closest && img.closest('.image-wrapper')) || img
-
-    let aboutRow = null
-    try {
-      aboutRow =
-        (img.closest && img.closest('.content.is-about')) ||
-        (img.closest && img.closest('.content.is-p-2.is-about')) ||
-        null
-    } catch (e) {
-      aboutRow = null
+      laidOutContainer ||
+      closestContainer ||
+      parentContainer ||
+      (img.closest && img.closest('.section_img')) ||
+      img
+    const getScrollDistance = () => {
+      try {
+        const rect = base.getBoundingClientRect()
+        const viewportH = Math.max(1, window.innerHeight || 0)
+        // start = "top bottom"; to end at "bottom top", travel must be:
+        // element height + viewport height
+        return Math.max(1, Math.round(rect.height + viewportH))
+      } catch (e) {
+        return Math.max(1, window.innerHeight || 1)
+      }
     }
 
-    const defaults = {
+    return {
       trigger: base,
       start: 'top bottom',
-      end: 'bottom top',
+      end: () => `+=${getScrollDistance()}`,
       scrub: true,
       scroller,
       invalidateOnRefresh: true,
-      markers: !!aboutRow,
+      markers: false,
     }
-    try {
-      if (aboutRow) {
-        return {
-          ...defaults,
-          endTrigger: aboutRow,
-          end: 'bottom top',
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-    return defaults
   }
 
   images.forEach((img) => {
@@ -258,6 +317,7 @@ export function initParallax(root = document) {
         return
       }
 
+      resetParallaxImageLayout(img)
       gsap.set(img, { willChange: 'transform' })
 
       const laidOut = ensureLaidOut(img) || null
@@ -273,6 +333,41 @@ export function initParallax(root = document) {
         }
       )
       tweens.push(tween)
+      if (isHorizontal && typeof ResizeObserver !== 'undefined') {
+        try {
+          const observedContainer =
+            laidOut ||
+            (img.closest &&
+              img.closest('.image-wrapper, .machine-card_bg, .section_img')) ||
+            img.parentElement ||
+            img
+          if (observedContainer) {
+            let lastHeight = Math.round(
+              observedContainer.getBoundingClientRect().height
+            )
+            const ro = new ResizeObserver(() => {
+              const nextHeight = Math.round(
+                observedContainer.getBoundingClientRect().height
+              )
+              if (Math.abs(nextHeight - lastHeight) < 2) return
+              lastHeight = nextHeight
+              layoutImage(img)
+              scheduleParallaxRefresh()
+            })
+            ro.observe(observedContainer)
+            debugObservers.push(ro)
+            // Late-layout fallback: if section is still collapsed at init, refresh once it expands.
+            if (lastHeight < 20) {
+              setTimeout(() => {
+                layoutImage(img)
+                scheduleParallaxRefresh()
+              }, 220)
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
     } catch (err) {
       // ignore per-image failure
     }
@@ -292,6 +387,7 @@ export function initParallax(root = document) {
   window.addEventListener('resize', window.__parallaxResizeHandler)
 
   window.__parallaxTweens = tweens
+  window.__parallaxDebugObservers = debugObservers
   ScrollTrigger.refresh()
   // Layout Webflow / fonts / Lenis : les métriques peuvent bouger après le premier refresh.
   requestAnimationFrame(() => {

@@ -1322,6 +1322,7 @@ function initializeLogoHover(root = document) {
 }
 
 export function initializeNav2(root = document) {
+  syncNavInnerCurrentLink(root)
   initializeMenuClick({}, root)
   initializeNavbarScroll(root)
   initializeThemeController()
@@ -1388,6 +1389,62 @@ export function initializeNav2(root = document) {
         overwrite: 'auto',
       })
     }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function normalizePathname(pathname) {
+  try {
+    const value = String(pathname || '/').trim()
+    if (!value) return '/'
+    return value.endsWith('/') && value.length > 1 ? value.slice(0, -1) : value
+  } catch (e) {
+    return '/'
+  }
+}
+
+function syncNavInnerCurrentLink(root = document) {
+  try {
+    const scope = root && root.querySelector ? root : document
+    const links = scope.querySelectorAll('.nav-inner .navlink')
+    if (!links || !links.length) return
+
+    const currentPath = normalizePathname(
+      (window.location && window.location.pathname) || '/'
+    )
+
+    let activeLink = null
+    links.forEach((link) => {
+      try {
+        const href = link.getAttribute('href') || ''
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) {
+          return
+        }
+        const url = new URL(href, window.location.origin)
+        const linkPath = normalizePathname(url.pathname)
+        if (linkPath === currentPath && !activeLink) {
+          activeLink = link
+        }
+      } catch (e) {
+        // ignore invalid href
+      }
+    })
+
+    links.forEach((link) => {
+      const isActive = !!activeLink && link === activeLink
+      try {
+        if (isActive) {
+          link.classList.add('w--current')
+          link.setAttribute('aria-current', 'page')
+        } else {
+          link.classList.remove('w--current')
+          link.removeAttribute('aria-current')
+        }
+      } catch (e) {
+        // ignore
+      }
+    })
   } catch (e) {
     // ignore
   }

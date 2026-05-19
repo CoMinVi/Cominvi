@@ -131,7 +131,8 @@ document.addEventListener('DOMContentLoaded', () => {
       namespace: getCurrentNamespace(document),
     })
     initContainerModules(document, {
-      includeParallax: false,
+      includeScrollRefresh: true,
+      includeParallax: true,
       includeButtonHover: true,
     })
       .then(() => {

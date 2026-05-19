@@ -441,6 +441,16 @@ export function initHeroBackgroundParallax(root = document) {
     // ignore
   }
 
+  const syncTweenToProgress = (st) => {
+    try {
+      if (!st) return
+      const progress = Number.isFinite(st.progress) ? st.progress : 0
+      gsap.set(bgInner, { y: progress * amplitudePx })
+    } catch (e) {
+      // ignore
+    }
+  }
+
   const triggerEl = bgInner.parentElement || bgInner
   const tween = gsap.fromTo(
     bgInner,
@@ -456,10 +466,9 @@ export function initHeroBackgroundParallax(root = document) {
         scrub: true,
         scroller,
         invalidateOnRefresh: true,
-        onRefresh: () => {
-          // Reset baseline to avoid accumulating translate after resize
-          gsap.set(bgInner, { y: 0 })
-        },
+        // Keep the current interpolated position through refreshes to avoid visual snaps.
+        onRefresh: syncTweenToProgress,
+        onUpdate: syncTweenToProgress,
       },
     }
   )

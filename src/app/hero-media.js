@@ -1,5 +1,7 @@
 const HERO_VIDEO_SELECTOR = '.hero-background .background_video video'
 const HERO_POSTER_PRELOAD_ATTR = 'data-cominvi-hero-poster-preload'
+const HERO_VIDEO_READY_ATTR = 'data-cominvi-hero-video-ready'
+const HERO_VIDEO_LISTENERS_ATTR = 'data-cominvi-hero-video-listeners'
 
 export function normalizeHeroPosterUrl(value) {
   if (!value || typeof value !== 'string') return ''
@@ -101,6 +103,55 @@ function getPosterFromVideo(video) {
   return fromWrapper
 }
 
+function getVideoWrapper(video) {
+  if (!video || typeof video.closest !== 'function') return null
+  return video.closest('.background_video')
+}
+
+function revealHeroVideo(video) {
+  if (!video || !video.style) return
+  const wrapper = getVideoWrapper(video)
+  video.setAttribute(HERO_VIDEO_READY_ATTR, 'true')
+  video.style.opacity = '1'
+  video.style.backgroundImage = 'none'
+  if (wrapper && wrapper.style) {
+    wrapper.style.backgroundImage = 'none'
+  }
+}
+
+function prepareHeroVideoPlaceholder(video, posterUrl) {
+  if (!video || !video.style) return
+  const wrapper = getVideoWrapper(video)
+  // Explicit user requirement: never show hero placeholder/poster.
+  // Keep only the video layer visible to avoid poster/video handoff jumps.
+  if (posterUrl && video.removeAttribute) {
+    video.removeAttribute('poster')
+  }
+  if (wrapper && wrapper.style) {
+    wrapper.style.backgroundImage = 'none'
+  }
+  video.style.backgroundImage = 'none'
+  video.style.opacity = '1'
+  video.style.transition = 'none'
+  if (video.setAttribute) {
+    video.setAttribute(HERO_VIDEO_READY_ATTR, 'true')
+  }
+}
+
+function ensureHeroVideoRevealHandlers(video) {
+  if (!video || !video.addEventListener) return
+  if (video.getAttribute(HERO_VIDEO_LISTENERS_ATTR) === 'true') return
+  video.setAttribute(HERO_VIDEO_LISTENERS_ATTR, 'true')
+
+  const onReady = () => {
+    revealHeroVideo(video)
+  }
+
+  video.addEventListener('loadeddata', onReady)
+  video.addEventListener('canplay', onReady)
+  video.addEventListener('playing', onReady)
+}
+
 function ensureHeroPosterPreload(posterUrl) {
   if (!posterUrl || typeof document === 'undefined') return null
 
@@ -134,12 +185,10 @@ export function prepareHeroMedia(root = document, opts = {}) {
 
   const posterUrl = getPosterFromVideo(video)
   if (posterUrl) {
-    video.setAttribute('poster', posterUrl)
-    if (video.style) {
-      video.style.backgroundImage = `url("${posterUrl}")`
-    }
     ensureHeroPosterPreload(posterUrl)
   }
+  prepareHeroVideoPlaceholder(video, posterUrl)
+  ensureHeroVideoRevealHandlers(video)
 
   video.muted = true
   video.playsInline = true

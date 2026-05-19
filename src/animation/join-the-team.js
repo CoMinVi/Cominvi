@@ -1,7 +1,13 @@
 import gsap from 'gsap'
+import { CustomEase } from 'gsap/CustomEase'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
-gsap.registerPlugin(ScrollTrigger)
+gsap.registerPlugin(ScrollTrigger, CustomEase)
+
+const TEAM_INTERACTION_EASE = CustomEase.create(
+  'team-interaction-ease',
+  'M0,0 C0.6,0 0,1 1,1'
+)
 
 function buildIndicator(indicator) {
   const style = getComputedStyle(indicator)
@@ -366,20 +372,16 @@ function initEquitySlider(section) {
   if (!section) return
   const column = section.querySelector('.equity-slider_slide_column')
   if (!column) return
+  const stage =
+    section.closest('.equity-stage') || section.querySelector('.equity-stage')
 
   gsap.set(column, { yPercent: 0 })
 
   const tl = gsap.timeline({
-    defaults: { ease: 'none' },
-    scrollTrigger: {
-      trigger: section,
-      start: 'top bottom', // begins when top reaches viewport bottom (no anim in first 100vh)
-      end: '+=200%', // 0-1: hold (no-op), 1-2: animate like before
-      scrub: true,
-    },
+    paused: true,
+    defaults: { ease: TEAM_INTERACTION_EASE },
   })
-  // Hold for first 100vh (no-op), then animate column to -50% over next 100vh
-  tl.to(column, { yPercent: -50, duration: 1 }, 1)
+  tl.to(column, { yPercent: -50, duration: 0.8 }, 0)
 
   // Circle tick reveal (like minerals): drive conic mask arc (start/end) in two phases
   const darkSvg = section.querySelector('.circle.is-2')
@@ -413,7 +415,7 @@ function initEquitySlider(section) {
       arc,
       {
         end: 126, // 35% of 360°
-        duration: 0.5,
+        duration: 0.27,
         onUpdate: () => {
           try {
             darkSvg.style.setProperty('--start', arc.start + 'deg')
@@ -423,7 +425,7 @@ function initEquitySlider(section) {
           }
         },
       },
-      0 // animate immediately when section enters view
+      0
     )
     tl.to(
       arc,
@@ -431,7 +433,7 @@ function initEquitySlider(section) {
         // Sweep with a 65% arc (234°) by the end of phase 2
         start: 126, // 35%
         end: 360, // 100%
-        duration: 1, // across the next 100vh
+        duration: 0.53,
         onUpdate: () => {
           try {
             darkSvg.style.setProperty('--start', arc.start + 'deg')
@@ -441,7 +443,7 @@ function initEquitySlider(section) {
           }
         },
       },
-      1
+      0.27
     )
   }
 
@@ -450,9 +452,16 @@ function initEquitySlider(section) {
   )
   if (labels.length) {
     gsap.set(labels, { yPercent: 0 })
-    // Animate labels over the second phase
-    tl.to(labels, { yPercent: -100, duration: 1 }, 1)
+    tl.to(labels, { yPercent: -100, duration: 0.8 }, 0)
   }
+
+  ScrollTrigger.create({
+    trigger: stage || section,
+    start: () => `top ${Math.round(window.innerHeight * 0.1)}px`,
+    invalidateOnRefresh: true,
+    once: true,
+    onEnter: () => tl.play(),
+  })
 }
 
 export function initTeam(root = document) {

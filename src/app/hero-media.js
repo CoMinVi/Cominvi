@@ -2,6 +2,7 @@ const HERO_VIDEO_SELECTOR = '.hero-background .background_video video'
 const HERO_POSTER_PRELOAD_ATTR = 'data-cominvi-hero-poster-preload'
 const HERO_VIDEO_READY_ATTR = 'data-cominvi-hero-video-ready'
 const HERO_VIDEO_LISTENERS_ATTR = 'data-cominvi-hero-video-listeners'
+const HERO_VIDEO_PLAY_UNLOCKED_ATTR = 'data-cominvi-hero-play-unlocked'
 
 export function normalizeHeroPosterUrl(value) {
   if (!value || typeof value !== 'string') return ''
@@ -12,6 +13,16 @@ export function normalizeHeroPosterUrl(value) {
   }
   url = url.replace(/^['"]+|['")]+$/g, '').trim()
   url = url.replace(/;+$/g, '').trim()
+  if (!url) return ''
+  const lowered = url.toLowerCase()
+  if (
+    lowered === 'none' ||
+    lowered === 'initial' ||
+    lowered === 'inherit' ||
+    lowered === 'unset'
+  ) {
+    return ''
+  }
   return url
 }
 
@@ -108,6 +119,40 @@ function getVideoWrapper(video) {
   return video.closest('.background_video')
 }
 
+function lockHeroVideoPlayback(video) {
+  if (!video || !video.setAttribute) return
+  video.setAttribute(HERO_VIDEO_PLAY_UNLOCKED_ATTR, 'false')
+}
+
+function unlockHeroVideoPlayback(video) {
+  if (!video || !video.setAttribute) return
+  video.setAttribute(HERO_VIDEO_PLAY_UNLOCKED_ATTR, 'true')
+}
+
+function isHeroVideoPlaybackUnlocked(video) {
+  if (!video || !video.getAttribute) return false
+  return video.getAttribute(HERO_VIDEO_PLAY_UNLOCKED_ATTR) === 'true'
+}
+
+function enforceHeroMediaGeometry(video) {
+  if (!video || !video.style) return
+  const wrapper = getVideoWrapper(video)
+  if (wrapper && wrapper.style) {
+    wrapper.style.position = 'relative'
+    wrapper.style.overflow = 'hidden'
+    wrapper.style.width = '100%'
+    wrapper.style.height = '100%'
+  }
+
+  video.style.position = 'absolute'
+  video.style.inset = '0'
+  video.style.display = 'block'
+  video.style.width = '100%'
+  video.style.height = '100%'
+  video.style.objectFit = 'cover'
+  video.style.objectPosition = 'center center'
+}
+
 function revealHeroVideo(video) {
   if (!video || !video.style) return
   const wrapper = getVideoWrapper(video)
@@ -122,20 +167,20 @@ function revealHeroVideo(video) {
 function prepareHeroVideoPlaceholder(video, posterUrl) {
   if (!video || !video.style) return
   const wrapper = getVideoWrapper(video)
-  // Explicit user requirement: never show hero placeholder/poster.
-  // Keep only the video layer visible to avoid poster/video handoff jumps.
-  if (posterUrl && video.removeAttribute) {
-    video.removeAttribute('poster')
+  lockHeroVideoPlayback(video)
+  enforceHeroMediaGeometry(video)
+  video.setAttribute(HERO_VIDEO_READY_ATTR, 'false')
+  if (posterUrl && video.setAttribute) {
+    video.setAttribute('poster', posterUrl)
   }
   if (wrapper && wrapper.style) {
     wrapper.style.backgroundImage = 'none'
   }
+  // Keep the video element visible so the browser draws the poster in the
+  // exact same rendering box as the first decoded frame (no handoff offset).
   video.style.backgroundImage = 'none'
   video.style.opacity = '1'
   video.style.transition = 'none'
-  if (video.setAttribute) {
-    video.setAttribute(HERO_VIDEO_READY_ATTR, 'true')
-  }
 }
 
 function ensureHeroVideoRevealHandlers(video) {
@@ -143,10 +188,22 @@ function ensureHeroVideoRevealHandlers(video) {
   if (video.getAttribute(HERO_VIDEO_LISTENERS_ATTR) === 'true') return
   video.setAttribute(HERO_VIDEO_LISTENERS_ATTR, 'true')
 
+  const guardPlayback = () => {
+    if (isHeroVideoPlaybackUnlocked(video)) return
+    try {
+      video.pause()
+      if (video.currentTime > 0.01) video.currentTime = 0
+    } catch (e) {
+      // ignore guard failures
+    }
+  }
+
   const onReady = () => {
+    guardPlayback()
     revealHeroVideo(video)
   }
 
+  video.addEventListener('play', guardPlayback)
   video.addEventListener('loadeddata', onReady)
   video.addEventListener('canplay', onReady)
   video.addEventListener('playing', onReady)
@@ -212,7 +269,11 @@ export function requestHeroVideoPlayback(root = document) {
   const video = prepared && prepared.video
   if (!video) return null
 
+  unlockHeroVideoPlayback(video)
+  enforceHeroMediaGeometry(video)
+
   if (video.__cominviHeroPlayRequested && !video.paused) {
+    revealHeroVideo(video)
     return video
   }
 

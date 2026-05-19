@@ -217,18 +217,6 @@
   transform-origin: bottom left;
 }
 
-h1 > .is-h1-span-wrap:last-child > span {
-  padding-bottom: 0.025em;
-}
-
-.hero-content_right .content_right-row:last-child {
-  margin-top: -0.125em;
-}
-
-.is-h1-span-wrap {
-  padding-bottom: 0.14em;
-}
-
 .workshops .toggle-option {
   cursor: default;
 }
@@ -1009,4 +997,9 @@ button.maplibregl-ctrl-compass {
   .is-big-safety {
     aspect-ratio: 2 / 2.5;
   }
+}
+
+.hero-content_left .is-h1-span-wrap:first-child,
+.hero-content_right .content_right-row:first-child .is-h1-span-wrap:first-child {
+  margin-bottom: -0.5em;
 }

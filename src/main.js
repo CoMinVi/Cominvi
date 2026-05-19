@@ -82,10 +82,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // ignore
   }
   try {
-    const heroMedia = prepareHeroMedia(document)
+    const eagerHeroVideo = isHomeNamespace(document)
+    const heroMedia = eagerHeroVideo
+      ? prepareHeroMedia(document, { deferSources: false })
+      : prepareHeroMedia(document)
     logDebug('shell:hero-media-prepared', {
       hasVideo: !!(heroMedia && heroMedia.video),
       posterUrl: heroMedia && heroMedia.posterUrl,
+      eagerHeroVideo,
     })
   } catch (e) {
     logDebug('shell:hero-media-error', { message: e && e.message })

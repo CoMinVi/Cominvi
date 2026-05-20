@@ -974,6 +974,8 @@ export function initTechnology(root = document) {
         // Animate the clone description lines from y 100% to 0%
         try {
           if (openClone) {
+            const cloneDesc = openClone.querySelector('.machines-grid_desc')
+            if (cloneDesc) gsap.set(cloneDesc, { opacity: 1 })
             const cloneDescText = openClone.querySelector('.is-grid-desc')
             const lineInners = splitLines(cloneDescText)
             if (lineInners && lineInners.length) {
@@ -992,10 +994,10 @@ export function initTechnology(root = document) {
         } catch (eDesc) {
           // ignore
         }
-        // Fade in description overlay (fixed) masked to the clone bounds
+        // Fade in infos overlay (fixed) masked to the clone bounds
         try {
-          const origDesc = item.querySelector('.machines-grid_desc')
-          if (origDesc) {
+          const origInfos = item.querySelector('.machines-grid_infos')
+          if (origInfos) {
             const NS = 'http://www.w3.org/2000/svg'
             const svg = document.createElementNS(NS, 'svg')
             const defs = document.createElementNS(NS, 'defs')
@@ -1029,7 +1031,7 @@ export function initTechnology(root = document) {
             defs.appendChild(mask)
             svg.appendChild(defs)
             document.body.appendChild(svg)
-            // Build a full-viewport overlay container and place desc inside at its fixed viewport coords
+            // Build a full-viewport overlay container and place infos inside at its fixed viewport coords
             const overlayContainer = document.createElement('div')
             overlayContainer.className = 'grid-desc-overlay'
             document.body.appendChild(overlayContainer)
@@ -1047,27 +1049,33 @@ export function initTechnology(root = document) {
             // Use webkitMask first for Safari/WebKit compatibility; fallback to standard mask
             overlayContainer.style.webkitMaskImage = `url(#${maskId})`
             overlayContainer.style.maskImage = `url(#${maskId})`
-            const overlayDesc = origDesc.cloneNode(true)
-            overlayContainer.appendChild(overlayDesc)
+            const overlayInfos = origInfos.cloneNode(true)
+            overlayContainer.appendChild(overlayInfos)
             // Measure final rect using a hidden full-screen clone to avoid visible movement on first open
-            const applyOverlayDescRect = (rect) => {
+            const applyOverlayInfosRect = (rect) => {
               if (!rect) return
               try {
-                gsap.set(overlayDesc, {
+                gsap.set(overlayInfos, {
                   position: 'absolute',
                   left: rect.left,
                   top: rect.top,
                   width: rect.width,
-                  height: rect.height,
+                  minHeight: rect.height,
+                  height: 'auto',
                   margin: 0,
                   opacity: 1,
                   pointerEvents: 'none',
+                  display: 'flex',
                 })
+                const overlayDescEl = overlayInfos.querySelector(
+                  '.machines-grid_desc'
+                )
+                if (overlayDescEl) gsap.set(overlayDescEl, { opacity: 1 })
               } catch (e) {
                 // ignore
               }
             }
-            const measureFinalDescRect = () => {
+            const measureFinalInfosRect = () => {
               try {
                 const source = openClone || item
                 const temp = source.cloneNode(true)
@@ -1085,33 +1093,57 @@ export function initTechnology(root = document) {
                 })
                 // Force layout to ensure correct measurements
                 void temp.offsetWidth
-                const tempDesc = temp.querySelector('.machines-grid_desc')
-                const rect = tempDesc ? tempDesc.getBoundingClientRect() : null
+                const tempInfos = temp.querySelector('.machines-grid_infos')
+                if (tempInfos) {
+                  gsap.set(tempInfos, {
+                    display: 'flex',
+                    opacity: 1,
+                  })
+                  const tempDesc = tempInfos.querySelector(
+                    '.machines-grid_desc'
+                  )
+                  if (tempDesc) gsap.set(tempDesc, { opacity: 1 })
+                }
+                let rect = null
+                if (tempInfos) {
+                  const infosRect = tempInfos.getBoundingClientRect()
+                  const measuredHeight = Math.max(
+                    infosRect.height,
+                    tempInfos.scrollHeight || 0
+                  )
+                  rect = {
+                    left: infosRect.left,
+                    top: infosRect.top,
+                    width: infosRect.width,
+                    height: measuredHeight,
+                  }
+                }
                 temp.remove()
                 return rect
               } catch (e) {
                 return null
               }
             }
-            const initialFinal = measureFinalDescRect()
+            const initialFinal = measureFinalInfosRect()
             if (!initialFinal || !initialFinal.width || !initialFinal.height) {
               requestAnimationFrame(() => {
-                finalOverlayDescRect = measureFinalDescRect()
-                applyOverlayDescRect(finalOverlayDescRect)
+                finalOverlayDescRect = measureFinalInfosRect()
+                applyOverlayInfosRect(finalOverlayDescRect)
               })
             } else {
               finalOverlayDescRect = initialFinal
-              applyOverlayDescRect(finalOverlayDescRect)
+              applyOverlayInfosRect(finalOverlayDescRect)
             }
-            // Keep overlay description rect static during animation; only recompute on resize
+            // Keep overlay infos rect static during animation; only recompute on resize
             syncOverlayDescRect = () => {
-              if (!overlayDesc) return
+              if (!overlayInfos) return
               if (!finalOverlayDescRect) return
-              applyOverlayDescRect(finalOverlayDescRect)
+              applyOverlayInfosRect(finalOverlayDescRect)
             }
             // Animate overlay description by lines from y 100% to 0%
             try {
-              const overlayGridDesc = overlayDesc.querySelector('.is-grid-desc')
+              const overlayGridDesc =
+                overlayInfos.querySelector('.is-grid-desc')
               const lineInnersOverlay = splitLines(overlayGridDesc)
               if (lineInnersOverlay && lineInnersOverlay.length) {
                 gsap.set(lineInnersOverlay, { yPercent: 100 })
@@ -1128,24 +1160,20 @@ export function initTechnology(root = document) {
             } catch (eDescOv) {
               // ignore
             }
-            // Also move name inner from ORIGINAL item into the same overlay so it isn't clipped by clone overflow
+            // Animate the name inner from overlay infos to avoid clipping by clone overflow
             try {
               if (openClone) {
-                const sourceNameInner = item.querySelector(
+                const overlayName = overlayInfos.querySelector(
                   '.machines-grid_name-inner'
                 )
-                if (sourceNameInner) {
-                  const overlayName = sourceNameInner.cloneNode(true)
-                  overlayContainer.appendChild(overlayName)
+                if (overlayName) {
+                  // Keep the title slightly higher in open state so the paragraph remains visible.
+                  const overlayNameClosedY = '-10em'
+                  const overlayNameOpenY = 0
                   gsap.set(overlayName, {
-                    position: 'absolute',
-                    left: '3em',
-                    top: '3em',
-                    margin: 0,
                     display: 'block',
                     opacity: 1,
-                    y: '-8em',
-                    pointerEvents: 'none',
+                    y: overlayNameClosedY,
                   })
                   // Split words, then letters inside each word (no mid-word breaks), animate letters from yPercent:-100 to 0
                   try {
@@ -1201,7 +1229,7 @@ export function initTechnology(root = document) {
                   tl.to(
                     overlayName,
                     {
-                      y: 0,
+                      y: overlayNameOpenY,
                       duration: 1.2,
                       ease: gsap.parseEase('machinesStep') || 'power2.out',
                     },
@@ -1468,7 +1496,7 @@ export function initTechnology(root = document) {
           try {
             // Recompute the final rect using hidden full-screen measurement clone
             if (descOverlay) {
-              const measureFinalDescRect = () => {
+              const measureFinalInfosRect = () => {
                 try {
                   const source = openClone || item
                   const temp = source.cloneNode(true)
@@ -1485,17 +1513,35 @@ export function initTechnology(root = document) {
                     zIndex: -1,
                   })
                   void temp.offsetWidth
-                  const tempDesc = temp.querySelector('.machines-grid_desc')
-                  const rect = tempDesc
-                    ? tempDesc.getBoundingClientRect()
-                    : null
+                  const tempInfos = temp.querySelector('.machines-grid_infos')
+                  if (tempInfos) {
+                    gsap.set(tempInfos, { display: 'flex', opacity: 1 })
+                    const tempDesc = tempInfos.querySelector(
+                      '.machines-grid_desc'
+                    )
+                    if (tempDesc) gsap.set(tempDesc, { opacity: 1 })
+                  }
+                  let rect = null
+                  if (tempInfos) {
+                    const infosRect = tempInfos.getBoundingClientRect()
+                    const measuredHeight = Math.max(
+                      infosRect.height,
+                      tempInfos.scrollHeight || 0
+                    )
+                    rect = {
+                      left: infosRect.left,
+                      top: infosRect.top,
+                      width: infosRect.width,
+                      height: measuredHeight,
+                    }
+                  }
                   temp.remove()
                   return rect
                 } catch (e) {
                   return null
                 }
               }
-              finalOverlayDescRect = measureFinalDescRect()
+              finalOverlayDescRect = measureFinalInfosRect()
               if (syncOverlayDescRect) syncOverlayDescRect()
             }
           } catch (e) {
@@ -1857,7 +1903,7 @@ export function initTechnology(root = document) {
                 tl.to(
                   overlayNameInner,
                   {
-                    y: '-8em',
+                    y: '-10em',
                     duration: 1.2,
                     ease: gsap.parseEase('machinesStep') || 'power2.inOut',
                   },

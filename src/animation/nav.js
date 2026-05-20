@@ -6,6 +6,9 @@ import { initializeNavbarTheme as themeBase } from '../utils/base.js'
 
 gsap.registerPlugin(CustomEase, ScrollTrigger)
 
+// Toggle rapide pour tests visuels: garder le système en place mais inactif.
+const ENABLE_NAV_THEME_SWITCHER = false
+
 let linkBaseMarginsConfig = null
 let lastScrollPosition = 0
 const defaultLinkBaseMargins = [
@@ -338,11 +341,37 @@ export function initializeMenuClick(options = {}, root = document) {
   const originalOverflow = computedOverflow || 'visible'
   const computedBodyOverflow = getComputedStyle(document.body).overflow
   const originalBodyOverflow = computedBodyOverflow || 'visible'
+  const originalInlinePosition = pageWrapElement.style.position
+  const originalInlineLeft = pageWrapElement.style.left
+  const originalInlineRight = pageWrapElement.style.right
+  const originalInlineWidth = pageWrapElement.style.width
   let isOpen = false
   const easeCurve = CustomEase.create('custom', 'M0,0 C0.6,0 0,1 1,1 ')
   const animationDuration = 1.2
   let onResizeWhileOpen = null
   let currentMenuTl = null
+  const lockPageWrapAsFixed = () => {
+    try {
+      if (!pageWrapElement || !pageWrapElement.style) return
+      pageWrapElement.style.position = 'fixed'
+      pageWrapElement.style.left = '0'
+      pageWrapElement.style.right = '0'
+      pageWrapElement.style.width = '100%'
+    } catch (e) {
+      // ignore
+    }
+  }
+  const unlockPageWrapFixed = () => {
+    try {
+      if (!pageWrapElement || !pageWrapElement.style) return
+      pageWrapElement.style.position = originalInlinePosition || ''
+      pageWrapElement.style.left = originalInlineLeft || ''
+      pageWrapElement.style.right = originalInlineRight || ''
+      pageWrapElement.style.width = originalInlineWidth || ''
+    } catch (e) {
+      // ignore
+    }
+  }
   // Snap everything back to a clean "closed" baseline immediately
   const snapMenuToClosedBaseline = () => {
     try {
@@ -371,6 +400,7 @@ export function initializeMenuClick(options = {}, root = document) {
 
     // Restore page wrapper
     try {
+      unlockPageWrapFixed()
       if (pageWrapElement && pageWrapElement.style) {
         pageWrapElement.style.removeProperty('transform')
         pageWrapElement.style.removeProperty('scale')
@@ -689,6 +719,7 @@ export function initializeMenuClick(options = {}, root = document) {
     }
     // If closing during an opening sequence, interrupt and snap to closed state
     if (!intendedOpen) {
+      unlockPageWrapFixed()
       // If DOM says open but internal toggle not yet applied, we are mid-open
       if (wasOpen && !isOpen) {
         snapMenuToClosedBaseline()
@@ -808,13 +839,17 @@ export function initializeMenuClick(options = {}, root = document) {
         // Bind/unbind responsive resize handler when state changes
         try {
           if (isOpen) {
+            lockPageWrapAsFixed()
             if (onResizeWhileOpen)
               window.removeEventListener('resize', onResizeWhileOpen)
             onResizeWhileOpen = () => applyResponsiveLayoutIfOpen()
             window.addEventListener('resize', onResizeWhileOpen)
           } else if (onResizeWhileOpen) {
+            unlockPageWrapFixed()
             window.removeEventListener('resize', onResizeWhileOpen)
             onResizeWhileOpen = null
+          } else {
+            unlockPageWrapFixed()
           }
         } catch (err) {
           // ignore
@@ -1500,6 +1535,58 @@ export function addMenuLinksCloseToTimeline(tl, label = 'lift') {
 
 // Gestion themes couleur
 export function initializeThemeController() {
+  if (!ENABLE_NAV_THEME_SWITCHER) {
+    const fallbackThemes = (themeBase && themeBase.themes) || {}
+    try {
+      const scroller = document.querySelector('.page-wrap')
+      if (
+        scroller &&
+        scroller.__themeHandler &&
+        typeof scroller.removeEventListener === 'function'
+      ) {
+        scroller.removeEventListener('scroll', scroller.__themeHandler)
+      }
+    } catch (e) {
+      // ignore
+    }
+    try {
+      if (
+        window.lenis &&
+        window.lenis.__themeHandler &&
+        typeof window.lenis.off === 'function'
+      ) {
+        window.lenis.off('scroll', window.lenis.__themeHandler)
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    window.__theme = {
+      get currentKey() {
+        return 'white'
+      },
+      get activeKey() {
+        return 'white'
+      },
+      get destinationKey() {
+        return 'white'
+      },
+      get storedKey() {
+        return 'white'
+      },
+      getThemeFor: (key) => fallbackThemes[key] || fallbackThemes.white || {},
+      setIconThemeSuppressed: () => {},
+      setDestination: () => 'white',
+      apply: () => {},
+      applyDestination: () => {},
+      compute: () => 'white',
+      menuOpen: () => {},
+      menuCloseSamePage: () => {},
+      bindScroll: () => {},
+    }
+    return
+  }
+
   const themes = (themeBase && themeBase.themes) || {}
   const tr = (themeBase && themeBase.transition) || { duration: 0.5 }
 

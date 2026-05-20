@@ -13,6 +13,9 @@ const debounce = (fn, wait = 150) => {
 
 let __svcResizeBound = false
 let __svcResizeHandler = null
+let __svcMenuStateResetBound = false
+let __svcMenuTransitionActive = false
+let __svcMenuTransitionUnlockTimer = null
 
 // Ensure the same custom ease as Technology
 if (!gsap.parseEase('machinesStep')) {
@@ -36,6 +39,13 @@ export function initServiceCards(root = document) {
       return false
     }
   }
+  const isMenuOpenNow = () => {
+    try {
+      return document.documentElement.getAttribute('data-menu-open') === 'true'
+    } catch (e) {
+      return false
+    }
+  }
   const updateServiceCardBaseState = (card) => {
     const desc = card.querySelector('.desc')
     const bloc = card.querySelector('.card-inner') || desc
@@ -47,12 +57,27 @@ export function initServiceCards(root = document) {
         // 1) Position .body-l visually at the bottom of .card-inner
         const bodyL = bloc.querySelector('.body-l')
         if (bodyL) {
+          // Measure from the natural layout (without current transform),
+          // otherwise repeated resets (e.g. when opening the menu) collapse
+          // the cached offset to 0 and keep cards visually "open".
+          bodyL.style.transform = ''
           const blocRect = bloc.getBoundingClientRect()
           const bodyLRect = bodyL.getBoundingClientRect()
           // Compute remaining space below .body-l inside the bloc
           const offsetWithinBloc = bodyLRect.bottom - blocRect.bottom
-          const distanceToBottom = Math.max(0, Math.round(-offsetWithinBloc))
+          const measuredOffset = Math.max(0, Math.round(-offsetWithinBloc))
+          const previousOffset =
+            typeof bodyL.__svcBottomOffsetPx === 'number'
+              ? bodyL.__svcBottomOffsetPx
+              : 0
+          const distanceToBottom =
+            __svcMenuTransitionActive &&
+            measuredOffset === 0 &&
+            previousOffset > 0
+              ? previousOffset
+              : measuredOffset
           bodyL.__svcBottomOffsetPx = distanceToBottom
+          card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
           bodyL.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
           bodyL.style.transform = `translateY(${distanceToBottom}px)`
         }
@@ -138,6 +163,88 @@ export function initServiceCards(root = document) {
       // ignore
     }
   }
+  const resetServiceCardsHoverState = (targetScope = scope) => {
+    const target =
+      targetScope && targetScope.querySelector ? targetScope : document
+    const allCards = target.querySelectorAll('.service-card')
+    const menuIsOpen = isMenuOpenNow()
+    allCards.forEach((card) => {
+      const desc = card.querySelector('.desc')
+      const bloc = card.querySelector('.card-inner') || desc
+      if (!desc || !bloc) return
+
+      try {
+        const bodyL = bloc.querySelector('.body-l')
+        if (bodyL) {
+          let back = 0
+          if (typeof bodyL.__svcBottomOffsetPx === 'number') {
+            back = bodyL.__svcBottomOffsetPx
+          } else {
+            const cssOffset = card.style.getPropertyValue('--svc-bodyl-offset')
+            const parsed = parseFloat(cssOffset)
+            if (!Number.isNaN(parsed)) {
+              back = parsed
+            }
+          }
+          bodyL.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
+          if (menuIsOpen) {
+            bodyL.style.setProperty(
+              'transform',
+              `translateY(${back}px)`,
+              'important'
+            )
+          } else {
+            bodyL.style.removeProperty('transform')
+            bodyL.style.transform = `translateY(${back}px)`
+          }
+        }
+
+        const smallNodes = Array.from(desc.querySelectorAll('.body-s'))
+        smallNodes.forEach((small) => {
+          const inners = small.__lineInners || []
+          inners.forEach((el) => {
+            el.style.transitionDelay = '0s'
+            if (menuIsOpen) {
+              el.style.setProperty('transform', 'translateY(100%)', 'important')
+            } else {
+              el.style.removeProperty('transform')
+              el.style.transform = 'translateY(100%)'
+            }
+          })
+        })
+
+        if (menuIsOpen) {
+          card.style.setProperty(
+            'background-color',
+            'var(--white)',
+            'important'
+          )
+          card.style.setProperty('pointer-events', 'none', 'important')
+        } else {
+          card.style.removeProperty('background-color')
+          card.style.removeProperty('pointer-events')
+          card.style.backgroundColor = 'var(--white)'
+        }
+      } catch (e) {
+        // ignore
+      }
+    })
+  }
+  const setServiceCardsMenuInteractivity = (
+    isInteractive,
+    targetScope = scope
+  ) => {
+    const target =
+      targetScope && targetScope.querySelector ? targetScope : document
+    const allCards = target.querySelectorAll('.service-card')
+    allCards.forEach((card) => {
+      try {
+        card.style.pointerEvents = isInteractive ? '' : 'none'
+      } catch (e) {
+        // ignore
+      }
+    })
+  }
   cards.forEach((card) => {
     if (card.__serviceCardsBound) return
     const desc = card.querySelector('.desc')
@@ -168,6 +275,7 @@ export function initServiceCards(root = document) {
           const offsetWithinBloc = bodyLRect.bottom - blocRect.bottom
           const distanceToBottom = Math.max(0, Math.round(-offsetWithinBloc))
           bodyL.__svcBottomOffsetPx = distanceToBottom
+          card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
           // Set instantly (no animation), then re-enable transition
           const prevTransition = bodyL.style.transition
           bodyL.style.transition = 'none'
@@ -276,7 +384,7 @@ export function initServiceCards(root = document) {
       }
 
       card.addEventListener('mouseenter', () => {
-        if (isTabletOrBelowNow()) return
+        if (isTabletOrBelowNow() || isMenuOpenNow()) return
         moveBodyL(0)
         animateSmallLines('0%')
         // bg to accent on hover
@@ -295,7 +403,7 @@ export function initServiceCards(root = document) {
       })
       // Pointer events for broader support
       card.addEventListener('pointerenter', () => {
-        if (isTabletOrBelowNow()) return
+        if (isTabletOrBelowNow() || isMenuOpenNow()) return
         moveBodyL(0)
         animateSmallLines('0%')
         card.style.backgroundColor = 'var(--accent)'
@@ -430,7 +538,7 @@ export function initServiceCards(root = document) {
     }
 
     card.addEventListener('mouseenter', () => {
-      if (isTabletOrBelowNow()) return
+      if (isTabletOrBelowNow() || isMenuOpenNow()) return
       revealLines()
       focusMachineCardBg(card)
     })
@@ -441,7 +549,7 @@ export function initServiceCards(root = document) {
     })
     // Pointer events for broader support
     card.addEventListener('pointerenter', () => {
-      if (isTabletOrBelowNow()) return
+      if (isTabletOrBelowNow() || isMenuOpenNow()) return
       revealLines()
       focusMachineCardBg(card)
     })
@@ -460,6 +568,7 @@ export function initServiceCards(root = document) {
   // Debounced resize recalculation for service and machine cards
   const recalcOnResize = () => {
     try {
+      if (__svcMenuTransitionActive) return
       const allCards = scope.querySelectorAll('.service-card')
       allCards.forEach((c) => updateServiceCardBaseState(c))
       // Recompute .body-l bottom offsets and rebuild .body-s splits for desktop
@@ -499,6 +608,7 @@ export function initServiceCards(root = document) {
           const offsetWithinBloc = bodyLRect.bottom - blocRect.bottom
           const distanceToBottom = Math.max(0, Math.round(-offsetWithinBloc))
           bodyL.__svcBottomOffsetPx = distanceToBottom
+          card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
           bodyL.style.transition = 'none'
           bodyL.style.transform = `translateY(${distanceToBottom}px)`
           void bodyL.offsetWidth
@@ -608,6 +718,39 @@ export function initServiceCards(root = document) {
     __svcResizeHandler = debounce(recalcOnResize, 150)
     window.addEventListener('resize', __svcResizeHandler)
     __svcResizeBound = true
+  }
+
+  if (!__svcMenuStateResetBound) {
+    const onMenuOpenStart = () => {
+      __svcMenuTransitionActive = true
+      if (__svcMenuTransitionUnlockTimer) {
+        clearTimeout(__svcMenuTransitionUnlockTimer)
+        __svcMenuTransitionUnlockTimer = null
+      }
+      setServiceCardsMenuInteractivity(false, document)
+      resetServiceCardsHoverState(document)
+      requestAnimationFrame(() => {
+        resetServiceCardsHoverState(document)
+      })
+    }
+    const onMenuCloseEnd = () => {
+      __svcMenuTransitionActive = true
+      if (__svcMenuTransitionUnlockTimer) {
+        clearTimeout(__svcMenuTransitionUnlockTimer)
+        __svcMenuTransitionUnlockTimer = null
+      }
+      setServiceCardsMenuInteractivity(true, document)
+      resetServiceCardsHoverState(document)
+      requestAnimationFrame(() => {
+        resetServiceCardsHoverState(document)
+      })
+      __svcMenuTransitionUnlockTimer = setTimeout(() => {
+        __svcMenuTransitionActive = false
+      }, 500)
+    }
+    document.addEventListener('menu:open-start', onMenuOpenStart)
+    document.addEventListener('menu:close-end', onMenuCloseEnd)
+    __svcMenuStateResetBound = true
   }
 
   // Mobile & Tablet: click a .machine-card to expand its .machine-bottom-wrap to reveal content
@@ -808,6 +951,13 @@ export function serviceCardsHover(root = document) {
       return false
     }
   }
+  const isMenuOpenNow = () => {
+    try {
+      return document.documentElement.getAttribute('data-menu-open') === 'true'
+    } catch (e) {
+      return false
+    }
+  }
 
   const images = Array.from(viewer.querySelectorAll('.service-image'))
   const OPACITY_EASING = 'cubic-bezier(0.5, 0, 0, 1)'
@@ -904,7 +1054,7 @@ export function serviceCardsHover(root = document) {
   const cards = Array.from(scope.querySelectorAll('.service-card'))
 
   const showImageByIndex = (index) => {
-    if (isTabletOrBelowNow()) return
+    if (isTabletOrBelowNow() || isMenuOpenNow()) return
     images.forEach((img, i) => {
       if (i === index) {
         img.style.display = 'block'
@@ -968,7 +1118,7 @@ export function serviceCardsHover(root = document) {
 
     if (!card.__serviceViewerHoverBound) {
       card.addEventListener('mouseenter', () => {
-        if (isTabletOrBelowNow()) return
+        if (isTabletOrBelowNow() || isMenuOpenNow()) return
         showImageByIndex(indexInImages)
         if (viewerButton) {
           viewerButton.style.opacity = '0'
@@ -998,7 +1148,7 @@ export function serviceCardsHover(root = document) {
       })
       // Pointer events for broader support
       card.addEventListener('pointerenter', () => {
-        if (isTabletOrBelowNow()) return
+        if (isTabletOrBelowNow() || isMenuOpenNow()) return
         showImageByIndex(indexInImages)
         if (viewerButton) {
           viewerButton.style.opacity = '0'
@@ -1026,7 +1176,7 @@ export function serviceCardsHover(root = document) {
       })
       // Also handle focus/blur for keyboard navigation
       card.addEventListener('focus', () => {
-        if (isTabletOrBelowNow()) return
+        if (isTabletOrBelowNow() || isMenuOpenNow()) return
         showImageByIndex(indexInImages)
         if (viewerButton) {
           viewerButton.style.opacity = '0'

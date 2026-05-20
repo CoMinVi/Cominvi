@@ -8,6 +8,10 @@
   overflow: hidden;
 }
 
+.navbar {
+  mix-blend-mode: difference;
+}
+
 /* Allow article pages to extend beyond 100vh and be scrollable */
 [data-barba-namespace='article'] .page-wrap {
   height: auto;
@@ -27,6 +31,10 @@
 .nav-inner .navlink.w--current,
 .nav-inner .navlink[aria-current='page'] {
   opacity: 0.5;
+}
+
+.navbar a[aria-label='home'] {
+  height: 1.5em;
 }
 
 .scroll-item > .body-xl,
@@ -557,6 +565,20 @@
 
 .section_services.is-2 .service-image.is-4 {
   display: block;
+}
+
+html[data-menu-open='true'] .service-card {
+  pointer-events: none !important;
+  background-color: var(--white) !important;
+}
+
+html[data-menu-open='true'] .service-card .body-l {
+  transform: translateY(var(--svc-bodyl-offset, 0px)) !important;
+}
+
+html[data-menu-open='true'] .service-card .desc .line-inner {
+  transform: translateY(100%) !important;
+  transition-delay: 0s !important;
 }
 
 /* Swiper: ensure horizontal layout and draggable behavior across breakpoints */

@@ -34,7 +34,7 @@
 }
 
 .navbar a[aria-label='home'] {
-  height: 1.5em;
+  height: 1.75em;
 }
 
 .scroll-item > .body-xl,
@@ -1022,6 +1022,8 @@ button.maplibregl-ctrl-compass {
 }
 
 .hero-content_left .is-h1-span-wrap:first-child,
-.hero-content_right .content_right-row:first-child .is-h1-span-wrap:first-child {
+.hero-content_right
+  .content_right-row:first-child
+  .is-h1-span-wrap:first-child {
   margin-bottom: -0.5em;
 }

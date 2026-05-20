@@ -57,6 +57,7 @@ export function initMinerals(root = document) {
       // no-op
     }
     const stage = section.querySelector('.minerals-stage') || section
+    const leftColumn = section.querySelector('.minerals_left')
     const getScrollDistance = () => {
       try {
         const h =
@@ -79,6 +80,40 @@ export function initMinerals(root = document) {
       const mm =
         window.matchMedia && window.matchMedia('(max-width: 767px)').matches
       return mm || window.innerWidth <= 767
+    }
+    let mobileExitProgress = 0
+
+    const setMobileExitTranslate = (progress = 0) => {
+      try {
+        if (!leftColumn) return
+        if (!isMobileViewport()) {
+          gsap.set(leftColumn, { yPercent: 0 })
+          return
+        }
+
+        const stageHeight =
+          stage.offsetHeight || stage.getBoundingClientRect().height || 0
+        const totalScrollPx = Math.max(0, stageHeight - window.innerHeight)
+        if (totalScrollPx <= 0) {
+          gsap.set(leftColumn, { yPercent: 0 })
+          return
+        }
+
+        // Move the left content only over the last 10vh of the minerals scroll.
+        const lastTenVhPx = window.innerHeight * 0.1
+        const tailProgress = Math.min(1, lastTenVhPx / totalScrollPx)
+        const startProgress = Math.max(0, 1 - tailProgress)
+        const localProgress =
+          progress <= startProgress
+            ? 0
+            : Math.min(1, (progress - startProgress) / (1 - startProgress))
+
+        gsap.set(leftColumn, {
+          yPercent: Math.round(localProgress * 1200) / 10,
+        })
+      } catch (err) {
+        // ignore
+      }
     }
 
     const ensureNamesScrollStyles = (container, items) => {
@@ -325,6 +360,7 @@ export function initMinerals(root = document) {
           idx = current
         }
         centerActiveNameMobile(idx)
+        setMobileExitTranslate(mobileExitProgress)
       })
     }
     window.addEventListener('resize', handleResize)
@@ -344,8 +380,10 @@ export function initMinerals(root = document) {
       end: getScrollDistance,
       scrub: 1,
       onUpdate: (self) => {
+        mobileExitProgress = self.progress
         const angle = Math.max(0, Math.min(360, self.progress * 360))
         darkSvg.style.setProperty('--angle', angle + 'deg')
+        setMobileExitTranslate(self.progress)
 
         // Keep right eyebrow aligned during scroll/sticky
         alignRightEyebrow()
@@ -369,6 +407,7 @@ export function initMinerals(root = document) {
       },
       onLeave: () => {
         darkSvg.style.setProperty('--angle', '360deg')
+        setMobileExitTranslate(1)
         if (section.__mineralsActiveIndex !== -1) {
           const last =
             (section.querySelectorAll('.minerals-names .body-xl') || [])
@@ -381,6 +420,7 @@ export function initMinerals(root = document) {
       },
       onLeaveBack: () => {
         darkSvg.style.setProperty('--angle', '0deg')
+        setMobileExitTranslate(0)
         if (section.__mineralsActiveIndex !== -1) {
           setActiveNameIndex(0)
           setActiveEyebrowIndex(0)

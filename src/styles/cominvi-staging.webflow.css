@@ -1212,6 +1212,12 @@ p {
   position: relative;
 }
 
+.minerals_left-wrap {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 .minerals_right {
   flex-flow: column;
   justify-content: flex-start;

@@ -933,8 +933,41 @@ export function initServiceCards(root = document) {
 export function serviceCardsHover(root = document) {
   const scope = root && root.querySelector ? root : document
   // Support both class names: .service-viewer and .services-viewer (per HTML)
-  const viewer = scope.querySelector('.service-viewer, .services-viewer')
-  if (!viewer) return
+  let viewer = scope.querySelector('.service-viewer, .services-viewer')
+  if (!viewer && scope !== document) {
+    // Barba/Webflow can momentarily place/rebuild the viewer outside the scoped root.
+    // Fall back to the document to keep hover-image bindings alive after transitions.
+    viewer = document.querySelector('.service-viewer, .services-viewer')
+  }
+  if (!viewer) {
+    if (
+      !scope.__svcViewerWaitObserver &&
+      typeof MutationObserver !== 'undefined'
+    ) {
+      const waitObserver = new MutationObserver(() => {
+        try {
+          const maybeViewer =
+            scope.querySelector &&
+            scope.querySelector('.service-viewer, .services-viewer')
+              ? scope.querySelector('.service-viewer, .services-viewer')
+              : document.querySelector('.service-viewer, .services-viewer')
+          const maybeCard = scope.querySelector
+            ? scope.querySelector('.service-card')
+            : null
+          if (maybeViewer && maybeCard) {
+            waitObserver.disconnect()
+            scope.__svcViewerWaitObserver = null
+            serviceCardsHover(scope)
+          }
+        } catch (e) {
+          // ignore
+        }
+      })
+      waitObserver.observe(scope, { childList: true, subtree: true })
+      scope.__svcViewerWaitObserver = waitObserver
+    }
+    return
+  }
 
   // Allow re-invocation for base state refresh; keep from double-binding with flags below
   // if (viewer.__serviceViewerBound) return
@@ -1052,6 +1085,45 @@ export function serviceCardsHover(root = document) {
     return
   }
   const cards = Array.from(scope.querySelectorAll('.service-card'))
+
+  if (
+    !scope.__svcViewerRebindObserver &&
+    typeof MutationObserver !== 'undefined'
+  ) {
+    const rebindHover = debounce(() => {
+      try {
+        serviceCardsHover(scope)
+      } catch (e) {
+        // ignore
+      }
+    }, 80)
+    const rebindObserver = new MutationObserver((mutations) => {
+      try {
+        const shouldRebind = mutations.some((mutation) => {
+          if (!mutation.addedNodes || !mutation.addedNodes.length) return false
+          return Array.from(mutation.addedNodes).some((node) => {
+            if (!(node instanceof Element)) return false
+            if (
+              node.matches &&
+              node.matches(
+                '.service-card, .service-image, .service-viewer, .services-viewer'
+              )
+            ) {
+              return true
+            }
+            return !!node.querySelector(
+              '.service-card, .service-image, .service-viewer, .services-viewer'
+            )
+          })
+        })
+        if (shouldRebind) rebindHover()
+      } catch (e) {
+        // ignore
+      }
+    })
+    rebindObserver.observe(scope, { childList: true, subtree: true })
+    scope.__svcViewerRebindObserver = rebindObserver
+  }
 
   const showImageByIndex = (index) => {
     if (isTabletOrBelowNow() || isMenuOpenNow()) return

@@ -117,11 +117,14 @@ export function shouldKeepMineralsQueuedIndex({
   plannedIndices,
   initialPreloadIndices,
   backgroundBatchIndices,
+  keepBackgroundBatch = true,
 } = {}) {
   return !!(
     (plannedIndices && plannedIndices.has(index)) ||
     (initialPreloadIndices && initialPreloadIndices.has(index)) ||
-    (backgroundBatchIndices && backgroundBatchIndices.has(index))
+    (keepBackgroundBatch &&
+      backgroundBatchIndices &&
+      backgroundBatchIndices.has(index))
   )
 }
 
@@ -477,6 +480,7 @@ export function initMineralsCanvas(root = document) {
     const prunePendingQueue = (keepIndices) => {
       if (!keepIndices || !pendingQueue.length) return
 
+      const keepBackgroundBatch = !isSequenceNearViewport
       for (let i = pendingQueue.length - 1; i >= 0; i -= 1) {
         const queuedIndex = pendingQueue[i]
         if (
@@ -485,6 +489,7 @@ export function initMineralsCanvas(root = document) {
             plannedIndices: keepIndices,
             initialPreloadIndices,
             backgroundBatchIndices,
+            keepBackgroundBatch,
           })
         ) {
           continue
@@ -649,6 +654,11 @@ export function initMineralsCanvas(root = document) {
 
     const queueNextBackgroundBatch = () => {
       if (destroyed || !backgroundBatchStarted) return
+      if (isSequenceNearViewport) {
+        clearBackgroundBatchTimer()
+        backgroundBatchTimer = setTimeout(queueNextBackgroundBatch, 180)
+        return
+      }
 
       while (
         nextBackgroundBatchIndex < urls.length &&

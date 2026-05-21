@@ -1085,6 +1085,8 @@ export function serviceCardsHover(root = document) {
     return
   }
   const cards = Array.from(scope.querySelectorAll('.service-card'))
+  const forceHoverRebind = !!scope.__svcViewerForceRebind
+  scope.__svcViewerForceRebind = false
 
   if (
     !scope.__svcViewerRebindObserver &&
@@ -1116,7 +1118,10 @@ export function serviceCardsHover(root = document) {
             )
           })
         })
-        if (shouldRebind) rebindHover()
+        if (shouldRebind) {
+          scope.__svcViewerForceRebind = true
+          rebindHover()
+        }
       } catch (e) {
         // ignore
       }
@@ -1180,102 +1185,152 @@ export function serviceCardsHover(root = document) {
     img.style.zIndex = '0'
   }
 
+  const removeViewerBindings = (card) => {
+    try {
+      const handlers = card.__serviceViewerHandlers
+      if (!handlers) return
+      if (handlers.mouseenter)
+        card.removeEventListener('mouseenter', handlers.mouseenter)
+      if (handlers.mouseleave)
+        card.removeEventListener('mouseleave', handlers.mouseleave)
+      if (handlers.pointerenter)
+        card.removeEventListener('pointerenter', handlers.pointerenter)
+      if (handlers.pointerleave)
+        card.removeEventListener('pointerleave', handlers.pointerleave)
+      if (handlers.focus) card.removeEventListener('focus', handlers.focus)
+      if (handlers.blur) card.removeEventListener('blur', handlers.blur)
+    } catch (e) {
+      // ignore
+    } finally {
+      card.__serviceViewerHandlers = null
+      card.__serviceViewerHoverBound = false
+      card.__serviceViewerBoundTo = null
+    }
+  }
+
   cards.forEach((card, idx) => {
     // Map card order (0-based) → .service-image.is-(idx+1)
     const target = viewer.querySelector(`.service-image.is-${idx + 1}`)
-    if (!target) return
+    if (!target) {
+      removeViewerBindings(card)
+      return
+    }
 
     const indexInImages = images.indexOf(target)
-    if (indexInImages === -1) return
-
-    if (!card.__serviceViewerHoverBound) {
-      card.addEventListener('mouseenter', () => {
-        if (isTabletOrBelowNow() || isMenuOpenNow()) return
-        showImageByIndex(indexInImages)
-        if (viewerButton) {
-          viewerButton.style.opacity = '0'
-        }
-      })
-      card.addEventListener('mouseleave', () => {
-        if (isTabletOrBelowNow()) return
-        hideImageByIndex(indexInImages)
-        // Show button only if no card is hovered anymore
-        if (viewerButton && !scope.querySelector('.service-card:hover')) {
-          // Cancel any pending hide handler
-          if (viewerButton.__onOpacityEnd) {
-            try {
-              viewerButton.removeEventListener(
-                'transitionend',
-                viewerButton.__onOpacityEnd
-              )
-            } catch (err) {
-              // ignore
-            }
-            viewerButton.__onOpacityEnd = null
-          }
-          viewerButton.style.display = 'block'
-          void viewerButton.offsetWidth
-          viewerButton.style.opacity = '1'
-        }
-      })
-      // Pointer events for broader support
-      card.addEventListener('pointerenter', () => {
-        if (isTabletOrBelowNow() || isMenuOpenNow()) return
-        showImageByIndex(indexInImages)
-        if (viewerButton) {
-          viewerButton.style.opacity = '0'
-        }
-      })
-      card.addEventListener('pointerleave', () => {
-        if (isTabletOrBelowNow()) return
-        hideImageByIndex(indexInImages)
-        if (viewerButton && !scope.querySelector('.service-card:hover')) {
-          if (viewerButton.__onOpacityEnd) {
-            try {
-              viewerButton.removeEventListener(
-                'transitionend',
-                viewerButton.__onOpacityEnd
-              )
-            } catch (err) {
-              // ignore
-            }
-            viewerButton.__onOpacityEnd = null
-          }
-          viewerButton.style.display = 'block'
-          void viewerButton.offsetWidth
-          viewerButton.style.opacity = '1'
-        }
-      })
-      // Also handle focus/blur for keyboard navigation
-      card.addEventListener('focus', () => {
-        if (isTabletOrBelowNow() || isMenuOpenNow()) return
-        showImageByIndex(indexInImages)
-        if (viewerButton) {
-          viewerButton.style.opacity = '0'
-        }
-      })
-      card.addEventListener('blur', () => {
-        if (isTabletOrBelowNow()) return
-        hideImageByIndex(indexInImages)
-        if (viewerButton && !scope.querySelector('.service-card:hover')) {
-          if (viewerButton.__onOpacityEnd) {
-            try {
-              viewerButton.removeEventListener(
-                'transitionend',
-                viewerButton.__onOpacityEnd
-              )
-            } catch (err) {
-              // ignore
-            }
-            viewerButton.__onOpacityEnd = null
-          }
-          viewerButton.style.display = 'block'
-          void viewerButton.offsetWidth
-          viewerButton.style.opacity = '1'
-        }
-      })
-      card.__serviceViewerHoverBound = true
+    if (indexInImages === -1) {
+      removeViewerBindings(card)
+      return
     }
+
+    const alreadyBoundToCurrentViewer =
+      card.__serviceViewerHoverBound &&
+      card.__serviceViewerBoundTo === viewer &&
+      card.__serviceViewerBoundIndex === indexInImages
+    if (alreadyBoundToCurrentViewer && !forceHoverRebind) return
+
+    removeViewerBindings(card)
+
+    const onEnter = () => {
+      if (isTabletOrBelowNow() || isMenuOpenNow()) return
+      showImageByIndex(indexInImages)
+      if (viewerButton) {
+        viewerButton.style.opacity = '0'
+      }
+    }
+    const onLeave = () => {
+      if (isTabletOrBelowNow()) return
+      hideImageByIndex(indexInImages)
+      // Show button only if no card is hovered anymore
+      if (viewerButton && !scope.querySelector('.service-card:hover')) {
+        // Cancel any pending hide handler
+        if (viewerButton.__onOpacityEnd) {
+          try {
+            viewerButton.removeEventListener(
+              'transitionend',
+              viewerButton.__onOpacityEnd
+            )
+          } catch (err) {
+            // ignore
+          }
+          viewerButton.__onOpacityEnd = null
+        }
+        viewerButton.style.display = 'block'
+        void viewerButton.offsetWidth
+        viewerButton.style.opacity = '1'
+      }
+    }
+    const onPointerEnter = () => {
+      if (isTabletOrBelowNow() || isMenuOpenNow()) return
+      showImageByIndex(indexInImages)
+      if (viewerButton) {
+        viewerButton.style.opacity = '0'
+      }
+    }
+    const onPointerLeave = () => {
+      if (isTabletOrBelowNow()) return
+      hideImageByIndex(indexInImages)
+      if (viewerButton && !scope.querySelector('.service-card:hover')) {
+        if (viewerButton.__onOpacityEnd) {
+          try {
+            viewerButton.removeEventListener(
+              'transitionend',
+              viewerButton.__onOpacityEnd
+            )
+          } catch (err) {
+            // ignore
+          }
+          viewerButton.__onOpacityEnd = null
+        }
+        viewerButton.style.display = 'block'
+        void viewerButton.offsetWidth
+        viewerButton.style.opacity = '1'
+      }
+    }
+    const onFocus = () => {
+      if (isTabletOrBelowNow() || isMenuOpenNow()) return
+      showImageByIndex(indexInImages)
+      if (viewerButton) {
+        viewerButton.style.opacity = '0'
+      }
+    }
+    const onBlur = () => {
+      if (isTabletOrBelowNow()) return
+      hideImageByIndex(indexInImages)
+      if (viewerButton && !scope.querySelector('.service-card:hover')) {
+        if (viewerButton.__onOpacityEnd) {
+          try {
+            viewerButton.removeEventListener(
+              'transitionend',
+              viewerButton.__onOpacityEnd
+            )
+          } catch (err) {
+            // ignore
+          }
+          viewerButton.__onOpacityEnd = null
+        }
+        viewerButton.style.display = 'block'
+        void viewerButton.offsetWidth
+        viewerButton.style.opacity = '1'
+      }
+    }
+
+    card.addEventListener('mouseenter', onEnter)
+    card.addEventListener('mouseleave', onLeave)
+    card.addEventListener('pointerenter', onPointerEnter)
+    card.addEventListener('pointerleave', onPointerLeave)
+    card.addEventListener('focus', onFocus)
+    card.addEventListener('blur', onBlur)
+    card.__serviceViewerHandlers = {
+      mouseenter: onEnter,
+      mouseleave: onLeave,
+      pointerenter: onPointerEnter,
+      pointerleave: onPointerLeave,
+      focus: onFocus,
+      blur: onBlur,
+    }
+    card.__serviceViewerHoverBound = true
+    card.__serviceViewerBoundTo = viewer
+    card.__serviceViewerBoundIndex = indexInImages
   })
 
   viewer.__serviceViewerBound = true

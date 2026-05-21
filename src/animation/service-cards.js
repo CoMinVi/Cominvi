@@ -1024,9 +1024,33 @@ export function serviceCardsHover(root = document) {
     viewerButton.style.display = 'block'
   }
 
-  // Section variant .section_services.is-2: disable hover-driven image reveal entirely
+  // Section variant .section_services.is-2 can disable hover in some contexts.
+  // On the dedicated Services page, keep the same hover behavior as Home.
+  const containerNamespace = (() => {
+    try {
+      const container =
+        scope &&
+        scope.getAttribute &&
+        scope.getAttribute('data-barba') === 'container'
+          ? scope
+          : scope.querySelector &&
+            scope.querySelector('[data-barba="container"]')
+      return (
+        (container &&
+          container.getAttribute &&
+          container.getAttribute('data-barba-namespace')) ||
+        ''
+      )
+        .trim()
+        .toLowerCase()
+    } catch (e) {
+      return ''
+    }
+  })()
   const disableHoverForThisViewer = !!(
-    viewer.closest && viewer.closest('.section_services.is-2')
+    viewer.closest &&
+    viewer.closest('.section_services.is-2') &&
+    containerNamespace !== 'services'
   )
   if (disableHoverForThisViewer) {
     const fixedImage = viewer.querySelector('.service-image.is-4')

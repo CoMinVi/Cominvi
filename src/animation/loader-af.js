@@ -311,6 +311,7 @@ export function initLoader() {
     const loader = document.querySelector('.loader')
     const logoWrap = document.querySelector('.loader-logo_wrap')
     const logoInner = document.querySelector('.logo-inner')
+    const iconBox = document.querySelector('.is-logo-icon')
     const logoIcon = document.querySelector('.logo-icon')
     const logoSquare = document.querySelector('.logo-square')
     const textBox = document.querySelector('.is-logo-text')
@@ -323,6 +324,7 @@ export function initLoader() {
       !loader ||
       !logoWrap ||
       !logoInner ||
+      !iconBox ||
       !logoIcon ||
       !logoSquare ||
       !textBox ||
@@ -347,6 +349,13 @@ export function initLoader() {
     gsap.set(textBox, { opacity: 0 })
     gsap.set(logoWrap, { backgroundColor: 'transparent' })
     gsap.set(logoSquare, { width: '0%', height: '0%' })
+    gsap.set(iconBox, { overflow: 'hidden' })
+    gsap.set(logoIcon, {
+      autoAlpha: 0,
+      yPercent: 100,
+      rotation: 70,
+      transformOrigin: '50% 50%',
+    })
 
     const tl = gsap.timeline({ paused: true, defaults: { ease: loaderEase } })
     tl.to(
@@ -358,12 +367,12 @@ export function initLoader() {
       },
       0
     )
-    tl.from(
+    tl.to(
       logoIcon,
       {
-        yPercent: 100,
-        rotation: 70,
-        transformOrigin: '50% 50%',
+        autoAlpha: 1,
+        yPercent: 0,
+        rotation: 0,
         duration: 0.8,
       },
       0

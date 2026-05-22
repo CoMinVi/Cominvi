@@ -10,7 +10,8 @@ const ALLOWED_NAMESPACES = new Set(['home', 'services'])
 const LOOP_COUNT = 1
 const SCRUB_SMOOTHING = 0.4
 const ENABLE_FRAME_BLEND = false
-const DEFAULT_MINERALS_AF_PATH = '/minerals/minerals-sequence.af'
+const DEFAULT_MINERALS_AF_PATH =
+  'https://cominvi-staging.webflow.io/minerals/minerals-sequence.af'
 const DEFAULT_MINERALS_TOTAL_FRAMES = 600
 const DEFAULT_INITIAL_PRELOAD = 40
 const DEFAULT_PRELOAD_AHEAD = 6

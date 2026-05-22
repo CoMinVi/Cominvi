@@ -1,4 +1,4 @@
-import { initLoader } from './animation/loader.js'
+import { initLoader } from './animation/loader-af.js'
 import { initializeNav2 } from './animation/nav.js'
 import { initializePageTransitionNav } from './animation/page-transition-nav.js'
 import { initParallax } from './animation/parallax.js'

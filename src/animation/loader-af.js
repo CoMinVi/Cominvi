@@ -70,6 +70,11 @@ function cleanupHomeSequenceBindings() {
   }
 }
 
+function getBackgroundInner(scope = document) {
+  const root = scope && scope.querySelector ? scope : document
+  return root.querySelector('.hero-background .background-inner')
+}
+
 function createSequenceCanvas(backgroundInner) {
   if (!backgroundInner) return null
 
@@ -153,11 +158,21 @@ function createActiveFrameSequenceController(backgroundInner) {
     ctx.drawImage(frame, 0, 0, srcW, srcH, offsetX, offsetY, drawW, drawH)
   }
 
+  const clearBackgroundFallback = () => {
+    try {
+      backgroundInner.style.backgroundImage = 'none'
+      backgroundInner.style.backgroundColor = 'transparent'
+    } catch (e) {
+      // ignore
+    }
+  }
+
   let activeFrame = null
   let totalFrames = 0
   let introEndIndex = 0
   let requestedFrame = 0
   let rafToken = 0
+  let hasRenderedAfFrame = false
 
   const flushFrameRequest = () => {
     rafToken = 0
@@ -196,6 +211,10 @@ function createActiveFrameSequenceController(backgroundInner) {
   activeFrame = new ActiveFrame(afUrl, {
     hardwareAcceleration,
     process: (frame) => {
+      if (!hasRenderedAfFrame) {
+        hasRenderedAfFrame = true
+        clearBackgroundFallback()
+      }
       drawCover(frame)
     },
   })
@@ -316,9 +335,7 @@ export function initLoader() {
     const logoSquare = document.querySelector('.logo-square')
     const textBox = document.querySelector('.is-logo-text')
     const logoText = document.querySelector('.is-logo-text .logo-text')
-    const backgroundInner = document.querySelector(
-      '.hero-background .background-inner'
-    )
+    const backgroundInner = getBackgroundInner(document)
 
     if (
       !loader ||
@@ -334,10 +351,20 @@ export function initLoader() {
       return null
     }
 
-    cleanupHomeSequenceBindings()
-    const sequenceController =
-      createActiveFrameSequenceController(backgroundInner)
-    window.__homeSequenceController = sequenceController
+    const existingController = window.__homeSequenceController
+    let sequenceController = null
+    if (
+      existingController &&
+      existingController.__hostEl === backgroundInner &&
+      typeof existingController.setIntroProgress === 'function'
+    ) {
+      sequenceController = existingController
+    } else {
+      cleanupHomeSequenceBindings()
+      sequenceController = createActiveFrameSequenceController(backgroundInner)
+      sequenceController.__hostEl = backgroundInner
+      window.__homeSequenceController = sequenceController
+    }
 
     const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
     const loaderEase = CustomEase.create('loaderEase', easeCurve)
@@ -423,6 +450,39 @@ export function initLoader() {
 
     return tl
   } catch (err) {
+    return null
+  }
+}
+
+export function preloadHomeSequenceForTransition(scope = document) {
+  try {
+    const backgroundInner = getBackgroundInner(scope)
+    if (!backgroundInner) return null
+
+    const existingController = window.__homeSequenceController
+    if (
+      existingController &&
+      existingController.__hostEl === backgroundInner &&
+      typeof existingController.setFrame === 'function'
+    ) {
+      existingController.ready
+        .then(() => {
+          existingController.setFrame(0)
+        })
+        .catch(() => {})
+      return existingController
+    }
+
+    const controller = createActiveFrameSequenceController(backgroundInner)
+    controller.__hostEl = backgroundInner
+    window.__homeSequenceController = controller
+    controller.ready
+      .then(() => {
+        controller.setFrame(0)
+      })
+      .catch(() => {})
+    return controller
+  } catch (e) {
     return null
   }
 }

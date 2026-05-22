@@ -10,6 +10,7 @@ import {
   initContainerModules,
 } from '../app/page-registry.js'
 import { reinitializeWebflowAnimations } from '../utils/base.js'
+import { preloadHomeSequenceForTransition } from './loader-af.js'
 import { initializeNav2, resetMenuLinksAnimationState } from './nav.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 import { initLenis, destroyLenis } from './scroll.js'
@@ -761,6 +762,17 @@ export function initializePageTransitionNav() {
       /* ignore */
     }
     destroyContactIfNeeded(current && current.container)
+  })
+
+  // Preload/render first AF frame as early as possible for Home destination
+  barba.hooks.beforeLeave(({ next }) => {
+    try {
+      const container = next && next.container
+      if (!isHomeNamespace(container)) return
+      preloadHomeSequenceForTransition(container)
+    } catch (e) {
+      // ignore
+    }
   })
 
   // Global fallback for nav that bypasses custom transitions

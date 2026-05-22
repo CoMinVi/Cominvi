@@ -1022,8 +1022,6 @@ button.maplibregl-ctrl-compass {
 }
 
 .hero-content_left .is-h1-span-wrap:first-child,
-.hero-content_right
-  .content_right-row:first-child
-  .is-h1-span-wrap:first-child {
+.hero-content_right {
   margin-bottom: -0.5em;
 }

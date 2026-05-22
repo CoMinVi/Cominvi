@@ -727,30 +727,11 @@ export function initLoader() {
 
     const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
     const loaderEase = CustomEase.create('loaderEase', easeCurve)
-    const loader = document.querySelector('.loader')
-    const logoWrap = document.querySelector('.loader-logo_wrap')
-    const logoInner = document.querySelector('.logo-inner')
-    const logoIcon = document.querySelector('.logo-icon')
-    const logoSquare = document.querySelector('.logo-square')
-    const textBox = document.querySelector('.is-logo-text')
-    const logoText = document.querySelector('.is-logo-text .logo-text')
     const heroVideo = document.querySelector(
       '.hero-background .background_video video'
     )
-
-    if (
-      !loader ||
-      !logoWrap ||
-      !logoInner ||
-      !logoIcon ||
-      !logoSquare ||
-      !textBox ||
-      !logoText
-    ) {
-      return null
-    }
-
     ensureHeroVideoSources(heroVideo)
+    let sequenceController = null
     try {
       const backgroundVideo =
         heroVideo && typeof heroVideo.closest === 'function'
@@ -762,7 +743,45 @@ export function initLoader() {
     } catch (e) {
       // ignore
     }
-    const sequenceController = initUnifiedActiveFrameSequence(heroVideo)
+    sequenceController = initUnifiedActiveFrameSequence(heroVideo)
+
+    const loader = document.querySelector('.loader')
+    const logoWrap = document.querySelector('.loader-logo_wrap')
+    const logoInner = document.querySelector('.logo-inner')
+    const logoIcon = document.querySelector('.logo-icon')
+    const logoSquare = document.querySelector('.logo-square')
+    const textBox = document.querySelector('.is-logo-text')
+    const logoText = document.querySelector('.is-logo-text .logo-text')
+
+    if (
+      !loader ||
+      !logoWrap ||
+      !logoInner ||
+      !logoIcon ||
+      !logoSquare ||
+      !textBox ||
+      !logoText
+    ) {
+      if (
+        sequenceController &&
+        typeof sequenceController.setIntroProgress === 'function'
+      ) {
+        sequenceController.setIntroProgress(1)
+      }
+      if (
+        sequenceController &&
+        typeof sequenceController.activateScrollRange === 'function'
+      ) {
+        sequenceController.activateScrollRange()
+      }
+      try {
+        window.__loaderDone = true
+        document.dispatchEvent(new CustomEvent('loader:done'))
+      } catch (e) {
+        // ignore
+      }
+      return null
+    }
 
     const logoTargetWidthPx = logoInner.getBoundingClientRect().width || 0
     const textPaths = Array.from(logoText.querySelectorAll('path'))

@@ -9,7 +9,8 @@ import { initHeroBackgroundParallax } from './parallax.js'
 
 const INTRO_FRAME_COUNT = 126
 const SCROLL_RANGE_VH = 100
-const CAVE_AF_PATH = '/cave-scene/cave-scene-full-sequence.af'
+const CAVE_AF_URL =
+  'http://precious-hotteok-8da21f.netlify.app/cave-scene/cave-scene-full-sequence.af'
 
 function getHomeSequenceScroller() {
   try {
@@ -187,11 +188,7 @@ function createActiveFrameSequenceController(backgroundInner) {
     requestFrame(frame)
   }
 
-  const origin =
-    typeof window !== 'undefined' && window.location
-      ? window.location.origin
-      : ''
-  const afUrl = `${origin}${CAVE_AF_PATH}`
+  const afUrl = CAVE_AF_URL
   const hardwareAcceleration = /\bAndroid\b/i.test(navigator.userAgent || '')
     ? 'prefer-software'
     : 'prefer-hardware'

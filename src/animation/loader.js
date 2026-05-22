@@ -251,6 +251,7 @@ function initHomeScrollSequenceFallback(video) {
   const wrapper = video.closest('.background_video')
   if (!wrapper) return
   prepareVideoSequenceLayering(video)
+  createSequenceCanvasElement(wrapper)
 
   const frames = buildCaveFrameUrls(video)
   if (!frames.length) return
@@ -506,33 +507,28 @@ function initHomeScrollSequence(video) {
 }
 
 function initUnifiedActiveFrameSequence(video) {
-  const noopController = {
-    setIntroProgress: () => {},
-    activateScrollRange: () => {},
-  }
-
-  if (!video) return noopController
+  if (!video) return null
   const wrapper = video.closest('.background_video')
-  if (!wrapper) return noopController
+  if (!wrapper) return null
 
   const hasWebCodecs =
     typeof window !== 'undefined' &&
     'VideoDecoder' in window &&
     'EncodedVideoChunk' in window
-  if (!hasWebCodecs) return noopController
+  if (!hasWebCodecs) return null
 
   cleanupHomeSequenceBindings()
   prepareVideoSequenceLayering(video)
   ensureHeroVideoSources(video)
 
   const canvas = createSequenceCanvasElement(wrapper)
-  if (!canvas) return noopController
+  if (!canvas) return null
   const canvasHost = canvas.parentElement || wrapper
 
   const ctx =
     canvas.getContext('2d', { alpha: false, desynchronized: true }) ||
     canvas.getContext('2d')
-  if (!ctx) return noopController
+  if (!ctx) return null
 
   const fitCanvasToWrapper = () => {
     const rect = canvasHost.getBoundingClientRect()
@@ -650,7 +646,7 @@ function initUnifiedActiveFrameSequence(video) {
       },
     })
   } catch (e) {
-    return noopController
+    return null
   }
 
   activeFrame.loading
@@ -755,6 +751,17 @@ export function initLoader() {
     }
 
     ensureHeroVideoSources(heroVideo)
+    try {
+      const backgroundVideo =
+        heroVideo && typeof heroVideo.closest === 'function'
+          ? heroVideo.closest('.background_video')
+          : null
+      if (backgroundVideo) {
+        createSequenceCanvasElement(backgroundVideo)
+      }
+    } catch (e) {
+      // ignore
+    }
     const sequenceController = initUnifiedActiveFrameSequence(heroVideo)
 
     const logoTargetWidthPx = logoInner.getBoundingClientRect().width || 0

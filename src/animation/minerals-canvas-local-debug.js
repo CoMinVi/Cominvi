@@ -1,6 +1,8 @@
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
+import { ActiveFrame } from './active-frame-player.js'
+
 gsap.registerPlugin(ScrollTrigger)
 
 const LOG = '[minerals-canvas]'
@@ -8,6 +10,8 @@ const ALLOWED_NAMESPACES = new Set(['home', 'services'])
 const LOOP_COUNT = 1
 const SCRUB_SMOOTHING = 0.4
 const ENABLE_FRAME_BLEND = false
+const DEFAULT_MINERALS_AF_PATH = '/minerals/minerals-sequence.af'
+const DEFAULT_MINERALS_TOTAL_FRAMES = 600
 const DEFAULT_INITIAL_PRELOAD = 40
 const DEFAULT_PRELOAD_AHEAD = 6
 const DEFAULT_PRELOAD_BEHIND = 2
@@ -142,6 +146,19 @@ function parseImageUrls(raw) {
     .filter(Boolean)
 }
 
+function buildMineralsLocalUrls(totalFrames = DEFAULT_MINERALS_TOTAL_FRAMES) {
+  const total = Math.max(1, Math.floor(totalFrames || 0))
+  const urls = []
+  for (let frame = 1; frame <= total; frame += 1) {
+    const padded =
+      frame < 10
+        ? String(frame).padStart(4, '0')
+        : String(frame).padStart(5, '0')
+    urls.push(`/minerals/minerals-${padded}.avif`)
+  }
+  return urls
+}
+
 function parsePositiveInt(raw, fallback) {
   const n = parseInt(String(raw || ''), 10)
   if (!Number.isFinite(n) || n <= 0) return fallback
@@ -192,22 +209,51 @@ export function initMineralsCanvas(root = document) {
     }
 
     const bp = getBreakpoint()
-    const responsiveUrls = {
-      desktop: getAttrFromComponentOrScope('fc-image-scrubbing-urls-desktop'),
-      tablet: getAttrFromComponentOrScope('fc-image-scrubbing-urls-tablet'),
-      mobile: getAttrFromComponentOrScope('fc-image-scrubbing-urls-mobile'),
+    const responsiveAfUrls = {
+      desktop: getAttrFromComponentOrScope('fc-image-scrubbing-af-url-desktop'),
+      tablet: getAttrFromComponentOrScope('fc-image-scrubbing-af-url-tablet'),
+      mobile: getAttrFromComponentOrScope('fc-image-scrubbing-af-url-mobile'),
     }
-    const baseUrls = getAttrFromComponentOrScope('fc-image-scrubbing-urls')
-    const urls = parseImageUrls(
-      responsiveUrls[bp] ||
-        responsiveUrls.desktop ||
-        responsiveUrls.tablet ||
-        responsiveUrls.mobile ||
-        baseUrls
-    )
-    if (!urls.length) {
-      err('La liste d’images est vide.')
-      return null
+    const baseAfUrl = getAttrFromComponentOrScope('fc-image-scrubbing-af-url')
+    const afUrl = (
+      responsiveAfUrls[bp] ||
+      responsiveAfUrls.desktop ||
+      responsiveAfUrls.tablet ||
+      responsiveAfUrls.mobile ||
+      baseAfUrl ||
+      DEFAULT_MINERALS_AF_PATH
+    ).trim()
+
+    const hasWebCodecs =
+      typeof window !== 'undefined' &&
+      'VideoDecoder' in window &&
+      'EncodedVideoChunk' in window
+    const forceImageSequence =
+      component.getAttribute('fc-image-scrubbing-force-images') === 'true'
+    const shouldUseAf = !!afUrl && hasWebCodecs && !forceImageSequence
+
+    let urls = []
+    if (!shouldUseAf) {
+      const responsiveUrls = {
+        desktop: getAttrFromComponentOrScope('fc-image-scrubbing-urls-desktop'),
+        tablet: getAttrFromComponentOrScope('fc-image-scrubbing-urls-tablet'),
+        mobile: getAttrFromComponentOrScope('fc-image-scrubbing-urls-mobile'),
+      }
+      const baseUrls = getAttrFromComponentOrScope('fc-image-scrubbing-urls')
+      urls = parseImageUrls(
+        responsiveUrls[bp] ||
+          responsiveUrls.desktop ||
+          responsiveUrls.tablet ||
+          responsiveUrls.mobile ||
+          baseUrls
+      )
+      if (!urls.length) {
+        const fallbackFrameCount = parsePositiveInt(
+          component.getAttribute('fc-image-scrubbing-total-frames'),
+          DEFAULT_MINERALS_TOTAL_FRAMES
+        )
+        urls = buildMineralsLocalUrls(fallbackFrameCount)
+      }
     }
 
     const canvas = component.querySelector('canvas')
@@ -238,6 +284,205 @@ export function initMineralsCanvas(root = document) {
       24
     )
     if (!Number.isFinite(fps) || fps <= 0) fps = 30
+
+    const scrollStart =
+      component.getAttribute('fc-image-scrubbing-start-point') || 'top top'
+    const scrollEnd =
+      component.getAttribute('fc-image-scrubbing-end-point') || 'bottom bottom'
+
+    if (shouldUseAf) {
+      let destroyed = false
+      let rafToken = 0
+      let requestedFrame = 0
+      let maxFrame = 0
+      let tween = null
+      let resizeObserver = null
+      const state = { frame: 0 }
+
+      const resizeCanvas = () => {
+        const dpr = window.devicePixelRatio || 1
+        const width = Math.max(canvas.clientWidth || 0, 1)
+        const height = Math.max(canvas.clientHeight || 0, 1)
+        canvas.width = Math.round(width * dpr)
+        canvas.height = Math.round(height * dpr)
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.scale(dpr, dpr)
+      }
+
+      const getFitMode = () => {
+        const isPortrait =
+          window.matchMedia &&
+          window.matchMedia('(orientation: portrait)').matches
+        const isLandscape =
+          window.matchMedia &&
+          window.matchMedia('(orientation: landscape)').matches
+        if (isPortrait && fit.portrait) return fit.portrait
+        if (isLandscape && fit.landscape) return fit.landscape
+        return fit.base || 'contain'
+      }
+
+      const drawAfFrame = (frame) => {
+        if (!canvas.__highResReady) {
+          resizeCanvas()
+          canvas.__highResReady = true
+        }
+        const canvasWidth = Math.max(canvas.clientWidth || 0, 1)
+        const canvasHeight = Math.max(canvas.clientHeight || 0, 1)
+        const sourceWidth = frame.displayWidth || frame.codedWidth
+        const sourceHeight = frame.displayHeight || frame.codedHeight
+        if (!sourceWidth || !sourceHeight) return
+
+        const canvasRatio = canvasWidth / canvasHeight
+        const sourceRatio = sourceWidth / sourceHeight
+        const mode = getFitMode()
+
+        let drawWidth = 0
+        let drawHeight = 0
+        if (mode === 'cover') {
+          if (sourceRatio > canvasRatio) {
+            drawHeight = canvasHeight
+            drawWidth = canvasHeight * sourceRatio
+          } else {
+            drawWidth = canvasWidth
+            drawHeight = canvasWidth / sourceRatio
+          }
+        } else if (sourceRatio > canvasRatio) {
+          drawWidth = canvasWidth
+          drawHeight = canvasWidth / sourceRatio
+        } else {
+          drawHeight = canvasHeight
+          drawWidth = canvasHeight * sourceRatio
+        }
+
+        const offsetX = (canvasWidth - drawWidth) * 0.5
+        const offsetY = (canvasHeight - drawHeight) * 0.5
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+        ctx.drawImage(
+          frame,
+          0,
+          0,
+          sourceWidth,
+          sourceHeight,
+          offsetX,
+          offsetY,
+          drawWidth,
+          drawHeight
+        )
+      }
+
+      const flushFrameRequest = () => {
+        rafToken = 0
+        if (!activeFrame || !activeFrame.manifest || destroyed) return
+        const target = Math.max(0, Math.min(maxFrame, requestedFrame))
+        activeFrame.setFrame(target)
+      }
+
+      const requestFrame = (frame) => {
+        requestedFrame = Math.round(frame)
+        if (rafToken) return
+        rafToken = window.requestAnimationFrame(flushFrameRequest)
+      }
+
+      const hardwareAcceleration = /\bAndroid\b/i.test(
+        navigator.userAgent || ''
+      )
+        ? 'prefer-software'
+        : 'prefer-hardware'
+
+      const activeFrame = new ActiveFrame(afUrl, {
+        hardwareAcceleration,
+        process: (frame) => {
+          if (destroyed) return
+          drawAfFrame(frame)
+        },
+      })
+
+      activeFrame.loading
+        .then(() => {
+          maxFrame = Math.max(0, (activeFrame.manifest?.totalFrames || 1) - 1)
+          state.frame = 0
+          requestFrame(0)
+        })
+        .catch((error) => {
+          err(
+            'Echec chargement .af, fallback image possible via force-images',
+            {
+              afUrl,
+              error,
+            }
+          )
+        })
+
+      const onResize = () => {
+        canvas.__highResReady = false
+        requestFrame(state.frame)
+      }
+
+      if ('ResizeObserver' in window) {
+        resizeObserver = new ResizeObserver(onResize)
+        resizeObserver.observe(canvas)
+      } else {
+        window.addEventListener('resize', onResize)
+      }
+
+      tween = gsap.to(state, {
+        frame: () => maxFrame,
+        duration: () => Math.max(1, (maxFrame + 1) / fps),
+        ease: 'none',
+        onUpdate: () => requestFrame(state.frame),
+        scrollTrigger: {
+          trigger: component,
+          start: scrollStart,
+          end: scrollEnd,
+          scrub: SCRUB_SMOOTHING,
+          invalidateOnRefresh: true,
+        },
+      })
+
+      info('Init AF', {
+        afUrl,
+        scrub: SCRUB_SMOOTHING,
+        fps,
+        breakpoint: bp,
+        canvasWidth: canvas.clientWidth,
+        canvasHeight: canvas.clientHeight,
+      })
+
+      const cleanup = () => {
+        destroyed = true
+        if (rafToken) {
+          window.cancelAnimationFrame(rafToken)
+          rafToken = 0
+        }
+        try {
+          if (tween && typeof tween.kill === 'function') tween.kill()
+        } catch (e) {
+          // ignore
+        }
+        try {
+          if (resizeObserver) resizeObserver.disconnect()
+        } catch (e) {
+          // ignore
+        }
+        if (!resizeObserver) {
+          window.removeEventListener('resize', onResize)
+        }
+        try {
+          activeFrame.destroy()
+        } catch (e) {
+          // ignore
+        }
+        component.__mineralsCanvasCleanup = null
+      }
+
+      component.__mineralsCanvasCleanup = cleanup
+      return { cleanup, component, canvas }
+    }
+
+    if (!urls.length) {
+      err('Aucune source de sequence (ni .af ni images).')
+      return null
+    }
 
     const initialPreloadCount = parsePositiveInt(
       component.getAttribute('fc-image-scrubbing-initial-preload'),
@@ -768,11 +1013,6 @@ export function initMineralsCanvas(root = document) {
     } else {
       window.addEventListener('resize', onResize)
     }
-
-    const scrollStart =
-      component.getAttribute('fc-image-scrubbing-start-point') || 'top top'
-    const scrollEnd =
-      component.getAttribute('fc-image-scrubbing-end-point') || 'bottom bottom'
 
     tween = gsap.to(state, {
       frame: maxLinearFrame,

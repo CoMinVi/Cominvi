@@ -11,8 +11,7 @@ const LOOP_COUNT = 1
 const SCRUB_SMOOTHING = 0.4
 const ENABLE_FRAME_BLEND = false
 const DEFAULT_MINERALS_AF_PATH =
-  'https://cominvi-staging.webflow.io/minerals/minerals-sequence.af'
-const LEGACY_MINERALS_AF_PATH = '/minerals/minerals-sequence.af'
+  'https://precious-hotteok-8da21f.netlify.app/minerals/minerals-sequence.af'
 const DEFAULT_MINERALS_TOTAL_FRAMES = 600
 const DEFAULT_INITIAL_PRELOAD = 40
 const DEFAULT_PRELOAD_AHEAD = 6
@@ -211,30 +210,13 @@ export function initMineralsCanvas(root = document) {
     }
 
     const bp = getBreakpoint()
-    const responsiveAfUrls = {
-      desktop: getAttrFromComponentOrScope('fc-image-scrubbing-af-url-desktop'),
-      tablet: getAttrFromComponentOrScope('fc-image-scrubbing-af-url-tablet'),
-      mobile: getAttrFromComponentOrScope('fc-image-scrubbing-af-url-mobile'),
-    }
-    const baseAfUrl = getAttrFromComponentOrScope('fc-image-scrubbing-af-url')
-    const rawAfUrl = (
-      responsiveAfUrls[bp] ||
-      responsiveAfUrls.desktop ||
-      responsiveAfUrls.tablet ||
-      responsiveAfUrls.mobile ||
-      baseAfUrl ||
-      DEFAULT_MINERALS_AF_PATH
-    ).trim()
-    const afUrl =
-      rawAfUrl === LEGACY_MINERALS_AF_PATH ? DEFAULT_MINERALS_AF_PATH : rawAfUrl
+    const afUrl = DEFAULT_MINERALS_AF_PATH
 
     const hasWebCodecs =
       typeof window !== 'undefined' &&
       'VideoDecoder' in window &&
       'EncodedVideoChunk' in window
-    const forceImageSequence =
-      component.getAttribute('fc-image-scrubbing-force-images') === 'true'
-    const shouldUseAf = !!afUrl && hasWebCodecs && !forceImageSequence
+    const shouldUseAf = !!afUrl && hasWebCodecs
 
     let urls = []
     if (!shouldUseAf) {

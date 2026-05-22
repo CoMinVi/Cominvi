@@ -180,7 +180,7 @@ async function initSharedSections(root, options = {}) {
     )
   }
 
-  if (has(root, '[fc-image-scrubbing="component"]')) {
+  if (has(root, '.section_minerals')) {
     jobs.push(
       importAndRun(
         () => import('../animation/minerals-canvas-local-debug.js'),
@@ -405,7 +405,7 @@ export async function initAfterEnterModules(root = document) {
     )
   }
 
-  if (has(root, '[fc-image-scrubbing="component"]')) {
+  if (has(root, '.section_minerals')) {
     await importAndRun(
       () => import('../animation/minerals-canvas-local-debug.js'),
       'initMineralsCanvas',

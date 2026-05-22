@@ -2,18 +2,45 @@ import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
+import { ActiveFrame } from './active-frame-player.js'
 import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
 const CAVE_FRAME_START = 120
 const CAVE_FRAME_END = 270
-const CAVE_FRAME_PATH_PREFIX = '/cave-scene/Cave_scene_v06_1920p_'
+const CAVE_FRAME_PATH = '/cave-scene/Cave_scene_v06_1920p_'
+const CAVE_AF_PATH = '/cave-scene/cave-scene-sequence.af'
 
-function buildCaveFrameUrls() {
+function resolveAssetOrigin(video) {
+  const fallbackOrigin =
+    typeof window !== 'undefined' && window.location
+      ? window.location.origin
+      : ''
+
+  if (!video) return fallbackOrigin
+
+  const sourceNodes = Array.from(video.querySelectorAll('source'))
+  for (const source of sourceNodes) {
+    const src = source.getAttribute('src') || source.getAttribute('data-src')
+    if (!src) continue
+    try {
+      return new URL(src, fallbackOrigin || 'http://localhost').origin
+    } catch (e) {
+      // ignore invalid source URL
+    }
+  }
+
+  return fallbackOrigin
+}
+
+function buildCaveFrameUrls(video) {
+  const assetOrigin = resolveAssetOrigin(video)
   const urls = []
   for (let index = CAVE_FRAME_START; index <= CAVE_FRAME_END; index += 1) {
-    urls.push(`${CAVE_FRAME_PATH_PREFIX}${String(index).padStart(5, '0')}.webp`)
+    urls.push(
+      `${assetOrigin}${CAVE_FRAME_PATH}${String(index).padStart(5, '0')}.webp`
+    )
   }
   return urls
 }
@@ -91,6 +118,30 @@ function createSequenceFrameElement(wrapper) {
   return img
 }
 
+function createSequenceCanvasElement(wrapper) {
+  if (!wrapper) return null
+  const existing = wrapper.querySelector('[data-loader-sequence-canvas="true"]')
+  if (existing) return existing
+
+  const canvas = document.createElement('canvas')
+  canvas.setAttribute('data-loader-sequence-canvas', 'true')
+  Object.assign(canvas.style, {
+    position: 'absolute',
+    inset: '0',
+    width: '100%',
+    height: '100%',
+    display: 'block',
+    pointerEvents: 'none',
+    zIndex: '2',
+  })
+
+  if (getComputedStyle(wrapper).position === 'static') {
+    wrapper.style.position = 'relative'
+  }
+  wrapper.appendChild(canvas)
+  return canvas
+}
+
 function getHomeSequenceScroller() {
   try {
     return (
@@ -101,12 +152,58 @@ function getHomeSequenceScroller() {
   }
 }
 
-function initHomeScrollSequence(video) {
+function cleanupHomeSequenceBindings() {
+  if (window.__homeSequenceScrollTrigger) {
+    window.__homeSequenceScrollTrigger.kill()
+    window.__homeSequenceScrollTrigger = null
+  }
+
+  if (
+    window.__homeSequenceLenis &&
+    window.__homeSequenceLenisHandler &&
+    typeof window.__homeSequenceLenis.off === 'function'
+  ) {
+    try {
+      window.__homeSequenceLenis.off(
+        'scroll',
+        window.__homeSequenceLenisHandler
+      )
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  if (
+    window.__homeSequenceResizeCleanup &&
+    typeof window.__homeSequenceResizeCleanup === 'function'
+  ) {
+    try {
+      window.__homeSequenceResizeCleanup()
+    } catch (e) {
+      // ignore
+    }
+    window.__homeSequenceResizeCleanup = null
+  }
+
+  if (
+    window.__homeSequenceActiveFrame &&
+    typeof window.__homeSequenceActiveFrame.destroy === 'function'
+  ) {
+    try {
+      window.__homeSequenceActiveFrame.destroy()
+    } catch (e) {
+      // ignore
+    }
+    window.__homeSequenceActiveFrame = null
+  }
+}
+
+function initHomeScrollSequenceFallback(video) {
   if (!video) return
   const wrapper = video.closest('.background_video')
   if (!wrapper) return
 
-  const frames = buildCaveFrameUrls()
+  const frames = buildCaveFrameUrls(video)
   if (!frames.length) return
 
   const sequenceFrame = createSequenceFrameElement(wrapper)
@@ -178,26 +275,7 @@ function initHomeScrollSequence(video) {
     img.src = url
   })
 
-  if (window.__homeSequenceScrollTrigger) {
-    window.__homeSequenceScrollTrigger.kill()
-    window.__homeSequenceScrollTrigger = null
-  }
-
-  if (
-    window.__homeSequenceLenis &&
-    window.__homeSequenceLenisHandler &&
-    typeof window.__homeSequenceLenis.off === 'function'
-  ) {
-    try {
-      window.__homeSequenceLenis.off(
-        'scroll',
-        window.__homeSequenceLenisHandler
-      )
-    } catch (e) {
-      // ignore
-    }
-  }
-
+  cleanupHomeSequenceBindings()
   const scroller = getHomeSequenceScroller()
   const trigger = scroller === window ? document.documentElement : scroller
   window.__homeSequenceScrollTrigger = ScrollTrigger.create({
@@ -232,6 +310,158 @@ function initHomeScrollSequence(video) {
     }
   } catch (e) {
     // ignore
+  }
+}
+
+function initHomeScrollSequence(video) {
+  if (!video) return
+
+  const wrapper = video.closest('.background_video')
+  if (!wrapper) return
+
+  const hasWebCodecs =
+    typeof window !== 'undefined' &&
+    'VideoDecoder' in window &&
+    'EncodedVideoChunk' in window
+
+  if (!hasWebCodecs) {
+    initHomeScrollSequenceFallback(video)
+    return
+  }
+
+  cleanupHomeSequenceBindings()
+
+  const canvas = createSequenceCanvasElement(wrapper)
+  if (!canvas) {
+    initHomeScrollSequenceFallback(video)
+    return
+  }
+
+  const ctx =
+    canvas.getContext('2d', { alpha: false, desynchronized: true }) ||
+    canvas.getContext('2d')
+  if (!ctx) {
+    initHomeScrollSequenceFallback(video)
+    return
+  }
+
+  const fitCanvasToWrapper = () => {
+    const rect = wrapper.getBoundingClientRect()
+    const dpr = Math.max(1, window.devicePixelRatio || 1)
+    const nextWidth = Math.max(1, Math.round(rect.width * dpr))
+    const nextHeight = Math.max(1, Math.round(rect.height * dpr))
+    if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+      canvas.width = nextWidth
+      canvas.height = nextHeight
+    }
+  }
+
+  const drawImageCover = (frame) => {
+    fitCanvasToWrapper()
+    const destW = canvas.width
+    const destH = canvas.height
+    const sw = frame.displayWidth || frame.codedWidth
+    const sh = frame.displayHeight || frame.codedHeight
+    const scale = Math.max(destW / sw, destH / sh)
+    const tw = sw * scale
+    const th = sh * scale
+    const ox = (destW - tw) * 0.5
+    const oy = (destH - th) * 0.5
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, destW, destH)
+    ctx.drawImage(frame, 0, 0, sw, sh, ox, oy, tw, th)
+  }
+
+  let pendingProgress = 0
+  let firstFrameRendered = false
+  let activeFrame = null
+  const hideVideo = () => {
+    video.style.opacity = '0'
+    video.style.visibility = 'hidden'
+    video.style.pointerEvents = 'none'
+  }
+
+  const assetOrigin = resolveAssetOrigin(video)
+  const afUrl = `${assetOrigin}${CAVE_AF_PATH}`
+  const hardwareAcceleration = /\bAndroid\b/i.test(navigator.userAgent || '')
+    ? 'prefer-software'
+    : 'prefer-hardware'
+
+  const setProgress = (progress) => {
+    pendingProgress = Math.max(0, Math.min(progress, 1))
+    if (!activeFrame || !activeFrame.manifest) return
+    const target = Math.round(
+      pendingProgress * Math.max(0, activeFrame.manifest.totalFrames - 1)
+    )
+    activeFrame.setFrame(target)
+  }
+
+  try {
+    activeFrame = new ActiveFrame(afUrl, {
+      hardwareAcceleration,
+      process: (frame) => {
+        drawImageCover(frame)
+        if (!firstFrameRendered) {
+          firstFrameRendered = true
+          hideVideo()
+        }
+      },
+    })
+  } catch (e) {
+    initHomeScrollSequenceFallback(video)
+    return
+  }
+
+  window.__homeSequenceActiveFrame = activeFrame
+  activeFrame.loading
+    .then(() => {
+      setProgress(0)
+      requestAnimationFrame(() => setProgress(pendingProgress))
+    })
+    .catch(() => {
+      cleanupHomeSequenceBindings()
+      initHomeScrollSequenceFallback(video)
+    })
+
+  const scroller = getHomeSequenceScroller()
+  const trigger = scroller === window ? document.documentElement : scroller
+  window.__homeSequenceScrollTrigger = ScrollTrigger.create({
+    trigger,
+    scroller: scroller === window ? undefined : scroller,
+    start: 0,
+    end: () => window.innerHeight,
+    scrub: 0.15,
+    onUpdate: (self) => {
+      setProgress(self.progress)
+    },
+    onRefresh: (self) => {
+      setProgress(self.progress)
+    },
+  })
+
+  try {
+    if (window.lenis && typeof window.lenis.on === 'function') {
+      const onLenisScroll = (event) => {
+        const raw = event && typeof event.scroll === 'number' ? event.scroll : 0
+        const progress = Math.max(0, Math.min(raw / window.innerHeight, 1))
+        setProgress(progress)
+      }
+      window.__homeSequenceLenis = window.lenis
+      window.__homeSequenceLenisHandler = onLenisScroll
+      window.lenis.on('scroll', onLenisScroll)
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  const onResize = () => {
+    fitCanvasToWrapper()
+    setProgress(pendingProgress)
+  }
+  window.addEventListener('resize', onResize)
+  window.__homeSequenceResizeCleanup = () => {
+    window.removeEventListener('resize', onResize)
   }
 }
 

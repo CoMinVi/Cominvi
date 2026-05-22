@@ -88,7 +88,10 @@ function createSequenceFrameElement(wrapper) {
 
 function createSequenceCanvasElement(wrapper) {
   if (!wrapper) return null
-  const existing = wrapper.querySelector('[data-loader-sequence-canvas="true"]')
+  const canvasHost = wrapper.closest('.background-inner') || wrapper
+  const existing = canvasHost.querySelector(
+    '[data-loader-sequence-canvas="true"]'
+  )
   if (existing) return existing
 
   const canvas = document.createElement('canvas')
@@ -103,10 +106,10 @@ function createSequenceCanvasElement(wrapper) {
     zIndex: '1',
   })
 
-  if (getComputedStyle(wrapper).position === 'static') {
-    wrapper.style.position = 'relative'
+  if (getComputedStyle(canvasHost).position === 'static') {
+    canvasHost.style.position = 'relative'
   }
-  wrapper.appendChild(canvas)
+  canvasHost.appendChild(canvas)
   return canvas
 }
 
@@ -524,6 +527,7 @@ function initUnifiedActiveFrameSequence(video) {
 
   const canvas = createSequenceCanvasElement(wrapper)
   if (!canvas) return noopController
+  const canvasHost = canvas.parentElement || wrapper
 
   const ctx =
     canvas.getContext('2d', { alpha: false, desynchronized: true }) ||
@@ -531,7 +535,7 @@ function initUnifiedActiveFrameSequence(video) {
   if (!ctx) return noopController
 
   const fitCanvasToWrapper = () => {
-    const rect = wrapper.getBoundingClientRect()
+    const rect = canvasHost.getBoundingClientRect()
     const dpr = Math.max(1, window.devicePixelRatio || 1)
     const nextWidth = Math.max(1, Math.round(rect.width * dpr))
     const nextHeight = Math.max(1, Math.round(rect.height * dpr))

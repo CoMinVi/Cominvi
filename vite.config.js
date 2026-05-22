@@ -25,8 +25,10 @@ export default defineConfig(({ command }) => ({
       output: {
         format: 'es',
         entryFileNames: 'main.js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash][extname]',
+        // `dist/` is versioned in git for deployment; keep deterministic filenames
+        // to avoid mass renames in commits when a single source file changes.
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name][extname]',
         compact: true,
       },
       external: ['jquery'],

@@ -120,7 +120,8 @@ function getHomeSequenceScroller() {
   }
 }
 
-function cleanupHomeSequenceBindings() {
+function cleanupHomeSequenceBindings(opts = {}) {
+  const preserveActiveFrame = !!opts.preserveActiveFrame
   if (window.__homeSequenceScrollTrigger) {
     window.__homeSequenceScrollTrigger.kill()
     window.__homeSequenceScrollTrigger = null
@@ -154,6 +155,7 @@ function cleanupHomeSequenceBindings() {
   }
 
   if (
+    !preserveActiveFrame &&
     window.__homeSequenceActiveFrame &&
     typeof window.__homeSequenceActiveFrame.destroy === 'function'
   ) {
@@ -585,7 +587,7 @@ function initUnifiedActiveFrameSequence(video) {
 
   const activateScrollRange = () => {
     if (!isLoaded || !totalFrames) return
-    cleanupHomeSequenceBindings()
+    cleanupHomeSequenceBindings({ preserveActiveFrame: true })
     window.__homeSequenceActiveFrame = activeFrame
 
     const startFrame = Math.min(INTRO_END_FRAME_ZERO_BASED, totalFrames - 1)
@@ -651,7 +653,6 @@ function initUnifiedActiveFrameSequence(video) {
     .then(() => {
       isLoaded = true
       totalFrames = Math.max(1, activeFrame.manifest.totalFrames || 1)
-      window.__homeSequenceActiveFrame = activeFrame
       renderFrameIndex(0)
       setIntroProgress(pendingIntroProgress)
       video.style.opacity = '0'

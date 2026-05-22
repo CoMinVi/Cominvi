@@ -160,8 +160,19 @@ function createActiveFrameSequenceController(backgroundInner) {
 
   const clearBackgroundFallback = () => {
     try {
-      backgroundInner.style.backgroundImage = 'none'
-      backgroundInner.style.backgroundColor = 'transparent'
+      const heroBackground =
+        (backgroundInner.closest &&
+          backgroundInner.closest('.hero-background')) ||
+        document
+      const overlay =
+        (heroBackground.querySelector &&
+          heroBackground.querySelector('.background-overlay')) ||
+        document.querySelector('.background-overlay')
+      if (overlay) {
+        overlay.style.opacity = '0'
+        overlay.style.visibility = 'hidden'
+        overlay.style.pointerEvents = 'none'
+      }
     } catch (e) {
       // ignore
     }

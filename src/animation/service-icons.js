@@ -24,6 +24,7 @@ const LOTTIE_URLS = {
   16: '/lottie/icon-16.json',
 }
 const STATS_CARD_SELECTOR = '.stats-card, .stat-card'
+const ABOUT_SECTION_SELECTOR = '.section_about'
 const ICON_SELECTOR =
   '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie], .stat-card [data-lottie]'
 
@@ -570,6 +571,64 @@ export function initIcons(root = document, opts = {}) {
           card.__svcIconHoverBound = true
         }
 
+        const setupStatsCardIntroOnAboutView = () => {
+          try {
+            if (!card || !card.matches || !card.matches(STATS_CARD_SELECTOR))
+              return
+            if (card.__svcStatsIntroPlayed) return
+            const section =
+              card.closest(ABOUT_SECTION_SELECTOR) ||
+              card.closest('.section_about-us')
+            if (!section) {
+              card.__svcStatsIntroPlayed = true
+              playFirst()
+              return
+            }
+
+            const triggerIntro = () => {
+              if (card.__svcStatsIntroPlayed) return
+              card.__svcStatsIntroPlayed = true
+              playFirst()
+            }
+
+            const sectionRect = section.getBoundingClientRect()
+            const vh =
+              window.innerHeight || document.documentElement.clientHeight || 0
+            if (sectionRect.bottom > 0 && sectionRect.top < vh) {
+              triggerIntro()
+              return
+            }
+
+            if (typeof IntersectionObserver === 'undefined') {
+              triggerIntro()
+              return
+            }
+
+            if (card.__svcStatsIntroObserver) return
+            const obs = new IntersectionObserver(
+              (entries) => {
+                entries.forEach((entry) => {
+                  if (!entry.isIntersecting) return
+                  try {
+                    obs.unobserve(section)
+                  } catch (e) {
+                    /* ignore */
+                  }
+                  obs.disconnect()
+                  card.__svcStatsIntroObserver = null
+                  triggerIntro()
+                })
+              },
+              { root: null, threshold: 0.01 }
+            )
+            obs.observe(section)
+            card.__svcStatsIntroObserver = obs
+          } catch (e) {
+            /* ignore */
+          }
+        }
+        setupStatsCardIntroOnAboutView()
+
         if (pendingRef && pendingRef.pending === 'first') playFirst()
         else if (pendingRef && pendingRef.pending === 'second') playSecond()
         if (pendingRef) pendingRef.pending = null
@@ -1027,6 +1086,14 @@ export function destroyIcons(root = document) {
     )
     cards.forEach((card) => {
       try {
+        if (
+          card.__svcStatsIntroObserver &&
+          card.__svcStatsIntroObserver.disconnect
+        ) {
+          card.__svcStatsIntroObserver.disconnect()
+        }
+        card.__svcStatsIntroObserver = null
+        card.__svcStatsIntroPlayed = false
         if (card.__svcIconHoverBound) {
           if (card.__svcIconEnter)
             card.removeEventListener('pointerenter', card.__svcIconEnter)

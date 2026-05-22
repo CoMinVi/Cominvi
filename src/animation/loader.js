@@ -108,7 +108,7 @@ function createSequenceFrameElement(wrapper) {
     display: 'block',
     opacity: '1',
     pointerEvents: 'none',
-    zIndex: '2',
+    zIndex: '1',
   })
 
   if (getComputedStyle(wrapper).position === 'static') {
@@ -132,7 +132,7 @@ function createSequenceCanvasElement(wrapper) {
     height: '100%',
     display: 'block',
     pointerEvents: 'none',
-    zIndex: '2',
+    zIndex: '1',
   })
 
   if (getComputedStyle(wrapper).position === 'static') {
@@ -196,12 +196,88 @@ function cleanupHomeSequenceBindings() {
     }
     window.__homeSequenceActiveFrame = null
   }
+
+  if (
+    window.__homeSequenceVideoEndedCleanup &&
+    typeof window.__homeSequenceVideoEndedCleanup === 'function'
+  ) {
+    try {
+      window.__homeSequenceVideoEndedCleanup()
+    } catch (e) {
+      // ignore
+    }
+    window.__homeSequenceVideoEndedCleanup = null
+  }
+}
+
+function prepareVideoSequenceLayering(video) {
+  if (!video) return
+  const wrapper = video.closest('.background_video')
+  if (!wrapper) return
+
+  if (getComputedStyle(wrapper).position === 'static') {
+    wrapper.style.position = 'relative'
+  }
+  wrapper.style.overflow = 'hidden'
+
+  video.style.position = 'absolute'
+  video.style.inset = '0'
+  video.style.width = '100%'
+  video.style.height = '100%'
+  video.style.objectFit = 'cover'
+  video.style.objectPosition = 'center center'
+  video.style.zIndex = '2'
+  video.style.opacity = '1'
+  video.style.visibility = 'visible'
+}
+
+function bindHideVideoWhenSequenceReady(video, isSequenceReady) {
+  if (!video) return () => {}
+
+  let ended = false
+  let hidden = false
+
+  const hideVideo = () => {
+    if (hidden) return
+    hidden = true
+    video.style.opacity = '0'
+    video.style.visibility = 'hidden'
+    video.style.pointerEvents = 'none'
+    try {
+      video.pause()
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const tryHide = () => {
+    if (!ended) return
+    if (!isSequenceReady()) return
+    hideVideo()
+  }
+
+  const onEnded = () => {
+    ended = true
+    tryHide()
+  }
+
+  video.addEventListener('ended', onEnded)
+
+  if (video.ended) {
+    ended = true
+    tryHide()
+  }
+
+  return () => {
+    video.removeEventListener('ended', onEnded)
+  }
 }
 
 function initHomeScrollSequenceFallback(video) {
   if (!video) return
   const wrapper = video.closest('.background_video')
   if (!wrapper) return
+  prepareVideoSequenceLayering(video)
 
   const frames = buildCaveFrameUrls(video)
   if (!frames.length) return
@@ -248,17 +324,11 @@ function initHomeScrollSequenceFallback(video) {
 
   renderFrameByIndex(0)
 
-  const hideVideo = () => {
-    video.style.opacity = '0'
-    video.style.visibility = 'hidden'
-    video.style.pointerEvents = 'none'
-  }
-
-  if (sequenceFrame.complete) {
-    hideVideo()
-  } else {
-    sequenceFrame.addEventListener('load', hideVideo, { once: true })
-  }
+  const isSequenceReady = () => !!sequenceFrame.getAttribute('src')
+  window.__homeSequenceVideoEndedCleanup = bindHideVideoWhenSequenceReady(
+    video,
+    isSequenceReady
+  )
 
   frames.slice(1).forEach((url, localIndex) => {
     const img = new Image()
@@ -318,6 +388,7 @@ function initHomeScrollSequence(video) {
 
   const wrapper = video.closest('.background_video')
   if (!wrapper) return
+  prepareVideoSequenceLayering(video)
 
   const hasWebCodecs =
     typeof window !== 'undefined' &&
@@ -376,11 +447,10 @@ function initHomeScrollSequence(video) {
   let pendingProgress = 0
   let firstFrameRendered = false
   let activeFrame = null
-  const hideVideo = () => {
-    video.style.opacity = '0'
-    video.style.visibility = 'hidden'
-    video.style.pointerEvents = 'none'
-  }
+  window.__homeSequenceVideoEndedCleanup = bindHideVideoWhenSequenceReady(
+    video,
+    () => firstFrameRendered
+  )
 
   const assetOrigin = resolveAssetOrigin(video)
   const afUrl = `${assetOrigin}${CAVE_AF_PATH}`
@@ -402,10 +472,7 @@ function initHomeScrollSequence(video) {
       hardwareAcceleration,
       process: (frame) => {
         drawImageCover(frame)
-        if (!firstFrameRendered) {
-          firstFrameRendered = true
-          hideVideo()
-        }
+        if (!firstFrameRendered) firstFrameRendered = true
       },
     })
   } catch (e) {

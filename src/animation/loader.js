@@ -10,7 +10,9 @@ import { initHeroBackgroundParallax } from './parallax.js'
 const CAVE_FRAME_START = 120
 const CAVE_FRAME_END = 270
 const CAVE_FRAME_PATH = '/cave-scene/Cave_scene_v06_1920p_'
-const CAVE_AF_PATH = '/cave-scene/cave-scene-sequence.af'
+const CAVE_AF_PATH = '/cave-scene/cave-scene-full-sequence.af'
+const INTRO_END_FRAME_ONE_BASED = 126
+const INTRO_END_FRAME_ZERO_BASED = INTRO_END_FRAME_ONE_BASED - 1
 
 function resolveAssetOrigin(video) {
   const fallbackOrigin =
@@ -45,7 +47,7 @@ function buildCaveFrameUrls(video) {
   return urls
 }
 
-function unlockAndPlayLoaderVideo(video) {
+function ensureHeroVideoSources(video) {
   if (!video) return
 
   const sourceNodes = Array.from(video.querySelectorAll('source'))
@@ -54,40 +56,6 @@ function unlockAndPlayLoaderVideo(video) {
     const src = source.getAttribute('src')
     if (!src && dataSrc) source.setAttribute('src', dataSrc)
   })
-
-  video.muted = true
-  video.defaultMuted = true
-  video.playsInline = true
-  video.loop = false
-  video.autoplay = true
-  video.preload = 'auto'
-  video.setAttribute('muted', '')
-  video.setAttribute('playsinline', '')
-  video.setAttribute('autoplay', '')
-  video.removeAttribute('data-cominvi-hero-play-unlocked')
-  video.setAttribute('data-cominvi-hero-play-unlocked', 'true')
-
-  if (!video.getAttribute('data-loader-video-ended-listener')) {
-    video.setAttribute('data-loader-video-ended-listener', 'true')
-    video.addEventListener('ended', () => {
-      try {
-        video.pause()
-      } catch (e) {
-        // ignore
-      }
-    })
-  }
-
-  try {
-    video.load()
-  } catch (e) {
-    // ignore
-  }
-
-  const playPromise = video.play()
-  if (playPromise && typeof playPromise.catch === 'function') {
-    playPromise.catch(() => {})
-  }
 }
 
 function createSequenceFrameElement(wrapper) {
@@ -532,7 +500,189 @@ function initHomeScrollSequence(video) {
   }
 }
 
-function startHeroAfterLogo(loaderEase, heroVideo) {
+function initUnifiedActiveFrameSequence(video) {
+  const noopController = {
+    setIntroProgress: () => {},
+    activateScrollRange: () => {},
+  }
+
+  if (!video) return noopController
+  const wrapper = video.closest('.background_video')
+  if (!wrapper) return noopController
+
+  const hasWebCodecs =
+    typeof window !== 'undefined' &&
+    'VideoDecoder' in window &&
+    'EncodedVideoChunk' in window
+  if (!hasWebCodecs) return noopController
+
+  cleanupHomeSequenceBindings()
+  prepareVideoSequenceLayering(video)
+  ensureHeroVideoSources(video)
+
+  const canvas = createSequenceCanvasElement(wrapper)
+  if (!canvas) return noopController
+
+  const ctx =
+    canvas.getContext('2d', { alpha: false, desynchronized: true }) ||
+    canvas.getContext('2d')
+  if (!ctx) return noopController
+
+  const fitCanvasToWrapper = () => {
+    const rect = wrapper.getBoundingClientRect()
+    const dpr = Math.max(1, window.devicePixelRatio || 1)
+    const nextWidth = Math.max(1, Math.round(rect.width * dpr))
+    const nextHeight = Math.max(1, Math.round(rect.height * dpr))
+    if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+      canvas.width = nextWidth
+      canvas.height = nextHeight
+    }
+  }
+
+  const drawImageCover = (frame) => {
+    fitCanvasToWrapper()
+    const destW = canvas.width
+    const destH = canvas.height
+    const sw = frame.displayWidth || frame.codedWidth
+    const sh = frame.displayHeight || frame.codedHeight
+    const scale = Math.max(destW / sw, destH / sh)
+    const tw = sw * scale
+    const th = sh * scale
+    const ox = (destW - tw) * 0.5
+    const oy = (destH - th) * 0.5
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, destW, destH)
+    ctx.drawImage(frame, 0, 0, sw, sh, ox, oy, tw, th)
+  }
+
+  const assetOrigin = resolveAssetOrigin(video)
+  const afUrl = `${assetOrigin}${CAVE_AF_PATH}`
+  const hardwareAcceleration = /\bAndroid\b/i.test(navigator.userAgent || '')
+    ? 'prefer-software'
+    : 'prefer-hardware'
+
+  let activeFrame = null
+  let isLoaded = false
+  let totalFrames = 0
+  let pendingFrameIndex = 0
+  let pendingIntroProgress = 0
+  const clamp01 = (value) => Math.max(0, Math.min(value, 1))
+
+  const renderFrameIndex = (index) => {
+    pendingFrameIndex = Math.max(0, Math.round(index))
+    if (!isLoaded || !activeFrame || !activeFrame.manifest) return
+    const maxFrame = Math.max(0, totalFrames - 1)
+    activeFrame.setFrame(Math.max(0, Math.min(pendingFrameIndex, maxFrame)))
+  }
+
+  const setIntroProgress = (progress) => {
+    pendingIntroProgress = clamp01(progress)
+    if (!isLoaded || !totalFrames) return
+    const introEnd = Math.min(INTRO_END_FRAME_ZERO_BASED, totalFrames - 1)
+    const frame = Math.round(pendingIntroProgress * introEnd)
+    renderFrameIndex(frame)
+  }
+
+  const activateScrollRange = () => {
+    if (!isLoaded || !totalFrames) return
+    cleanupHomeSequenceBindings()
+    window.__homeSequenceActiveFrame = activeFrame
+
+    const startFrame = Math.min(INTRO_END_FRAME_ZERO_BASED, totalFrames - 1)
+    const endFrame = Math.max(startFrame, totalFrames - 1)
+    renderFrameIndex(startFrame)
+
+    const scroller = getHomeSequenceScroller()
+    const trigger = scroller === window ? document.documentElement : scroller
+    window.__homeSequenceScrollTrigger = ScrollTrigger.create({
+      trigger,
+      scroller: scroller === window ? undefined : scroller,
+      start: 0,
+      end: () => window.innerHeight,
+      scrub: 0.15,
+      onUpdate: (self) => {
+        const progress = clamp01(self.progress)
+        const frame = Math.round(
+          startFrame + progress * (endFrame - startFrame)
+        )
+        renderFrameIndex(frame)
+      },
+      onRefresh: (self) => {
+        const progress = clamp01(self.progress)
+        const frame = Math.round(
+          startFrame + progress * (endFrame - startFrame)
+        )
+        renderFrameIndex(frame)
+      },
+    })
+
+    try {
+      if (window.lenis && typeof window.lenis.on === 'function') {
+        const onLenisScroll = (event) => {
+          const raw =
+            event && typeof event.scroll === 'number' ? event.scroll : 0
+          const progress = clamp01(raw / window.innerHeight)
+          const frame = Math.round(
+            startFrame + progress * (endFrame - startFrame)
+          )
+          renderFrameIndex(frame)
+        }
+        window.__homeSequenceLenis = window.lenis
+        window.__homeSequenceLenisHandler = onLenisScroll
+        window.lenis.on('scroll', onLenisScroll)
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  try {
+    activeFrame = new ActiveFrame(afUrl, {
+      hardwareAcceleration,
+      process: (frame) => {
+        drawImageCover(frame)
+      },
+    })
+  } catch (e) {
+    return noopController
+  }
+
+  activeFrame.loading
+    .then(() => {
+      isLoaded = true
+      totalFrames = Math.max(1, activeFrame.manifest.totalFrames || 1)
+      window.__homeSequenceActiveFrame = activeFrame
+      renderFrameIndex(0)
+      setIntroProgress(pendingIntroProgress)
+      video.style.opacity = '0'
+      video.style.visibility = 'hidden'
+      video.style.pointerEvents = 'none'
+      try {
+        video.pause()
+      } catch (e) {
+        // ignore
+      }
+    })
+    .catch(() => {
+      isLoaded = false
+    })
+
+  const onResize = () => {
+    fitCanvasToWrapper()
+    renderFrameIndex(pendingFrameIndex)
+  }
+  window.addEventListener('resize', onResize)
+  window.__homeSequenceResizeCleanup = () => {
+    window.removeEventListener('resize', onResize)
+  }
+
+  return {
+    setIntroProgress,
+    activateScrollRange,
+  }
+}
+
+function startHeroAfterLogo(loaderEase, heroVideo, sequenceController) {
   try {
     heroAnimation()
   } catch (e) {
@@ -554,7 +704,14 @@ function startHeroAfterLogo(loaderEase, heroVideo) {
   }
 
   requestAnimationFrame(() => {
-    initHomeScrollSequence(heroVideo)
+    if (
+      sequenceController &&
+      typeof sequenceController.activateScrollRange === 'function'
+    ) {
+      sequenceController.activateScrollRange()
+    } else {
+      initHomeScrollSequence(heroVideo)
+    }
     try {
       ScrollTrigger.refresh()
     } catch (e) {
@@ -592,7 +749,8 @@ export function initLoader() {
       return null
     }
 
-    unlockAndPlayLoaderVideo(heroVideo)
+    ensureHeroVideoSources(heroVideo)
+    const sequenceController = initUnifiedActiveFrameSequence(heroVideo)
 
     const logoTargetWidthPx = logoInner.getBoundingClientRect().width || 0
     const textPaths = Array.from(logoText.querySelectorAll('path'))
@@ -636,8 +794,21 @@ export function initLoader() {
       '<'
     )
 
+    tl.eventCallback('onUpdate', () => {
+      try {
+        if (
+          sequenceController &&
+          typeof sequenceController.setIntroProgress === 'function'
+        ) {
+          sequenceController.setIntroProgress(tl.progress())
+        }
+      } catch (e) {
+        // ignore
+      }
+    })
+
     tl.add(() => {
-      startHeroAfterLogo(loaderEase, heroVideo)
+      startHeroAfterLogo(loaderEase, heroVideo, sequenceController)
     })
     tl.to(loader, { autoAlpha: 0, duration: 0.35 })
     tl.add(() => {

@@ -2,6 +2,7 @@ import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
+import { logHeroSizeSnapshot } from '../app/hero-size-debug.js'
 import { ActiveFrame } from './active-frame-player.js'
 import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
@@ -135,11 +136,12 @@ function prepareVideoSequenceLayering(video) {
     height: '100%',
     objectFit: 'cover',
     objectPosition: 'center center',
-    zIndex: '2',
-    opacity: '1',
-    visibility: 'visible',
+    zIndex: '1',
+    opacity: '0',
+    visibility: 'hidden',
     pointerEvents: 'none',
   })
+  logHeroSizeSnapshot(document, 'prepareVideoSequenceLayering')
 }
 
 function bindHideVideoWhenPlaybackEnds(video) {

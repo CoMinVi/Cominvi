@@ -276,6 +276,25 @@
   background-repeat: no-repeat;
 }
 
+.hero-background .background_video > img[data-cominvi-hero-poster-img='true'] {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  margin: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hero-background .background_video > video[data-cominvi-hero-video-ready='false'] {
+  z-index: 1;
+  opacity: 0;
+  visibility: hidden;
+}
+
 /* Promote ONLY the scaled element to a GPU layer.
    The video and its wrappers must NOT be promoted independently,
    otherwise the compositor desyncs the video from the parent scale

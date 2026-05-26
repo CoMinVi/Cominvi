@@ -1,5 +1,8 @@
+import { logHeroSizeSnapshot } from './hero-size-debug.js'
+
 const HERO_VIDEO_SELECTOR = '.hero-background .background_video video'
 const HERO_POSTER_PRELOAD_ATTR = 'data-cominvi-hero-poster-preload'
+const HERO_POSTER_IMG_ATTR = 'data-cominvi-hero-poster-img'
 const HERO_VIDEO_READY_ATTR = 'data-cominvi-hero-video-ready'
 const HERO_VIDEO_LISTENERS_ATTR = 'data-cominvi-hero-video-listeners'
 const HERO_VIDEO_PLAY_UNLOCKED_ATTR = 'data-cominvi-hero-play-unlocked'
@@ -119,6 +122,60 @@ function getVideoWrapper(video) {
   return video.closest('.background_video')
 }
 
+function getHeroPosterImg(video) {
+  const wrapper = getVideoWrapper(video)
+  if (!wrapper || !wrapper.querySelector) return null
+  return wrapper.querySelector(`img[${HERO_POSTER_IMG_ATTR}="true"]`)
+}
+
+function ensureHeroPosterImg(video, posterUrl) {
+  if (!video || !posterUrl) return null
+
+  const wrapper = getVideoWrapper(video)
+  if (!wrapper) return null
+
+  let img = getHeroPosterImg(video)
+  if (!img) {
+    img = document.createElement('img')
+    img.setAttribute(HERO_POSTER_IMG_ATTR, 'true')
+    img.setAttribute('alt', '')
+    img.decoding = 'async'
+    Object.assign(img.style, {
+      position: 'absolute',
+      inset: '0',
+      margin: '0',
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      objectPosition: 'center center',
+      display: 'block',
+      pointerEvents: 'none',
+      zIndex: '2',
+    })
+    wrapper.insertBefore(img, video)
+  }
+
+  if (img.getAttribute('src') !== posterUrl) {
+    img.src = posterUrl
+  }
+
+  return img
+}
+
+function removeHeroPosterImg(video) {
+  const img = getHeroPosterImg(video)
+  if (img) img.remove()
+}
+
+function clearHeroVideoPosterBackground(video) {
+  if (!video || !video.style) return
+  try {
+    video.style.setProperty('background-image', 'none', 'important')
+  } catch (e) {
+    video.style.backgroundImage = 'none'
+  }
+}
+
 function neutralizeWrapperPosterLayer(wrapper) {
   if (!wrapper || !wrapper.style) return
   try {
@@ -173,18 +230,57 @@ export function enforceHeroMediaGeometry(video) {
   video.style.height = '100%'
   video.style.objectFit = 'cover'
   video.style.objectPosition = 'center center'
+  video.style.zIndex = '1'
+  logHeroSizeSnapshot(document, 'enforceHeroMediaGeometry')
+}
+
+function showHeroPosterLayer(video) {
+  if (!video || !video.style) return
+  video.style.opacity = '0'
+  video.style.visibility = 'hidden'
+  video.style.zIndex = '1'
+  const img = getHeroPosterImg(video)
+  if (img && img.style) {
+    img.style.opacity = '1'
+    img.style.visibility = 'visible'
+    img.style.zIndex = '2'
+  }
+}
+
+function showHeroVideoLayer(video) {
+  if (!video || !video.style) return
+  video.style.opacity = '1'
+  video.style.visibility = 'visible'
+  video.style.zIndex = '3'
+}
+
+function clearHeroPosterLayers(video) {
+  if (!video || !video.style) return
+  clearHeroVideoPosterBackground(video)
+  neutralizeWrapperPosterLayer(getVideoWrapper(video))
+  removeHeroPosterImg(video)
+  logHeroSizeSnapshot(document, 'clearHeroPosterLayers')
 }
 
 function revealHeroVideo(video) {
   if (!video || !video.style) return
+
   video.setAttribute(HERO_VIDEO_READY_ATTR, 'true')
-  video.style.opacity = '1'
-  try {
-    video.style.setProperty('background-image', 'none', 'important')
-  } catch (e) {
-    video.style.backgroundImage = 'none'
+  showHeroVideoLayer(video)
+  logHeroSizeSnapshot(document, 'revealHeroVideo:start')
+
+  const finishReveal = () => {
+    clearHeroPosterLayers(video)
   }
-  neutralizeWrapperPosterLayer(getVideoWrapper(video))
+
+  if (typeof video.requestVideoFrameCallback === 'function') {
+    video.requestVideoFrameCallback(() => {
+      video.requestVideoFrameCallback(finishReveal)
+    })
+    return
+  }
+
+  video.addEventListener('playing', finishReveal, { once: true })
 }
 
 function prepareHeroVideoPlaceholder(video, posterUrl) {
@@ -200,10 +296,11 @@ function prepareHeroVideoPlaceholder(video, posterUrl) {
   }
 
   neutralizeWrapperPosterLayer(wrapper)
-  // Keep inline background-image until playback so the first paint and
-  // placeholder share the same rendering path as Webflow exports.
-  video.style.opacity = '1'
+  ensureHeroPosterImg(video, posterUrl)
+  clearHeroVideoPosterBackground(video)
+  showHeroPosterLayer(video)
   video.style.transition = 'none'
+  logHeroSizeSnapshot(document, 'prepareHeroVideoPlaceholder')
 }
 
 function ensureHeroVideoRevealHandlers(video) {
@@ -312,6 +409,7 @@ export function requestHeroVideoPlayback(root = document) {
 
   unlockHeroVideoPlayback(video)
   enforceHeroMediaGeometry(video)
+  logHeroSizeSnapshot(document, 'requestHeroVideoPlayback')
 
   if (video.__cominviHeroPlayRequested && !video.paused) {
     revealHeroVideo(video)

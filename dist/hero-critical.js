@@ -5,6 +5,8 @@
 ;(function injectCominviHeroCriticalStyles() {
   if (document.querySelector('style[data-cominvi-hero-critical]')) return
 
+  const LOCK_ATTR = 'data-cominvi-hero-locked'
+
   const style = document.createElement('style')
   style.setAttribute('data-cominvi-hero-critical', '')
   style.textContent = `
@@ -29,11 +31,12 @@
   width: 100%;
   height: 100%;
 }
-.hero-background .background_video {
+.hero-background .background_video,
+.hero-background .background_video.w-background-video {
   position: relative;
   overflow: hidden;
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   background-image: none !important;
 }
 .hero-background .background_video > video,
@@ -46,9 +49,247 @@
   height: 100% !important;
   object-fit: cover !important;
   object-position: 50% 50% !important;
+  z-index: 1 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+.hero-background .background_video > img[data-cominvi-hero-poster-img="true"],
+.hero-background .w-background-video > img[data-cominvi-hero-poster-img="true"] {
+  position: absolute !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: 50% 50% !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
 }
 `
 
   const head = document.head || document.getElementsByTagName('head')[0]
   if (head) head.appendChild(style)
+
+  const LOCK_ATTR = 'data-cominvi-hero-locked'
+  const POSTER_IMG_ATTR = 'data-cominvi-hero-poster-img'
+
+  function parsePosterUrl(video) {
+    if (!video) return ''
+    const poster = video.getAttribute('poster')
+    if (poster && poster.trim()) return poster.trim()
+    const bg = video.style && video.style.backgroundImage
+    if (!bg) return ''
+    const match = bg.match(/url\(["']?(.+?)["']?\)/i)
+    return match && match[1] ? match[1].trim() : ''
+  }
+
+  function ensureEarlyPosterImg(video) {
+    const posterUrl = parsePosterUrl(video)
+    if (!posterUrl) return null
+
+    const wrapper = video.closest('.background_video')
+    if (!wrapper) return null
+
+    let img = wrapper.querySelector(`img[${POSTER_IMG_ATTR}="true"]`)
+    if (!img) {
+      img = document.createElement('img')
+      img.setAttribute(POSTER_IMG_ATTR, 'true')
+      img.setAttribute('alt', '')
+      img.decoding = 'async'
+      wrapper.insertBefore(img, video)
+    }
+
+    if (img.getAttribute('src') !== posterUrl) {
+      img.src = posterUrl
+    }
+
+    try {
+      video.style.setProperty('background-image', 'none', 'important')
+    } catch (e) {
+      video.style.backgroundImage = 'none'
+    }
+
+    return img
+  }
+
+  function lockHeroVideo(video) {
+    if (!video || video.getAttribute(LOCK_ATTR) === 'true') return
+    video.setAttribute(LOCK_ATTR, 'true')
+    ;[
+      ['position', 'absolute'],
+      ['inset', '0'],
+      ['margin', '0'],
+      ['width', '100%'],
+      ['height', '100%'],
+      ['object-fit', 'cover'],
+      ['object-position', '50% 50%'],
+      ['display', 'block'],
+      ['z-index', '1'],
+      ['opacity', '0'],
+      ['visibility', 'hidden'],
+    ].forEach(([prop, value]) => {
+      try {
+        video.style.setProperty(prop, value, 'important')
+      } catch (e) {
+        video.style[prop] = value
+      }
+    })
+
+    const wrapper = video.closest('.background_video')
+    if (!wrapper) return
+    ;[
+      ['position', 'relative'],
+      ['overflow', 'hidden'],
+      ['width', '100%'],
+      ['height', '100%'],
+      ['background-image', 'none'],
+    ].forEach(([prop, value]) => {
+      try {
+        wrapper.style.setProperty(prop, value, 'important')
+      } catch (e) {
+        wrapper.style[prop] = value
+      }
+    })
+
+    ensureEarlyPosterImg(video)
+  }
+
+  function scanHeroVideos() {
+    document
+      .querySelectorAll('.hero-background .background_video video')
+      .forEach(lockHeroVideo)
+  }
+
+  scanHeroVideos()
+  new MutationObserver(scanHeroVideos).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  })
+
+  // Early size logger (before main.js). Same prefix as src/app/hero-size-debug.js
+  ;(function startHeroSizeDebugEarly() {
+    if (window.__cominviHeroSizeDebugEarly) return
+
+    const PREFIX = '[cominvi-hero-size]'
+    const store = []
+    let lastKey = 'missing'
+
+    function round(v) {
+      return typeof v === 'number' && Number.isFinite(v)
+        ? Math.round(v * 10) / 10
+        : null
+    }
+
+    function read(tag) {
+      const video = document.querySelector(
+        '.hero-background .background_video video'
+      )
+      if (!video) return { tag, t: round(performance.now()), ready: false }
+
+      const inner = document.querySelector('.hero-background .background-inner')
+      const wrapper = video.closest('.background_video')
+      const posterImg = wrapper
+        ? wrapper.querySelector('img[data-cominvi-hero-poster-img="true"]')
+        : null
+      const posterRect = posterImg ? posterImg.getBoundingClientRect() : null
+      const rect = posterRect || video.getBoundingClientRect()
+      const cs = getComputedStyle(video)
+      const innerRect = inner ? inner.getBoundingClientRect() : null
+      const hasBg = cs.backgroundImage && cs.backgroundImage !== 'none'
+
+      return {
+        tag,
+        t: round(performance.now()),
+        ready: true,
+        phase: posterImg
+          ? 'placeholder-img'
+          : hasBg
+            ? 'placeholder-bg'
+            : 'placeholder-poster',
+        source: 'hero-critical',
+        placeholder: {
+          w: round(rect.width),
+          h: round(rect.height),
+          bg: cs.backgroundImage,
+          zIndex: cs.zIndex,
+          inset: cs.inset,
+          objectFit: cs.objectFit,
+        },
+        video: {
+          w: round(rect.width),
+          h: round(rect.height),
+          intrinsicW: video.videoWidth || 0,
+          intrinsicH: video.videoHeight || 0,
+        },
+        inner: innerRect
+          ? { w: round(innerRect.width), h: round(innerRect.height) }
+          : null,
+        wrapper: wrapper
+          ? {
+              w: round(wrapper.getBoundingClientRect().width),
+              h: round(wrapper.getBoundingClientRect().height),
+            }
+          : null,
+      }
+    }
+
+    function sizeKey(s) {
+      if (!s.ready) return 'missing'
+      return [
+        s.placeholder.w,
+        s.placeholder.h,
+        s.video.w,
+        s.video.h,
+        s.video.intrinsicW,
+        s.video.intrinsicH,
+        s.wrapper && s.wrapper.w,
+        s.wrapper && s.wrapper.h,
+        s.inner && s.inner.w,
+        s.inner && s.inner.h,
+        s.phase,
+      ].join('x')
+    }
+
+    function push(snapshot) {
+      const k = sizeKey(snapshot)
+      if (k === lastKey) return
+      lastKey = k
+      store.push(snapshot)
+      if (snapshot.ready) {
+        console.log(
+          PREFIX,
+          snapshot.tag,
+          `placeholder=${snapshot.placeholder.w}x${snapshot.placeholder.h}`,
+          `video=${snapshot.video.w}x${snapshot.video.h}`,
+          `intrinsic=${snapshot.video.intrinsicW}x${snapshot.video.intrinsicH}`,
+          snapshot.wrapper
+            ? `wrapper=${snapshot.wrapper.w}x${snapshot.wrapper.h}`
+            : 'wrapper=null',
+          snapshot.inner
+            ? `inner=${snapshot.inner.w}x${snapshot.inner.h}`
+            : 'inner=null',
+          snapshot
+        )
+      } else {
+        console.log(PREFIX, snapshot.tag, 'video absent', snapshot)
+      }
+    }
+
+    function tick() {
+      push(read('early-raf'))
+      window.__cominviHeroSizeDebugEarly.rafId =
+        requestAnimationFrame(tick)
+    }
+
+    push(read('hero-critical-start'))
+    window.__cominviHeroSizeDebugEarly = {
+      store,
+      rafId: requestAnimationFrame(tick),
+      stop() {
+        if (this.rafId) cancelAnimationFrame(this.rafId)
+      },
+    }
+    console.info(PREFIX, 'early logger — logs uniquement si une taille change')
+  })()
 })()

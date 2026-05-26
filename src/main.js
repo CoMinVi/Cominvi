@@ -6,6 +6,7 @@ import { initParallax } from './animation/parallax.js'
 import { initLenis } from './animation/scroll.js'
 import { createViewportClipOverlay } from './animation/svg-clip-overlay.js'
 import { prepareHeroMedia } from './app/hero-media.js'
+import { startHeroSizeDebug } from './app/hero-size-debug.js'
 import { prepareIcons } from './app/icons-runtime.js'
 import { initContainerModules } from './app/page-registry.js'
 import siteStyles from './styles/style.css?inline'
@@ -43,6 +44,7 @@ function injectSiteStyles() {
 }
 
 injectSiteStyles()
+startHeroSizeDebug()
 
 document.addEventListener('DOMContentLoaded', () => {
   const getCurrentNamespace = (scope = document) => {

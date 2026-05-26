@@ -6,6 +6,7 @@
   if (document.querySelector('style[data-cominvi-hero-critical]')) return
 
   const LOCK_ATTR = 'data-cominvi-hero-locked'
+  const POSTER_IMG_ATTR = 'data-cominvi-hero-poster-img'
 
   const style = document.createElement('style')
   style.setAttribute('data-cominvi-hero-critical', '')
@@ -70,9 +71,6 @@
 
   const head = document.head || document.getElementsByTagName('head')[0]
   if (head) head.appendChild(style)
-
-  const LOCK_ATTR = 'data-cominvi-hero-locked'
-  const POSTER_IMG_ATTR = 'data-cominvi-hero-poster-img'
 
   function parsePosterUrl(video) {
     if (!video) return ''

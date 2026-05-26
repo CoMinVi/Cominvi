@@ -119,9 +119,29 @@ function getVideoWrapper(video) {
   return video.closest('.background_video')
 }
 
+function neutralizeWrapperPosterLayer(wrapper) {
+  if (!wrapper || !wrapper.style) return
+  try {
+    wrapper.style.setProperty('background-image', 'none', 'important')
+    wrapper.style.setProperty('background-position', '50% 50%', 'important')
+    wrapper.style.setProperty('background-size', 'cover', 'important')
+    wrapper.style.setProperty('background-repeat', 'no-repeat', 'important')
+  } catch (e) {
+    // ignore
+  }
+}
+
 function lockHeroVideoPlayback(video) {
   if (!video || !video.setAttribute) return
   video.setAttribute(HERO_VIDEO_PLAY_UNLOCKED_ATTR, 'false')
+  try {
+    video.autoplay = false
+    video.removeAttribute('autoplay')
+    video.pause()
+    if (video.currentTime > 0.01) video.currentTime = 0
+  } catch (e) {
+    // ignore lock failures
+  }
 }
 
 function unlockHeroVideoPlayback(video) {
@@ -134,7 +154,7 @@ function isHeroVideoPlaybackUnlocked(video) {
   return video.getAttribute(HERO_VIDEO_PLAY_UNLOCKED_ATTR) === 'true'
 }
 
-function enforceHeroMediaGeometry(video) {
+export function enforceHeroMediaGeometry(video) {
   if (!video || !video.style) return
   const wrapper = getVideoWrapper(video)
   if (wrapper && wrapper.style) {
@@ -142,10 +162,12 @@ function enforceHeroMediaGeometry(video) {
     wrapper.style.overflow = 'hidden'
     wrapper.style.width = '100%'
     wrapper.style.height = '100%'
+    neutralizeWrapperPosterLayer(wrapper)
   }
 
   video.style.position = 'absolute'
   video.style.inset = '0'
+  video.style.margin = '0'
   video.style.display = 'block'
   video.style.width = '100%'
   video.style.height = '100%'
@@ -155,30 +177,31 @@ function enforceHeroMediaGeometry(video) {
 
 function revealHeroVideo(video) {
   if (!video || !video.style) return
-  const wrapper = getVideoWrapper(video)
   video.setAttribute(HERO_VIDEO_READY_ATTR, 'true')
   video.style.opacity = '1'
-  video.style.backgroundImage = 'none'
-  if (wrapper && wrapper.style) {
-    wrapper.style.backgroundImage = 'none'
+  try {
+    video.style.setProperty('background-image', 'none', 'important')
+  } catch (e) {
+    video.style.backgroundImage = 'none'
   }
+  neutralizeWrapperPosterLayer(getVideoWrapper(video))
 }
 
 function prepareHeroVideoPlaceholder(video, posterUrl) {
   if (!video || !video.style) return
   const wrapper = getVideoWrapper(video)
+
   lockHeroVideoPlayback(video)
   enforceHeroMediaGeometry(video)
   video.setAttribute(HERO_VIDEO_READY_ATTR, 'false')
+
   if (posterUrl && video.setAttribute) {
     video.setAttribute('poster', posterUrl)
   }
-  if (wrapper && wrapper.style) {
-    wrapper.style.backgroundImage = 'none'
-  }
-  // Keep the video element visible so the browser draws the poster in the
-  // exact same rendering box as the first decoded frame (no handoff offset).
-  video.style.backgroundImage = 'none'
+
+  neutralizeWrapperPosterLayer(wrapper)
+  // Keep inline background-image until playback so the first paint and
+  // placeholder share the same rendering path as Webflow exports.
   video.style.opacity = '1'
   video.style.transition = 'none'
 }
@@ -200,7 +223,9 @@ function ensureHeroVideoRevealHandlers(video) {
 
   const onReady = () => {
     guardPlayback()
-    revealHeroVideo(video)
+    if (isHeroVideoPlaybackUnlocked(video)) {
+      revealHeroVideo(video)
+    }
   }
 
   video.addEventListener('play', guardPlayback)
@@ -265,7 +290,23 @@ export function prepareHeroMedia(root = document, opts = {}) {
 }
 
 export function requestHeroVideoPlayback(root = document) {
-  const prepared = prepareHeroMedia(root, { deferSources: false })
+  const scope = root && root.querySelector ? root : document
+  const existingVideo =
+    (scope.querySelector && scope.querySelector(HERO_VIDEO_SELECTOR)) ||
+    document.querySelector(HERO_VIDEO_SELECTOR)
+
+  if (
+    existingVideo &&
+    existingVideo.__cominviHeroPlayRequested &&
+    !existingVideo.paused
+  ) {
+    unlockHeroVideoPlayback(existingVideo)
+    enforceHeroMediaGeometry(existingVideo)
+    revealHeroVideo(existingVideo)
+    return existingVideo
+  }
+
+  const prepared = prepareHeroMedia(scope, { deferSources: false })
   const video = prepared && prepared.video
   if (!video) return null
 
@@ -279,17 +320,58 @@ export function requestHeroVideoPlayback(root = document) {
 
   video.__cominviHeroPlayRequested = true
   restoreHeroVideoSources(video)
-  const playPromise = video.play()
-  if (playPromise && typeof playPromise.catch === 'function') {
-    playPromise.catch(() => {
-      try {
-        video.muted = true
-        video.play().catch(() => void 0)
-      } catch (e) {
-        // ignore autoplay failures
-      }
-    })
+
+  const startPlaybackFromZero = () => {
+    try {
+      video.pause()
+    } catch (e) {
+      // ignore
+    }
+    try {
+      video.currentTime = 0
+    } catch (e) {
+      // ignore seek failures
+    }
+    const playPromise = video.play()
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        try {
+          video.muted = true
+          video.play().catch(() => void 0)
+        } catch (e) {
+          // ignore autoplay failures
+        }
+      })
+    }
   }
+
+  const shouldDeferUntilLoaderDone =
+    !window.__loaderDone && !!document.querySelector('.loader')
+
+  if (shouldDeferUntilLoaderDone) {
+    try {
+      video.pause()
+      video.currentTime = 0
+    } catch (e) {
+      // ignore
+    }
+
+    if (!video.__cominviLoaderDonePlayBound) {
+      video.__cominviLoaderDonePlayBound = true
+      document.addEventListener(
+        'loader:done',
+        () => {
+          startPlaybackFromZero()
+        },
+        { once: true }
+      )
+    }
+    return video
+  }
+
+  startPlaybackFromZero()
 
   return video
 }
+
+export { HERO_VIDEO_SELECTOR }

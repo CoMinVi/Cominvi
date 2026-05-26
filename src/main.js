@@ -1,4 +1,5 @@
-import { initLoader } from './animation/loader-af.js'
+import { initLoader as initHomeLoader } from './animation/loader-af.js'
+import { initLoader as initDefaultLoader } from './animation/loader-save.js'
 import { initializeNav2 } from './animation/nav.js'
 import { initializePageTransitionNav } from './animation/page-transition-nav.js'
 import { initParallax } from './animation/parallax.js'
@@ -40,6 +41,8 @@ function injectSiteStyles() {
     logDebug('site-css:error', { message: e && e.message })
   }
 }
+
+injectSiteStyles()
 
 document.addEventListener('DOMContentLoaded', () => {
   const getCurrentNamespace = (scope = document) => {
@@ -97,7 +100,11 @@ document.addEventListener('DOMContentLoaded', () => {
   logDebug('shell:init:start')
   initializePageTransitionNav()
   logDebug('shell:barba-ready')
-  initLoader()
+  if (isHomeNamespace(document)) {
+    initHomeLoader()
+  } else {
+    initDefaultLoader()
+  }
   logDebug('shell:loader-ready')
   initLenis()
   logDebug('shell:lenis-init-called', {

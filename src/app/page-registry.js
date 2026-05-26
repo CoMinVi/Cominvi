@@ -4,11 +4,9 @@ import { prepareIcons, resetServiceCardIcons } from './icons-runtime.js'
 const DEBUG_PREFIX = '[cominvi-registry]'
 
 function logRegistryDebug(label, data = {}) {
-  try {
-    console.log(DEBUG_PREFIX, label, data)
-  } catch (e) {
-    // ignore
-  }
+  void DEBUG_PREFIX
+  void label
+  void data
 }
 
 function getScope(root = document) {

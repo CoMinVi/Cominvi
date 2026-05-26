@@ -68,6 +68,18 @@ function cleanupHomeSequenceBindings() {
     }
     window.__homeSequenceController = null
   }
+
+  if (
+    window.__homeSequenceVideoEndedCleanup &&
+    typeof window.__homeSequenceVideoEndedCleanup === 'function'
+  ) {
+    try {
+      window.__homeSequenceVideoEndedCleanup()
+    } catch (e) {
+      // ignore
+    }
+    window.__homeSequenceVideoEndedCleanup = null
+  }
 }
 
 function getBackgroundInner(scope = document) {
@@ -97,11 +109,66 @@ function createSequenceCanvas(backgroundInner) {
     height: '100%',
     display: 'block',
     pointerEvents: 'none',
-    zIndex: '1',
+    zIndex: '0',
   })
 
   backgroundInner.appendChild(canvas)
   return canvas
+}
+
+function prepareVideoSequenceLayering(video) {
+  if (!video) return
+
+  const wrapper = video.closest('.background_video')
+  if (!wrapper) return
+
+  if (getComputedStyle(wrapper).position === 'static') {
+    wrapper.style.position = 'relative'
+  }
+  wrapper.style.overflow = 'hidden'
+
+  Object.assign(video.style, {
+    position: 'absolute',
+    inset: '0',
+    margin: '0',
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    objectPosition: 'center center',
+    zIndex: '2',
+    opacity: '1',
+    visibility: 'visible',
+    pointerEvents: 'none',
+  })
+}
+
+function bindHideVideoWhenPlaybackEnds(video) {
+  if (!video) return () => {}
+
+  let hidden = false
+  const hideVideo = () => {
+    if (hidden) return
+    hidden = true
+    video.style.opacity = '0'
+    video.style.visibility = 'hidden'
+    video.style.pointerEvents = 'none'
+    try {
+      video.pause()
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const onEnded = () => {
+    hideVideo()
+  }
+
+  video.addEventListener('ended', onEnded)
+  if (video.ended) hideVideo()
+
+  return () => {
+    video.removeEventListener('ended', onEnded)
+  }
 }
 
 function createNoopSequenceController() {
@@ -347,6 +414,9 @@ export function initLoader() {
     const textBox = document.querySelector('.is-logo-text')
     const logoText = document.querySelector('.is-logo-text .logo-text')
     const backgroundInner = getBackgroundInner(document)
+    const heroVideo = document.querySelector(
+      '.hero-background .background_video video'
+    )
 
     if (
       !loader ||
@@ -361,6 +431,8 @@ export function initLoader() {
     ) {
       return null
     }
+
+    prepareVideoSequenceLayering(heroVideo)
 
     const existingController = window.__homeSequenceController
     let sequenceController = null
@@ -444,10 +516,6 @@ export function initLoader() {
       }
     })
 
-    tl.eventCallback('onUpdate', () => {
-      sequenceController.setIntroProgress(tl.progress())
-    })
-
     let started = false
     const startTimeline = () => {
       if (started) return
@@ -455,6 +523,9 @@ export function initLoader() {
       sequenceController.setFrame(0)
       tl.play(0)
     }
+
+    window.__homeSequenceVideoEndedCleanup =
+      bindHideVideoWhenPlaybackEnds(heroVideo)
 
     sequenceController.ready.then(startTimeline).catch(startTimeline)
     window.setTimeout(startTimeline, 1500)

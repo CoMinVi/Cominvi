@@ -29,9 +29,17 @@ export function heroAnimation(root = document, opts = {}) {
   } catch (err) {
     // ignore
   }
-  // Start hero background video immediately
+  // Start hero background video immediately (home uses AF sequence instead)
   try {
-    requestHeroVideoPlayback(scope)
+    const container =
+      (scope.querySelector &&
+        scope.querySelector('[data-barba="container"]')) ||
+      document.querySelector('[data-barba="container"]')
+    const namespace =
+      (container && container.getAttribute('data-barba-namespace')) || ''
+    if (namespace.trim().toLowerCase() !== 'home') {
+      requestHeroVideoPlayback(scope)
+    }
   } catch (err) {
     // ignore
   }

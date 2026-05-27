@@ -154,7 +154,15 @@ export class ActiveFrame {
     }
 
     this.frameProcessed = timestampToFrameId
+    this._pendingFrame = null
     frame.close()
+  }
+
+  redrawFrame(desideredFrame) {
+    if (!this.manifest || !this.enabled || !this.decoder) return
+    this.frame = null
+    this._pendingFrame = null
+    this.setFrame(desideredFrame)
   }
 
   setFrame(desideredFrame) {

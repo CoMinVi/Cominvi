@@ -1598,11 +1598,31 @@ export function initializeThemeController() {
   let suppressMenuIconTheme = false
 
   const navbarElement = document.querySelector('.navbar')
-  const logoBgElement = document.querySelector('.logo-bg')
-  const isoLogoBgElements = document.querySelectorAll('.is-logo-bg')
-  const logoPathElements = document.querySelectorAll('.logo-path')
+  const logoBgElement = navbarElement?.querySelector('.logo-bg')
+  const isoLogoBgElements = navbarElement
+    ? navbarElement.querySelectorAll('.is-logo-bg')
+    : []
   const menuIconElement = document.querySelector('.menu-icon')
   const menuIconBars = document.querySelectorAll('.menu-icon_bar')
+
+  const applyNavbarLogoPaths = (key, t, instant, to) => {
+    const navbar = document.querySelector('.navbar')
+    if (!navbar) return
+
+    const logoMainPathElements = navbar.querySelectorAll(
+      '.is-logo_main .logo-path'
+    )
+    const logoAltPathElements = navbar.querySelectorAll('.is-logo .logo-path')
+
+    const paint = (targets, fill) => {
+      if (!targets.length) return
+      if (instant) gsap.set(targets, { fill, overwrite: 'auto' })
+      else gsap.to(targets, { fill, ...to })
+    }
+
+    paint(logoMainPathElements, t.logoPathFill)
+    paint(logoAltPathElements, t.logoPathFill)
+  }
 
   const applyTheme = (key, instant = false) => {
     const t = themes[key] || themes.white || {}
@@ -1626,8 +1646,7 @@ export function initializeThemeController() {
           fill: isoTarget.fill,
           opacity: isoTarget.opacity,
         })
-      if (logoPathElements.length)
-        gsap.set(logoPathElements, { fill: t.logoPathFill })
+      applyNavbarLogoPaths(key, t, true, to)
       if (!suppressMenuIconTheme) {
         if (menuIconElement)
           gsap.set(menuIconElement, {
@@ -1659,8 +1678,7 @@ export function initializeThemeController() {
           opacity: isoTarget.opacity,
           ...to,
         })
-      if (logoPathElements.length)
-        gsap.to(logoPathElements, { fill: t.logoPathFill, ...to })
+      applyNavbarLogoPaths(key, t, false, to)
       if (!suppressMenuIconTheme) {
         if (menuIconElement)
           gsap.to(menuIconElement, {

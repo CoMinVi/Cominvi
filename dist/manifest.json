@@ -10,6 +10,7 @@
       "src/animation/text-reveal.js",
       "src/animation/minerals.js",
       "src/animation/minerals-canvas-local-debug.js",
+      "src/animation/safety-sticky.js",
       "src/animation/scroll-list.js",
       "src/animation/process-progression.js",
       "src/animation/testimonials.js",
@@ -97,6 +98,14 @@
   "src/animation/minerals-canvas-local-debug.js": {
     "file": "assets/minerals-canvas-local-debug.js",
     "src": "src/animation/minerals-canvas-local-debug.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/safety-sticky.js": {
+    "file": "assets/safety-sticky.js",
+    "src": "src/animation/safety-sticky.js",
     "isDynamicEntry": true,
     "imports": [
       "src/main.js"

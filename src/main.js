@@ -1,4 +1,7 @@
-import { initLoader as initHomeLoader } from './animation/loader-af.js'
+import {
+  initLoader as initHomeLoader,
+  prefetchHomeSequenceBinary,
+} from './animation/loader-af.js'
 import { initLoader as initDefaultLoader } from './animation/loader-save.js'
 import { initializeNav2 } from './animation/nav.js'
 import { initializePageTransitionNav } from './animation/page-transition-nav.js'
@@ -7,6 +10,7 @@ import { initLenis } from './animation/scroll.js'
 import { createViewportClipOverlay } from './animation/svg-clip-overlay.js'
 import { prepareHeroMedia } from './app/hero-media.js'
 import { startHeroSizeDebug } from './app/hero-size-debug.js'
+import { isHomeEntryUrl } from './app/home-entry.js'
 import { prepareIcons } from './app/icons-runtime.js'
 import { initContainerModules } from './app/page-registry.js'
 import siteStyles from './styles/style.css?inline'
@@ -45,6 +49,10 @@ function injectSiteStyles() {
 
 injectSiteStyles()
 startHeroSizeDebug()
+
+if (isHomeEntryUrl()) {
+  prefetchHomeSequenceBinary()
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   const getCurrentNamespace = (scope = document) => {
@@ -100,14 +108,16 @@ document.addEventListener('DOMContentLoaded', () => {
     logDebug('shell:hero-media-error', { message: e && e.message })
   }
   logDebug('shell:init:start')
-  initializePageTransitionNav()
-  logDebug('shell:barba-ready')
   if (isHomeNamespace(document)) {
     initHomeLoader()
-  } else {
-    initDefaultLoader()
+    logDebug('shell:loader-ready')
   }
-  logDebug('shell:loader-ready')
+  initializePageTransitionNav()
+  logDebug('shell:barba-ready')
+  if (!isHomeNamespace(document)) {
+    initDefaultLoader()
+    logDebug('shell:loader-ready')
+  }
   initLenis()
   logDebug('shell:lenis-init-called', {
     hasLenis: !!window.lenis,

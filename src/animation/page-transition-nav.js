@@ -1,5 +1,6 @@
 import barba from '@barba/core'
 
+import { suppressHomeHeroVideo } from '../app/hero-media.js'
 import {
   prepareIcons,
   resetServiceCardIcons,
@@ -10,7 +11,12 @@ import {
   initContainerModules,
 } from '../app/page-registry.js'
 import { reinitializeWebflowAnimations } from '../utils/base.js'
-import { preloadHomeSequenceForTransition } from './loader-af.js'
+import {
+  destroyHomeSequenceForTransition,
+  prefetchHomeSequenceBinary,
+  showHomeSequenceFirstFrame,
+  startHomeSequenceAfterTransition,
+} from './loader-af.js'
 import { initializeNav2, resetMenuLinksAnimationState } from './nav.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 import { initLenis, destroyLenis } from './scroll.js'
@@ -355,6 +361,27 @@ export function initializePageTransitionNav() {
     })
   }
 
+  const guardHomeHeroVideo = (container) => {
+    if (!isHomeNamespace(container)) return
+    try {
+      suppressHomeHeroVideo(container)
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const reinitializeWebflowForPage = (container) => {
+    guardHomeHeroVideo(container)
+    reinitializeWebflowAnimations()
+    guardHomeHeroVideo(container)
+    requestAnimationFrame(() => {
+      guardHomeHeroVideo(container)
+    })
+    window.setTimeout(() => {
+      guardHomeHeroVideo(container)
+    }, 0)
+  }
+
   const runNonCriticalInits = (
     container,
     { includeScrollRefresh = false, includeTransitionEvent = false } = {}
@@ -374,6 +401,24 @@ export function initializePageTransitionNav() {
     // Priorité critique: hero de la home immédiatement.
     initHeroBackgroundParallax(container)
     if (isHomeNamespace(container)) {
+      try {
+        suppressHomeHeroVideo(container)
+      } catch (e) {
+        // ignore
+      }
+      try {
+        showHomeSequenceFirstFrame(container)
+      } catch (e) {
+        // ignore
+      }
+      startHomeSequenceAfterTransition(container)
+      requestAnimationFrame(() => {
+        try {
+          suppressHomeHeroVideo(container)
+        } catch (e) {
+          // ignore
+        }
+      })
       scheduleAfterHero(() =>
         runNonCriticalInits(container, {
           includeScrollRefresh,
@@ -484,7 +529,7 @@ export function initializePageTransitionNav() {
           destroyLenis()
           initLenis(next && next.container)
           // Re-init Webflow first, then (re)bind nav handlers/animations
-          reinitializeWebflowAnimations()
+          reinitializeWebflowForPage(next && next.container)
           // Reset service-card icons so they don't auto-play on viewport
           try {
             resetServiceCardIcons(next && next.container)
@@ -584,7 +629,7 @@ export function initializePageTransitionNav() {
           destroyLenis()
           initLenis(next && next.container)
           // Re-init Webflow first, then (re)bind nav handlers/animations
-          reinitializeWebflowAnimations()
+          reinitializeWebflowForPage(next && next.container)
           try {
             resetServiceCardIcons(next && next.container)
           } catch (e) {
@@ -691,7 +736,7 @@ export function initializePageTransitionNav() {
           destroyLenis()
           initLenis(next && next.container)
           // Re-init Webflow first, then (re)bind nav handlers/animations
-          reinitializeWebflowAnimations()
+          reinitializeWebflowForPage(next && next.container)
           resetMenuLinksAnimationState(next && next.container)
           initializeNav2()
           ensureNavbarInteractive(next && next.container)
@@ -723,7 +768,7 @@ export function initializePageTransitionNav() {
           destroyLenis()
           initLenis(next && next.container)
           // Re-init Webflow first, then (re)bind nav handlers/animations
-          reinitializeWebflowAnimations()
+          reinitializeWebflowForPage(next && next.container)
           initializeNav2()
           // Ensure icons are reset and bound for generic slide-scale transitions too
           try {
@@ -764,12 +809,27 @@ export function initializePageTransitionNav() {
     destroyContactIfNeeded(current && current.container)
   })
 
-  // Preload/render first AF frame as early as possible for Home destination
-  barba.hooks.beforeLeave(({ next }) => {
+  // Prefetch AF binary before leave; neutralize Home video before it enters the DOM.
+  barba.hooks.beforeLeave(({ current, next }) => {
+    try {
+      if (isHomeNamespace(current && current.container)) {
+        destroyHomeSequenceForTransition()
+      }
+      const container = next && next.container
+      if (!isHomeNamespace(container)) return
+      prefetchHomeSequenceBinary()
+      suppressHomeHeroVideo(container)
+    } catch (e) {
+      // ignore
+    }
+  })
+
+  barba.hooks.beforeEnter(({ next }) => {
     try {
       const container = next && next.container
       if (!isHomeNamespace(container)) return
-      preloadHomeSequenceForTransition(container)
+      suppressHomeHeroVideo(container)
+      showHomeSequenceFirstFrame(container)
     } catch (e) {
       // ignore
     }
@@ -818,7 +878,7 @@ export function initializePageTransitionNav() {
     initializeNav2()
     ensureNavbarInteractive(next && next.container)
     // Reinitialize Webflow IX2/attributes before any custom init
-    reinitializeWebflowAnimations()
+    reinitializeWebflowForPage(next && next.container)
     try {
       resetServiceCardIcons(next && next.container)
     } catch (e) {
@@ -900,7 +960,7 @@ export function initializePageTransitionNav() {
       /* ignore */
     }
     try {
-      reinitializeWebflowAnimations()
+      reinitializeWebflowForPage(next && next.container)
     } catch (e) {
       /* ignore */
     }
@@ -912,6 +972,12 @@ export function initializePageTransitionNav() {
       /* ignore */
     }
     if (isHome) {
+      try {
+        showHomeSequenceFirstFrame(container)
+        suppressHomeHeroVideo(container)
+      } catch (e) {
+        // ignore
+      }
       scheduleAfterHero(runAfterEnterNonCritical)
       return
     }

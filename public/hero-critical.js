@@ -114,6 +114,19 @@
   function lockHeroVideo(video) {
     if (!video || video.getAttribute(LOCK_ATTR) === 'true') return
     video.setAttribute(LOCK_ATTR, 'true')
+
+    const homeContainer = video.closest('[data-barba-namespace]')
+    const isHome =
+      homeContainer &&
+      (homeContainer.getAttribute('data-barba-namespace') || '')
+        .trim()
+        .toLowerCase() === 'home'
+
+    if (isHome) {
+      video.setAttribute('data-cominvi-home-af-only', 'true')
+    }
+
+    const displayValue = isHome ? 'none' : 'block'
     ;[
       ['position', 'absolute'],
       ['inset', '0'],
@@ -122,7 +135,7 @@
       ['height', '100%'],
       ['object-fit', 'cover'],
       ['object-position', '50% 50%'],
-      ['display', 'block'],
+      ['display', displayValue],
       ['z-index', '1'],
       ['opacity', '0'],
       ['visibility', 'hidden'],
@@ -289,5 +302,46 @@
       },
     }
     console.info(PREFIX, 'early logger — logs uniquement si une taille change')
+  })()
+
+  ;(function preloadHomeAfAssetsEarly() {
+    const path = (location.pathname || '/').replace(/\/$/, '') || '/'
+    if (path !== '/' && !path.endsWith('/index.html')) return
+
+    const ORIGIN = 'https://precious-hotteok-8da21f.netlify.app'
+    const AF_URL = ORIGIN + '/cave-scene/cave-scene-full-sequence.af'
+    const POSTER_URL = ORIGIN + '/cave-scene/frame_00001.avif'
+    const head = document.head || document.getElementsByTagName('head')[0]
+    if (!head) return
+
+    if (!head.querySelector('link[data-cominvi-af-preconnect]')) {
+      const preconnect = document.createElement('link')
+      preconnect.rel = 'preconnect'
+      preconnect.href = ORIGIN
+      preconnect.crossOrigin = 'anonymous'
+      preconnect.setAttribute('data-cominvi-af-preconnect', 'true')
+      head.appendChild(preconnect)
+    }
+
+    if (!head.querySelector('link[data-cominvi-af-preload]')) {
+      const preloadAf = document.createElement('link')
+      preloadAf.rel = 'preload'
+      preloadAf.as = 'fetch'
+      preloadAf.href = AF_URL
+      preloadAf.crossOrigin = 'anonymous'
+      preloadAf.setAttribute('fetchpriority', 'high')
+      preloadAf.setAttribute('data-cominvi-af-preload', 'true')
+      head.appendChild(preloadAf)
+    }
+
+    if (!head.querySelector('link[data-cominvi-af-poster-preload]')) {
+      const preloadPoster = document.createElement('link')
+      preloadPoster.rel = 'preload'
+      preloadPoster.as = 'image'
+      preloadPoster.href = POSTER_URL
+      preloadPoster.setAttribute('fetchpriority', 'high')
+      preloadPoster.setAttribute('data-cominvi-af-poster-preload', 'true')
+      head.appendChild(preloadPoster)
+    }
   })()
 })()

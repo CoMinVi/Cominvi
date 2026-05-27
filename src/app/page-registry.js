@@ -188,6 +188,16 @@ async function initSharedSections(root, options = {}) {
     )
   }
 
+  if (has(root, '.section_safety')) {
+    jobs.push(
+      importAndRun(
+        () => import('../animation/safety-sticky.js'),
+        'initSafetySticky',
+        root
+      )
+    )
+  }
+
   if (has(root, '.section_partners, .scroll-list')) {
     jobs.push(
       importAndRun(

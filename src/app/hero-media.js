@@ -6,6 +6,165 @@ const HERO_POSTER_IMG_ATTR = 'data-cominvi-hero-poster-img'
 const HERO_VIDEO_READY_ATTR = 'data-cominvi-hero-video-ready'
 const HERO_VIDEO_LISTENERS_ATTR = 'data-cominvi-hero-video-listeners'
 const HERO_VIDEO_PLAY_UNLOCKED_ATTR = 'data-cominvi-hero-play-unlocked'
+export const HOME_AF_ONLY_ATTR = 'data-cominvi-home-af-only'
+export const HOME_AF_PLACEHOLDER_URL =
+  'https://precious-hotteok-8da21f.netlify.app/cave-scene/frame_00001.avif'
+
+function getHeroVideosInScope(root = document) {
+  const scope = root && root.querySelector ? root : document
+  if (!scope.querySelectorAll) return []
+  return Array.from(scope.querySelectorAll(HERO_VIDEO_SELECTOR))
+}
+
+function hideHomeHeroVideoElement(video) {
+  if (!video || !video.setAttribute) return
+
+  video.setAttribute(HOME_AF_ONLY_ATTR, 'true')
+  video.setAttribute(HERO_VIDEO_READY_ATTR, 'false')
+
+  try {
+    video.style.setProperty('display', 'none', 'important')
+    video.style.setProperty('visibility', 'hidden', 'important')
+    video.style.setProperty('opacity', '0', 'important')
+    video.style.setProperty('pointer-events', 'none', 'important')
+  } catch (e) {
+    video.style.display = 'none'
+    video.style.visibility = 'hidden'
+    video.style.opacity = '0'
+    video.style.pointerEvents = 'none'
+  }
+}
+
+function neutralizeHomeHeroVideoWrapper(video) {
+  const wrapper = getVideoWrapper(video)
+  if (!wrapper) return
+
+  wrapper.classList.remove('w-background-video', 'w-background-video-atom')
+  wrapper.setAttribute('data-autoplay', 'false')
+  wrapper.setAttribute('data-wf-ignore', 'true')
+
+  try {
+    wrapper
+      .querySelectorAll(
+        '.w-background-video--control, [data-w-bg-video-control]'
+      )
+      .forEach((control) => {
+        control.style.display = 'none'
+      })
+  } catch (e) {
+    // ignore
+  }
+}
+
+function stripHeroVideoSources(video) {
+  if (!video) return
+
+  deferHeroVideoSources(video)
+
+  getHeroVideoSources(video).forEach((source) => {
+    try {
+      if (source.removeAttribute) source.removeAttribute('src')
+    } catch (e) {
+      // ignore
+    }
+  })
+
+  try {
+    if (video.removeAttribute) video.removeAttribute('src')
+    video.src = ''
+    video.removeAttribute('autoplay')
+    video.autoplay = false
+    video.preload = 'none'
+    if (video.setAttribute) video.setAttribute('preload', 'none')
+  } catch (e) {
+    // ignore
+  }
+}
+
+function bindHomeHeroVideoGuard(video) {
+  if (!video || video.__cominviHomeAfGuardBound) return
+  video.__cominviHomeAfGuardBound = true
+
+  let isBlocking = false
+  const blockPlayback = () => {
+    if (isBlocking) return
+    isBlocking = true
+    try {
+      stripHeroVideoSources(video)
+      lockHeroVideoPlayback(video)
+      hideHomeHeroVideoElement(video)
+      neutralizeHomeHeroVideoWrapper(video)
+    } catch (e) {
+      // ignore
+    } finally {
+      isBlocking = false
+    }
+  }
+
+  ;['play', 'playing', 'loadeddata', 'canplay', 'canplaythrough'].forEach(
+    (eventName) => {
+      video.addEventListener(eventName, blockPlayback)
+    }
+  )
+
+  try {
+    const observer = new MutationObserver((mutations) => {
+      const shouldBlock = mutations.some((mutation) => {
+        if (mutation.type !== 'attributes') return false
+        const name = mutation.attributeName
+        if (name === 'autoplay') return !!video.autoplay
+        if (name !== 'src') return false
+        const target = mutation.target
+        if (target === video) return !!video.getAttribute('src')
+        return !!(target.getAttribute && target.getAttribute('src'))
+      })
+      if (shouldBlock) blockPlayback()
+    })
+    observer.observe(video, {
+      attributes: true,
+      attributeFilter: ['src', 'autoplay'],
+    })
+    getHeroVideoSources(video).forEach((source) => {
+      observer.observe(source, {
+        attributes: true,
+        attributeFilter: ['src'],
+      })
+    })
+    video.__cominviHomeAfGuardObserver = observer
+  } catch (e) {
+    // ignore
+  }
+
+  blockPlayback()
+}
+
+export function unbindHomeHeroVideoGuard(video) {
+  if (!video) return
+  if (
+    video.__cominviHomeAfGuardObserver &&
+    typeof video.__cominviHomeAfGuardObserver.disconnect === 'function'
+  ) {
+    try {
+      video.__cominviHomeAfGuardObserver.disconnect()
+    } catch (e) {
+      // ignore
+    }
+  }
+  video.__cominviHomeAfGuardObserver = null
+  video.__cominviHomeAfGuardBound = false
+}
+
+function isHomeScope(root = document) {
+  const scope = root && root.querySelector ? root : document
+  const container =
+    (scope.querySelector && scope.querySelector('[data-barba="container"]')) ||
+    scope
+  const namespace =
+    (container.getAttribute &&
+      container.getAttribute('data-barba-namespace')) ||
+    ''
+  return namespace.trim().toLowerCase() === 'home'
+}
 
 export function normalizeHeroPosterUrl(value) {
   if (!value || typeof value !== 'string') return ''
@@ -356,16 +515,26 @@ function ensureHeroPosterPreload(posterUrl) {
 
 export function prepareHeroMedia(root = document, opts = {}) {
   const scope = root && root.querySelector ? root : document
-  const video =
-    (scope.querySelector && scope.querySelector(HERO_VIDEO_SELECTOR)) ||
-    document.querySelector(HERO_VIDEO_SELECTOR)
+  const videos = getHeroVideosInScope(scope)
+  const video = videos[0]
 
   if (!video) return null
 
-  const posterUrl = getPosterFromVideo(video)
+  const isHome = isHomeScope(scope)
+  let posterUrl = getPosterFromVideo(video)
+  if (isHome) {
+    posterUrl = HOME_AF_PLACEHOLDER_URL
+  }
   if (posterUrl) {
     ensureHeroPosterPreload(posterUrl)
   }
+
+  if (isHome) {
+    prepareHeroVideoPlaceholder(video, posterUrl)
+    suppressHomeHeroVideo(scope)
+    return { video, posterUrl }
+  }
+
   prepareHeroVideoPlaceholder(video, posterUrl)
   ensureHeroVideoRevealHandlers(video)
 
@@ -373,6 +542,7 @@ export function prepareHeroMedia(root = document, opts = {}) {
   video.playsInline = true
   video.setAttribute('playsinline', '')
   video.setAttribute('muted', '')
+
   if (opts.deferSources === false || shouldEagerLoadHeroVideo()) {
     restoreHeroVideoSources(video)
     video.preload = 'metadata'
@@ -386,11 +556,31 @@ export function prepareHeroMedia(root = document, opts = {}) {
   return { video, posterUrl }
 }
 
+export function suppressHomeHeroVideo(root = document) {
+  const scope = root && root.querySelector ? root : document
+  if (!isHomeScope(scope)) return null
+
+  const videos = getHeroVideosInScope(scope)
+  if (!videos.length) return null
+
+  videos.forEach((video) => {
+    stripHeroVideoSources(video)
+    lockHeroVideoPlayback(video)
+    hideHomeHeroVideoElement(video)
+    neutralizeHomeHeroVideoWrapper(video)
+    bindHomeHeroVideoGuard(video)
+  })
+
+  return videos[0]
+}
+
 export function requestHeroVideoPlayback(root = document) {
   const scope = root && root.querySelector ? root : document
-  const existingVideo =
-    (scope.querySelector && scope.querySelector(HERO_VIDEO_SELECTOR)) ||
-    document.querySelector(HERO_VIDEO_SELECTOR)
+  if (isHomeScope(scope)) {
+    suppressHomeHeroVideo(scope)
+    return null
+  }
+  const existingVideo = getHeroVideosInScope(scope)[0]
 
   if (
     existingVideo &&

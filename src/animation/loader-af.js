@@ -2,7 +2,8 @@ import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
-import { logHeroSizeSnapshot } from '../app/hero-size-debug.js'
+import { afResizeLog, isAfResizeDebugEnabled } from '../app/af-resize-debug.js'
+import { prepareHeroMedia, suppressHomeHeroVideo } from '../app/hero-media.js'
 import { ActiveFrame } from './active-frame-player.js'
 import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
@@ -10,8 +11,10 @@ import { initHeroBackgroundParallax } from './parallax.js'
 
 const INTRO_FRAME_COUNT = 126
 const SCROLL_RANGE_VH = 100
-const CAVE_AF_URL =
+export const HOME_AF_SEQUENCE_URL =
   'https://precious-hotteok-8da21f.netlify.app/cave-scene/cave-scene-full-sequence.af'
+const CAVE_AF_URL = HOME_AF_SEQUENCE_URL
+const HERO_POSTER_IMG_SELECTOR = 'img[data-cominvi-hero-poster-img="true"]'
 
 function getHomeSequenceScroller() {
   try {
@@ -21,6 +24,76 @@ function getHomeSequenceScroller() {
   } catch (e) {
     return window
   }
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+function parseSvgViewBox(svgEl, fallback = '0 0 32 33') {
+  const raw =
+    svgEl?.getAttribute('viewBox') || svgEl?.getAttribute('viewbox') || fallback
+  const parts = raw
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number)
+  if (parts.length !== 4 || parts.some((value) => !Number.isFinite(value))) {
+    return { x: 0, y: 0, width: 32, height: 33 }
+  }
+  return { x: parts[0], y: parts[1], width: parts[2], height: parts[3] }
+}
+
+function buildIconCutoutMaskUrl(pathD, viewBox) {
+  const svg = [
+    `<svg xmlns='${SVG_NS}' viewBox='${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}'>`,
+    `<path fill='black' fill-rule='evenodd' clip-rule='evenodd' d='${pathD}'/>`,
+    '</svg>',
+  ].join('')
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+}
+
+function setupLoaderIconVideoMask(logoSquare, logoIcon) {
+  const iconPath = logoIcon?.querySelector('path')
+  const pathD = iconPath?.getAttribute('d')
+  if (!logoSquare || !logoIcon || !pathD) {
+    return () => {}
+  }
+
+  const viewBox = parseSvgViewBox(logoIcon)
+  const cutoutUrl = buildIconCutoutMaskUrl(pathD, viewBox)
+  const solidMask = 'linear-gradient(#fff, #fff)'
+
+  const updateMaskGeometry = () => {
+    const squareRect = logoSquare.getBoundingClientRect()
+    const iconRect = logoIcon.getBoundingClientRect()
+    if (
+      !squareRect.width ||
+      !squareRect.height ||
+      !iconRect.width ||
+      !iconRect.height
+    ) {
+      return
+    }
+
+    const iconLeft = iconRect.left - squareRect.left
+    const iconTop = iconRect.top - squareRect.top
+    const maskLayers = `${solidMask}, ${cutoutUrl}`
+    const maskSize = `100% 100%, ${iconRect.width}px ${iconRect.height}px`
+    const maskPosition = `0 0, ${iconLeft}px ${iconTop}px`
+
+    logoSquare.style.setProperty('-webkit-mask-image', maskLayers)
+    logoSquare.style.setProperty('mask-image', maskLayers)
+    logoSquare.style.setProperty('-webkit-mask-size', maskSize)
+    logoSquare.style.setProperty('mask-size', maskSize)
+    logoSquare.style.setProperty('-webkit-mask-position', maskPosition)
+    logoSquare.style.setProperty('mask-position', maskPosition)
+    logoSquare.style.setProperty('-webkit-mask-repeat', 'no-repeat')
+    logoSquare.style.setProperty('mask-repeat', 'no-repeat')
+    logoSquare.style.setProperty('-webkit-mask-composite', 'destination-out')
+    logoSquare.style.setProperty('mask-composite', 'subtract')
+  }
+
+  updateMaskGeometry()
+
+  return updateMaskGeometry
 }
 
 function cleanupHomeSequenceBindings() {
@@ -47,6 +120,18 @@ function cleanupHomeSequenceBindings() {
   }
 
   if (
+    window.__homeSequenceRefreshRepaintCleanup &&
+    typeof window.__homeSequenceRefreshRepaintCleanup === 'function'
+  ) {
+    try {
+      window.__homeSequenceRefreshRepaintCleanup()
+    } catch (e) {
+      // ignore
+    }
+    window.__homeSequenceRefreshRepaintCleanup = null
+  }
+
+  if (
     window.__homeSequenceResizeCleanup &&
     typeof window.__homeSequenceResizeCleanup === 'function'
   ) {
@@ -69,18 +154,6 @@ function cleanupHomeSequenceBindings() {
     }
     window.__homeSequenceController = null
   }
-
-  if (
-    window.__homeSequenceVideoEndedCleanup &&
-    typeof window.__homeSequenceVideoEndedCleanup === 'function'
-  ) {
-    try {
-      window.__homeSequenceVideoEndedCleanup()
-    } catch (e) {
-      // ignore
-    }
-    window.__homeSequenceVideoEndedCleanup = null
-  }
 }
 
 function getBackgroundInner(scope = document) {
@@ -91,85 +164,52 @@ function getBackgroundInner(scope = document) {
 function createSequenceCanvas(backgroundInner) {
   if (!backgroundInner) return null
 
-  if (getComputedStyle(backgroundInner).position === 'static') {
-    backgroundInner.style.position = 'relative'
-  }
-  backgroundInner.style.overflow = 'hidden'
+  const mediaHost =
+    backgroundInner.querySelector('.background_video') || backgroundInner
 
-  const existing = backgroundInner.querySelector(
+  if (getComputedStyle(mediaHost).position === 'static') {
+    mediaHost.style.position = 'relative'
+  }
+  mediaHost.style.overflow = 'hidden'
+
+  const misplaced = backgroundInner.querySelector(
+    '[data-loader-sequence-canvas="true"]'
+  )
+  if (misplaced && misplaced.parentElement !== mediaHost) {
+    mediaHost.appendChild(misplaced)
+  }
+
+  const existing = mediaHost.querySelector(
     '[data-loader-sequence-canvas="true"]'
   )
   if (existing) return existing
 
   const canvas = document.createElement('canvas')
   canvas.setAttribute('data-loader-sequence-canvas', 'true')
-  Object.assign(canvas.style, {
-    position: 'absolute',
-    inset: '0',
-    width: '100%',
-    height: '100%',
-    display: 'block',
-    pointerEvents: 'none',
-    zIndex: '0',
-  })
-
-  backgroundInner.appendChild(canvas)
+  mediaHost.appendChild(canvas)
   return canvas
 }
 
-function prepareVideoSequenceLayering(video) {
-  if (!video) return
+function hideHeroPosterPlaceholder(backgroundInner) {
+  if (!backgroundInner || !backgroundInner.querySelector) return
 
-  const wrapper = video.closest('.background_video')
+  const wrapper = backgroundInner.querySelector('.background_video')
   if (!wrapper) return
 
-  if (getComputedStyle(wrapper).position === 'static') {
-    wrapper.style.position = 'relative'
+  const posterImg = wrapper.querySelector(HERO_POSTER_IMG_SELECTOR)
+  if (posterImg && posterImg.style) {
+    posterImg.style.opacity = '0'
+    posterImg.style.visibility = 'hidden'
+    posterImg.style.pointerEvents = 'none'
   }
-  wrapper.style.overflow = 'hidden'
 
-  Object.assign(video.style, {
-    position: 'absolute',
-    inset: '0',
-    margin: '0',
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    objectPosition: 'center center',
-    zIndex: '1',
-    opacity: '0',
-    visibility: 'hidden',
-    pointerEvents: 'none',
-  })
-  logHeroSizeSnapshot(document, 'prepareVideoSequenceLayering')
-}
-
-function bindHideVideoWhenPlaybackEnds(video) {
-  if (!video) return () => {}
-
-  let hidden = false
-  const hideVideo = () => {
-    if (hidden) return
-    hidden = true
-    video.style.opacity = '0'
-    video.style.visibility = 'hidden'
-    video.style.pointerEvents = 'none'
+  const video = wrapper.querySelector('video')
+  if (video && video.style) {
     try {
-      video.pause()
+      video.style.setProperty('background-image', 'none', 'important')
     } catch (e) {
-      // ignore
+      video.style.backgroundImage = 'none'
     }
-  }
-
-  const onEnded = () => {
-    hideVideo()
-  }
-
-  video.addEventListener('ended', onEnded)
-  if (video.ended) hideVideo()
-
-  return () => {
-    video.removeEventListener('ended', onEnded)
   }
 }
 
@@ -179,6 +219,7 @@ function createNoopSequenceController() {
     setIntroProgress: () => {},
     setScrollProgress: () => {},
     setFrame: () => {},
+    repaint: () => {},
     destroy: () => {},
   }
 }
@@ -194,28 +235,119 @@ function createActiveFrameSequenceController(backgroundInner) {
   const canvas = createSequenceCanvas(backgroundInner)
   if (!canvas) return createNoopSequenceController()
 
+  const mediaHost = canvas.parentElement || backgroundInner
+
   const ctx =
-    canvas.getContext('2d', { alpha: false, desynchronized: true }) ||
+    canvas.getContext('2d', { alpha: false, willReadFrequently: true }) ||
     canvas.getContext('2d')
   if (!ctx) return createNoopSequenceController()
 
   const fitCanvas = () => {
-    const rect = backgroundInner.getBoundingClientRect()
+    const rect = mediaHost.getBoundingClientRect()
+    if (rect.width < 2 || rect.height < 2) {
+      afResizeLog('fitCanvas:skip-tiny-host', {
+        host: { w: rect.width, h: rect.height },
+      })
+      return false
+    }
+
     const dpr = Math.max(1, window.devicePixelRatio || 1)
     const width = Math.max(1, Math.round(rect.width * dpr))
     const height = Math.max(1, Math.round(rect.height * dpr))
-    if (canvas.width !== width || canvas.height !== height) {
+    const resized = canvas.width !== width || canvas.height !== height
+    if (resized) {
       canvas.width = width
       canvas.height = height
+      afResizeLog('fitCanvas:resize-buffer', {
+        buffer: { w: width, h: height },
+        host: { w: rect.width, h: rect.height },
+      })
+    }
+    return resized
+  }
+
+  let displayImg = null
+  let displayImgUrl = null
+
+  const ensureDisplayImg = () => {
+    if (displayImg) return displayImg
+
+    displayImg = document.createElement('img')
+    displayImg.setAttribute('data-cominvi-af-display', 'true')
+    displayImg.setAttribute('alt', '')
+    displayImg.decoding = 'async'
+    Object.assign(displayImg.style, {
+      position: 'absolute',
+      inset: '0',
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      objectPosition: 'center center',
+      margin: '0',
+      display: 'block',
+      pointerEvents: 'none',
+      zIndex: '4',
+      backfaceVisibility: 'visible',
+      opacity: '0',
+      visibility: 'hidden',
+    })
+    mediaHost.appendChild(displayImg)
+    afResizeLog('displayImg:created')
+    return displayImg
+  }
+
+  const syncDisplayImgFromSnapshot = (reason = 'unknown') => {
+    if (!frameSnapshot || !frameSnapshotW || !frameSnapshotH) {
+      afResizeLog('displayImg:skip-no-snapshot', { reason })
+      return false
+    }
+
+    ensureDisplayImg()
+    try {
+      if (displayImgUrl) {
+        URL.revokeObjectURL(displayImgUrl)
+        displayImgUrl = null
+      }
+
+      frameSnapshot.toBlob(
+        (blob) => {
+          if (!blob || !displayImg) return
+          displayImgUrl = URL.createObjectURL(blob)
+          displayImg.src = displayImgUrl
+          displayImg.style.opacity = '1'
+          displayImg.style.visibility = 'visible'
+          afResizeLog('displayImg:synced', { reason, blobSize: blob.size })
+        },
+        'image/jpeg',
+        0.92
+      )
+      return true
+    } catch (e) {
+      afResizeLog('displayImg:error', { reason, message: e?.message })
+      return false
     }
   }
 
-  const drawCover = (frame) => {
+  const hideDisplayImg = (reason = 'unknown') => {
+    if (!displayImg) return
+    displayImg.style.opacity = '0'
+    displayImg.style.visibility = 'hidden'
+    afResizeLog('displayImg:hidden', { reason })
+  }
+
+  const nudgeSurfaceComposite = () => {
+    try {
+      canvas.style.transform = 'translateZ(0)'
+      void canvas.offsetHeight
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const drawCoverImage = (source, srcW, srcH) => {
     fitCanvas()
     const destW = canvas.width
     const destH = canvas.height
-    const srcW = frame.displayWidth || frame.codedWidth
-    const srcH = frame.displayHeight || frame.codedHeight
     const scale = Math.max(destW / srcW, destH / srcH)
     const drawW = srcW * scale
     const drawH = srcH * scale
@@ -224,11 +356,57 @@ function createActiveFrameSequenceController(backgroundInner) {
 
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, destW, destH)
-    ctx.drawImage(frame, 0, 0, srcW, srcH, offsetX, offsetY, drawW, drawH)
+    ctx.drawImage(source, 0, 0, srcW, srcH, offsetX, offsetY, drawW, drawH)
+  }
+
+  let frameSnapshot = null
+  let frameSnapshotCtx = null
+  let frameSnapshotW = 0
+  let frameSnapshotH = 0
+
+  const cacheFrameSnapshot = (frame, srcW, srcH) => {
+    if (!frameSnapshot) {
+      frameSnapshot = document.createElement('canvas')
+      frameSnapshotCtx = frameSnapshot.getContext('2d', { alpha: false })
+    }
+    if (!frameSnapshotCtx) return
+
+    if (frameSnapshot.width !== srcW || frameSnapshot.height !== srcH) {
+      frameSnapshot.width = srcW
+      frameSnapshot.height = srcH
+    }
+
+    frameSnapshotCtx.setTransform(1, 0, 0, 1, 0, 0)
+    frameSnapshotCtx.clearRect(0, 0, srcW, srcH)
+    frameSnapshotCtx.drawImage(frame, 0, 0, srcW, srcH)
+    frameSnapshotW = srcW
+    frameSnapshotH = srcH
+  }
+
+  const paintCachedSnapshot = (reason = 'unknown') => {
+    if (!frameSnapshot || !frameSnapshotW || !frameSnapshotH) {
+      afResizeLog('paintCachedSnapshot:miss', { reason })
+      return false
+    }
+    drawCoverImage(frameSnapshot, frameSnapshotW, frameSnapshotH)
+    syncDisplayImgFromSnapshot(reason)
+    afResizeLog('paintCachedSnapshot:ok', { reason })
+    return true
+  }
+
+  const drawCover = (frame, reason = 'decode') => {
+    const srcW = frame.displayWidth || frame.codedWidth
+    const srcH = frame.displayHeight || frame.codedHeight
+    drawCoverImage(frame, srcW, srcH)
+    cacheFrameSnapshot(frame, srcW, srcH)
+    hideDisplayImg(reason)
+    afResizeLog('drawCover', { reason, frame: { w: srcW, h: srcH } })
   }
 
   const clearBackgroundFallback = () => {
     try {
+      hideHeroPosterPlaceholder(backgroundInner)
+
       const heroBackground =
         (backgroundInner.closest &&
           backgroundInner.closest('.hero-background')) ||
@@ -252,20 +430,87 @@ function createActiveFrameSequenceController(backgroundInner) {
   let introEndIndex = 0
   let requestedFrame = 0
   let rafToken = 0
+  let resizeEndTimer = 0
   let hasRenderedAfFrame = false
+
+  const syncRequestedFrameFromScroll = () => {
+    try {
+      const st = window.__homeSequenceScrollTrigger
+      if (!st || !totalFrames) return
+      const progress = Math.max(0, Math.min(Number(st.progress) || 0, 1))
+      const end = Math.max(0, totalFrames - 1)
+      requestedFrame = Math.round(
+        introEndIndex + progress * (end - introEndIndex)
+      )
+    } catch (e) {
+      // ignore
+    }
+  }
 
   const flushFrameRequest = () => {
     rafToken = 0
     if (!activeFrame || !activeFrame.manifest) return
     const maxFrame = Math.max(0, totalFrames - 1)
     const frame = Math.max(0, Math.min(maxFrame, requestedFrame))
+    const currentFrame = activeFrame.frame
     activeFrame.setFrame(frame)
+    exposeDebugState()
+    if (currentFrame === frame && activeFrame.frame === frame) {
+      if (paintCachedSnapshot('flush-same-frame')) {
+        nudgeSurfaceComposite()
+      }
+    }
+  }
+
+  const repaintVisibleFrame = (reason = 'unknown') => {
+    syncRequestedFrameFromScroll()
+    if (hasRenderedAfFrame) {
+      hideHeroPosterPlaceholder(backgroundInner)
+    }
+
+    afResizeLog('repaint:start', {
+      reason,
+      requestedFrame,
+      hasRenderedAfFrame,
+      hasSnapshot: !!(frameSnapshot && frameSnapshotW && frameSnapshotH),
+    })
+
+    if (hasRenderedAfFrame && paintCachedSnapshot(reason)) {
+      nudgeSurfaceComposite()
+      afResizeLog('repaint:snapshot-only', { reason, requestedFrame })
+      return true
+    }
+
+    if (activeFrame && activeFrame.manifest) {
+      activeFrame.redrawFrame(requestedFrame)
+      afResizeLog('repaint:redrawFrame', { reason, requestedFrame })
+      return true
+    }
+
+    flushFrameRequest()
+    afResizeLog('repaint:flush', { reason, requestedFrame })
+    return false
+  }
+
+  const handleLayoutChange = (reason = 'layout') => {
+    repaintVisibleFrame(reason)
   }
 
   const requestFrame = (frame) => {
     requestedFrame = Math.round(frame)
     if (rafToken) return
     rafToken = window.requestAnimationFrame(flushFrameRequest)
+  }
+
+  const exposeDebugState = () => {
+    if (!isAfResizeDebugEnabled()) return
+    if (!window.__homeSequenceController) return
+    window.__homeSequenceController.__debugRequestedFrame = requestedFrame
+    window.__homeSequenceController.__debugHasSnapshot = !!(
+      frameSnapshot &&
+      frameSnapshotW &&
+      frameSnapshotH
+    )
   }
 
   const setIntroProgress = (progress) => {
@@ -291,28 +536,65 @@ function createActiveFrameSequenceController(backgroundInner) {
   activeFrame = new ActiveFrame(afUrl, {
     hardwareAcceleration,
     process: (frame) => {
+      drawCover(frame, 'decode')
+      nudgeSurfaceComposite()
+      exposeDebugState()
       if (!hasRenderedAfFrame) {
         hasRenderedAfFrame = true
         clearBackgroundFallback()
+        afResizeLog('first-frame-rendered')
       }
-      drawCover(frame)
     },
   })
+
+  window.__homeSequenceActiveFrame = activeFrame
 
   const ready = activeFrame.loading.then(() => {
     totalFrames = Math.max(1, activeFrame.manifest.totalFrames || 1)
     introEndIndex = Math.min(INTRO_FRAME_COUNT - 1, totalFrames - 1)
     fitCanvas()
     requestFrame(0)
+    afResizeLog('sequence:ready', { totalFrames, introEndIndex })
   })
 
   const onResize = () => {
-    fitCanvas()
-    flushFrameRequest()
+    afResizeLog('window:resize')
+    handleLayoutChange('window-resize')
+
+    if (resizeEndTimer) {
+      window.clearTimeout(resizeEndTimer)
+    }
+
+    resizeEndTimer = window.setTimeout(() => {
+      resizeEndTimer = 0
+      afResizeLog('window:resize-settled')
+      handleLayoutChange('window-resize-settled')
+    }, 200)
   }
+
+  let layoutObserver = null
+  try {
+    layoutObserver = new ResizeObserver(() => {
+      afResizeLog('resize-observer')
+      handleLayoutChange('resize-observer')
+    })
+    layoutObserver.observe(mediaHost)
+    layoutObserver.observe(backgroundInner)
+  } catch (e) {
+    // ignore
+  }
+
   window.addEventListener('resize', onResize)
   window.__homeSequenceResizeCleanup = () => {
     window.removeEventListener('resize', onResize)
+    if (layoutObserver) {
+      layoutObserver.disconnect()
+      layoutObserver = null
+    }
+    if (resizeEndTimer) {
+      window.clearTimeout(resizeEndTimer)
+      resizeEndTimer = 0
+    }
   }
 
   return {
@@ -320,10 +602,19 @@ function createActiveFrameSequenceController(backgroundInner) {
     setIntroProgress,
     setScrollProgress,
     setFrame: requestFrame,
+    repaint: repaintVisibleFrame,
     destroy: () => {
       if (rafToken) {
         window.cancelAnimationFrame(rafToken)
         rafToken = 0
+      }
+      if (resizeEndTimer) {
+        window.clearTimeout(resizeEndTimer)
+        resizeEndTimer = 0
+      }
+      if (displayImgUrl) {
+        URL.revokeObjectURL(displayImgUrl)
+        displayImgUrl = null
       }
       try {
         if (activeFrame) activeFrame.destroy()
@@ -333,6 +624,49 @@ function createActiveFrameSequenceController(backgroundInner) {
       activeFrame = null
     },
   }
+}
+
+function bindHomeSequenceRefreshRepaint(repaintFn) {
+  if (
+    window.__homeSequenceRefreshRepaintCleanup &&
+    typeof window.__homeSequenceRefreshRepaintCleanup === 'function'
+  ) {
+    try {
+      window.__homeSequenceRefreshRepaintCleanup()
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const onGlobalRefresh = () => {
+    afResizeLog('scrolltrigger:refresh')
+    if (typeof repaintFn === 'function') repaintFn('scrolltrigger-refresh')
+  }
+
+  ScrollTrigger.addEventListener('refresh', onGlobalRefresh)
+  window.__homeSequenceRefreshRepaintCleanup = () => {
+    ScrollTrigger.removeEventListener('refresh', onGlobalRefresh)
+  }
+}
+
+function beginScrollDrivenSequence(sequenceController) {
+  if (window.__homeSequenceScrollTrigger) return
+
+  if (typeof sequenceController.setIntroProgress === 'function') {
+    sequenceController.setIntroProgress(1)
+  }
+  if (typeof sequenceController.repaint === 'function') {
+    sequenceController.repaint('intro-handoff')
+  }
+
+  requestAnimationFrame(() => {
+    initScrollDrivenSequence(sequenceController)
+    try {
+      ScrollTrigger.refresh()
+    } catch (e) {
+      // ignore
+    }
+  })
 }
 
 function initScrollDrivenSequence(sequenceController) {
@@ -350,8 +684,16 @@ function initScrollDrivenSequence(sequenceController) {
     },
     onRefresh: (self) => {
       sequenceController.setScrollProgress(self.progress)
+      afResizeLog('scrolltrigger:onRefresh', { progress: self.progress })
+      if (typeof sequenceController.repaint === 'function') {
+        sequenceController.repaint('scrolltrigger-onRefresh')
+      }
     },
   })
+
+  if (typeof sequenceController.repaint === 'function') {
+    bindHomeSequenceRefreshRepaint(sequenceController.repaint)
+  }
 
   try {
     if (window.lenis && typeof window.lenis.on === 'function') {
@@ -370,55 +712,57 @@ function initScrollDrivenSequence(sequenceController) {
   }
 }
 
-function startHeroAfterLogo(loaderEase, sequenceController) {
-  try {
-    heroAnimation()
-  } catch (e) {
-    // ignore
-  }
+function startHeroAfterLogo(loaderEase, sequenceController, opts = {}) {
+  const scope = opts.scope || document
 
-  try {
-    initContactHero(document, {
-      animate: true,
-      duration: 1.2,
-      ease: loaderEase,
-    })
-  } catch (e) {
-    // ignore
-  }
-
-  try {
-    initHeroBackgroundParallax(document)
-  } catch (e) {
-    // ignore
-  }
-
-  requestAnimationFrame(() => {
-    initScrollDrivenSequence(sequenceController)
+  if (!opts.skipHeroAnimation) {
     try {
-      ScrollTrigger.refresh()
+      heroAnimation(scope)
     } catch (e) {
       // ignore
     }
-  })
+  }
+
+  if (!opts.skipContactHero) {
+    try {
+      initContactHero(scope, {
+        animate: true,
+        duration: 1.2,
+        ease: loaderEase,
+      })
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  try {
+    initHeroBackgroundParallax(scope)
+  } catch (e) {
+    // ignore
+  }
+
+  if (opts.deferScrollSequence) return
+
+  beginScrollDrivenSequence(sequenceController)
 }
 
 export function initLoader() {
   try {
     gsap.registerPlugin(CustomEase, ScrollTrigger)
+    afResizeLog('initLoader:start', {
+      debugEnabled: isAfResizeDebugEnabled(),
+      href: typeof window !== 'undefined' ? window.location.href : null,
+    })
 
     const loader = document.querySelector('.loader')
-    const logoWrap = document.querySelector('.loader-logo_wrap')
-    const logoInner = document.querySelector('.logo-inner')
-    const iconBox = document.querySelector('.is-logo-icon')
-    const logoIcon = document.querySelector('.logo-icon')
-    const logoSquare = document.querySelector('.logo-square')
-    const textBox = document.querySelector('.is-logo-text')
-    const logoText = document.querySelector('.is-logo-text .logo-text')
+    const logoWrap = loader?.querySelector('.loader-logo_wrap')
+    const logoInner = loader?.querySelector('.logo-inner')
+    const iconBox = loader?.querySelector('.is-logo-icon')
+    const logoIcon = loader?.querySelector('.logo-icon')
+    const logoSquare = loader?.querySelector('.logo-square')
+    const textBox = loader?.querySelector('.is-logo-text')
+    const logoText = loader?.querySelector('.is-logo-text .logo-text')
     const backgroundInner = getBackgroundInner(document)
-    const heroVideo = document.querySelector(
-      '.hero-background .background_video video'
-    )
 
     if (
       !loader ||
@@ -433,8 +777,6 @@ export function initLoader() {
     ) {
       return null
     }
-
-    prepareVideoSequenceLayering(heroVideo)
 
     const existingController = window.__homeSequenceController
     let sequenceController = null
@@ -469,6 +811,12 @@ export function initLoader() {
       transformOrigin: '50% 50%',
     })
 
+    const isWhiteLoader =
+      loader.getAttribute('data-wf--loader--variant') === 'is-white'
+    const updateLoaderIconMask = isWhiteLoader
+      ? setupLoaderIconVideoMask(logoSquare, logoIcon)
+      : () => {}
+
     const tl = gsap.timeline({ paused: true, defaults: { ease: loaderEase } })
     tl.to(
       logoSquare,
@@ -501,7 +849,9 @@ export function initLoader() {
       '<'
     )
     tl.add(() => {
-      startHeroAfterLogo(loaderEase, sequenceController)
+      startHeroAfterLogo(loaderEase, sequenceController, {
+        deferScrollSequence: true,
+      })
     })
     tl.to(loader, { autoAlpha: 0, duration: 0.35 })
     tl.add(() => {
@@ -516,6 +866,12 @@ export function initLoader() {
       } catch (e) {
         // ignore
       }
+      beginScrollDrivenSequence(sequenceController)
+    })
+
+    tl.eventCallback('onUpdate', () => {
+      sequenceController.setIntroProgress(tl.progress())
+      updateLoaderIconMask()
     })
 
     let started = false
@@ -526,9 +882,6 @@ export function initLoader() {
       tl.play(0)
     }
 
-    window.__homeSequenceVideoEndedCleanup =
-      bindHideVideoWhenPlaybackEnds(heroVideo)
-
     sequenceController.ready.then(startTimeline).catch(startTimeline)
     window.setTimeout(startTimeline, 1500)
 
@@ -538,35 +891,207 @@ export function initLoader() {
   }
 }
 
-export function preloadHomeSequenceForTransition(scope = document) {
+export function prefetchHomeSequenceBinary() {
   try {
-    const backgroundInner = getBackgroundInner(scope)
-    if (!backgroundInner) return null
-
-    const existingController = window.__homeSequenceController
     if (
-      existingController &&
-      existingController.__hostEl === backgroundInner &&
-      typeof existingController.setFrame === 'function'
+      typeof window === 'undefined' ||
+      !('VideoDecoder' in window) ||
+      !('EncodedVideoChunk' in window)
     ) {
-      existingController.ready
-        .then(() => {
-          existingController.setFrame(0)
-        })
-        .catch(() => {})
-      return existingController
+      return
+    }
+    new ActiveFrame(CAVE_AF_URL, { process: () => {} })
+  } catch (e) {
+    // ignore
+  }
+}
+
+export function destroyHomeSequenceForTransition() {
+  if (
+    window.__homeSequenceTransitionTimeline &&
+    typeof window.__homeSequenceTransitionTimeline.kill === 'function'
+  ) {
+    try {
+      window.__homeSequenceTransitionTimeline.kill()
+    } catch (e) {
+      // ignore
+    }
+    window.__homeSequenceTransitionTimeline = null
+  }
+  window.__homeSequenceTransitionStarted = false
+  cleanupHomeSequenceBindings()
+}
+
+export function preloadHomeSequenceForTransition(scope = document) {
+  prefetchHomeSequenceBinary()
+  return showHomeSequenceFirstFrame(scope)
+}
+
+function getOrCreateHomeSequenceController(backgroundInner) {
+  const existingController = window.__homeSequenceController
+  if (
+    existingController &&
+    existingController.__hostEl &&
+    existingController.__hostEl !== backgroundInner
+  ) {
+    cleanupHomeSequenceBindings()
+  }
+
+  let sequenceController = window.__homeSequenceController
+  if (
+    !sequenceController ||
+    sequenceController.__hostEl !== backgroundInner ||
+    typeof sequenceController.setFrame !== 'function'
+  ) {
+    sequenceController = createActiveFrameSequenceController(backgroundInner)
+    sequenceController.__hostEl = backgroundInner
+    window.__homeSequenceController = sequenceController
+  }
+
+  return sequenceController
+}
+
+export function showHomeSequenceFirstFrame(scope = document) {
+  try {
+    const root = scope && scope.querySelector ? scope : document
+
+    try {
+      suppressHomeHeroVideo(root)
+      prepareHeroMedia(root)
+    } catch (e) {
+      // ignore
     }
 
-    const controller = createActiveFrameSequenceController(backgroundInner)
-    controller.__hostEl = backgroundInner
-    window.__homeSequenceController = controller
-    controller.ready
+    const backgroundInner = getBackgroundInner(root)
+    if (!backgroundInner) return null
+
+    const sequenceController =
+      getOrCreateHomeSequenceController(backgroundInner)
+    let painted = false
+
+    const paintFrame0 = (reason = 'transition-first-frame') => {
+      if (painted) return
+      const host =
+        backgroundInner.querySelector('.background_video') || backgroundInner
+      const rect = host.getBoundingClientRect()
+      if (rect.width < 2 || rect.height < 2) return false
+
+      painted = true
+      sequenceController.setFrame(0)
+      if (typeof sequenceController.repaint === 'function') {
+        sequenceController.repaint(reason)
+      }
+      afResizeLog('showHomeSequenceFirstFrame:painted', { reason })
+      return true
+    }
+
+    const waitForLayoutAndPaint = (tries = 0) => {
+      if (paintFrame0('transition-first-frame-layout')) return
+      if (tries >= 40) {
+        sequenceController.setFrame(0)
+        return
+      }
+      window.requestAnimationFrame(() => waitForLayoutAndPaint(tries + 1))
+    }
+
+    sequenceController.ready
       .then(() => {
-        controller.setFrame(0)
+        waitForLayoutAndPaint()
       })
-      .catch(() => {})
-    return controller
+      .catch(() => {
+        waitForLayoutAndPaint()
+      })
+
+    waitForLayoutAndPaint()
+
+    return sequenceController
   } catch (e) {
+    return null
+  }
+}
+
+export function startHomeSequenceAfterTransition(scope = document, opts = {}) {
+  const { skipHeroAnimation = true, skipContactHero = true } = opts
+
+  try {
+    if (window.__homeSequenceTransitionStarted) {
+      return window.__homeSequenceController || null
+    }
+
+    gsap.registerPlugin(CustomEase, ScrollTrigger)
+
+    const root = scope && scope.querySelector ? scope : document
+    const loader = root.querySelector('.loader')
+    if (loader) {
+      try {
+        loader.remove()
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    try {
+      suppressHomeHeroVideo(root)
+      prepareHeroMedia(root)
+    } catch (e) {
+      // ignore
+    }
+
+    const backgroundInner = getBackgroundInner(root)
+    if (!backgroundInner) return null
+
+    const sequenceController =
+      getOrCreateHomeSequenceController(backgroundInner)
+
+    window.__homeSequenceTransitionStarted = true
+
+    const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
+    const loaderEase = CustomEase.create('loaderEase', easeCurve)
+    afResizeLog('startHomeSequenceAfterTransition', {
+      skipHeroAnimation,
+      skipContactHero,
+    })
+
+    let started = false
+    const startPlayback = () => {
+      if (started || !window.__homeSequenceTransitionStarted) return
+      started = true
+
+      sequenceController.setFrame(0)
+      if (typeof sequenceController.repaint === 'function') {
+        sequenceController.repaint('transition-start')
+      }
+
+      const tl = gsap.timeline({
+        onUpdate: () => {
+          sequenceController.setIntroProgress(tl.progress())
+        },
+      })
+      window.__homeSequenceTransitionTimeline = tl
+
+      tl.to({}, { duration: 1.6, ease: loaderEase })
+      tl.add(() => {
+        startHeroAfterLogo(loaderEase, sequenceController, {
+          skipHeroAnimation,
+          skipContactHero,
+          scope: root,
+          deferScrollSequence: true,
+        })
+      })
+      tl.to({}, { duration: 0.35, ease: loaderEase })
+      tl.add(() => {
+        beginScrollDrivenSequence(sequenceController)
+        window.__homeSequenceTransitionStarted = false
+        window.__homeSequenceTransitionTimeline = null
+      })
+    }
+
+    sequenceController.ready.then(startPlayback).catch(startPlayback)
+    window.setTimeout(startPlayback, 1500)
+
+    return sequenceController
+  } catch (e) {
+    window.__homeSequenceTransitionStarted = false
     return null
   }
 }

@@ -146,6 +146,12 @@
   padding-top: 0.6em;
 }
 
+/* Safety: sticky CSS Webflow → pin GSAP (Lenis). Voir safety-sticky.js */
+.section_safety.is-lenis-sticky .body-m[data-lenis-sticky] {
+  position: relative !important;
+  top: auto !important;
+}
+
 /* Machines images: anchor 1em from the top of .machines (machines stays sticky) */
 .machines_images {
   position: absolute;
@@ -246,6 +252,23 @@
   z-index: 2 !important;
 }
 
+/* Home hero uses ActiveFrame only — never show/play the background video. */
+[data-barba-namespace='home'] .hero-background .background_video > video,
+[data-barba-namespace='home'] .hero-background .w-background-video > video,
+.hero-background .background_video > video[data-cominvi-home-af-only='true'] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+[data-barba-namespace='home'] .hero-background .w-background-video--control,
+[data-barba-namespace='home']
+  .hero-background
+  [data-w-bg-video-control='true'] {
+  display: none !important;
+}
+
 .hero-background .background_video {
   position: relative;
   overflow: hidden;
@@ -289,7 +312,9 @@
   z-index: 2;
 }
 
-.hero-background .background_video > video[data-cominvi-hero-video-ready='false'] {
+.hero-background
+  .background_video
+  > video[data-cominvi-hero-video-ready='false'] {
   z-index: 1;
   opacity: 0;
   visibility: hidden;
@@ -331,6 +356,35 @@
   will-change: auto;
 }
 
+.hero-background [data-loader-sequence-canvas='true'] {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  pointer-events: none;
+  z-index: 3;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+  will-change: auto;
+}
+
+.hero-background [data-cominvi-af-display='true'] {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  object-fit: cover;
+  object-position: center center;
+  pointer-events: none;
+  z-index: 4;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+
 /* Loader outline overlay: always on top and non-interactive */
 .loader-logo_outline {
   position: fixed;
@@ -338,11 +392,25 @@
   top: 0;
   z-index: 4;
   border-radius: 0.55em;
-  outline: 0.188em solid var(--primary);
+  outline: 0.188em solid var(--accent);
   outline-offset: -0.188em;
   /* draw inside */
   pointer-events: none;
   mix-blend-mode: normal;
+}
+
+/* Loader is-white: icon path cuts through logo-square to reveal hero video */
+.loader[data-wf--loader--variant='is-white'] .logo-icon path {
+  opacity: 0;
+}
+
+.loader[data-wf--loader--variant='is-white'] .is-logo-text {
+  border-color: var(--white);
+  background-color: transparent;
+}
+
+.loader[data-wf--loader--variant='is-white'] .logo-square {
+  background-color: var(--white);
 }
 
 .machines-grid_name-inner .body-xl > span {
@@ -710,7 +778,7 @@ html[data-menu-open='true'] .service-card .desc .line-inner {
 
 .section_next {
   position: relative;
-  height: calc(100svh + 1px);
+  height: calc(100svh + 0px);
 }
 
 .maplibregl-ctrl-bottom-right {

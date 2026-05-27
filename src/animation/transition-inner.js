@@ -1,8 +1,10 @@
 import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 
+import { suppressHomeHeroVideo } from '../app/hero-media.js'
 import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
+import { showHomeSequenceFirstFrame } from './loader-af.js'
 import { addMenuLinksCloseToTimeline } from './nav.js'
 import {
   createViewportClipOverlay,
@@ -339,6 +341,18 @@ export function slideScaleEnter({ next }) {
     top: 0,
     y: 0,
   })
+
+  try {
+    const ns = (next.container.getAttribute('data-barba-namespace') || '')
+      .trim()
+      .toLowerCase()
+    if (ns === 'home') {
+      suppressHomeHeroVideo(next.container)
+      showHomeSequenceFirstFrame(next.container)
+    }
+  } catch (e) {
+    // ignore
+  }
 
   // Prepare timeline and labels before any calls
   const tl = gsap.timeline()

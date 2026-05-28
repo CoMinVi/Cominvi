@@ -1,4 +1,3 @@
-const DEBUG_PREFIX = '[cominvi-af-resize]'
 const MAX_EVENTS = 300
 const READ_CTX_KEY = '__cominviAfReadCtx'
 
@@ -175,12 +174,6 @@ export function afResizeLog(event, data = {}, root = document) {
         return this.events.slice()
       },
     }
-    console.info(
-      DEBUG_PREFIX,
-      'debug actif — filtrer la console avec',
-      DEBUG_PREFIX,
-      'ou window.__cominviAfResizeDebug.dump()'
-    )
   }
 
   const entry = {
@@ -194,6 +187,5 @@ export function afResizeLog(event, data = {}, root = document) {
     window.__cominviAfResizeDebug.events.shift()
   }
 
-  console.log(DEBUG_PREFIX, event, entry)
   return entry
 }

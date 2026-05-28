@@ -1,3 +1,4 @@
+/*
 import gsap from 'gsap'
 
 export function initLoader() {
@@ -326,7 +327,9 @@ export function initLoader() {
     const logoSquare = document.querySelector('.logo-square')
     const textBox = document.querySelector('.is-logo-text')
     const logoText = document.querySelector('.is-logo-text .logo-text')
-    const backgroundInner = document.querySelector('.hero-background .background-inner')
+    const backgroundInner = document.querySelector(
+      '.hero-background .background-inner'
+    )
 
     if (
       !loader ||
@@ -342,7 +345,8 @@ export function initLoader() {
     }
 
     cleanupHomeSequenceBindings()
-    const sequenceController = createActiveFrameSequenceController(backgroundInner)
+    const sequenceController =
+      createActiveFrameSequenceController(backgroundInner)
     window.__homeSequenceController = sequenceController
 
     const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
@@ -1511,3 +1515,4 @@ export function initLoader() {
     return null
   }
 }
+*/

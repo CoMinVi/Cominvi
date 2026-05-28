@@ -95,6 +95,7 @@ export function initProcessProgression(root = document) {
 
   const doInit = () => {
     buildVerticalTicks(track, sticky)
+    let runTickUpdate = null
 
     // De-dupe resize listener across transitions
     try {
@@ -114,15 +115,19 @@ export function initProcessProgression(root = document) {
       resizeTimer = setTimeout(() => {
         buildVerticalTicks(track, sticky)
         ScrollTrigger.refresh()
+        if (typeof runTickUpdate === 'function') runTickUpdate()
       }, 150)
     }
     window.addEventListener('resize', window.__processResizeHandler)
 
-    setupVerticalTickHighlighting(section, sticky, track, {
+    const controls = setupVerticalTickHighlighting(section, sticky, track, {
       numberTrack,
       numberInner,
       progressReadout,
     })
+    if (controls && typeof controls.update === 'function') {
+      runTickUpdate = controls.update
+    }
 
     const cleanupMobileLayout = syncProcessMobileLayout(section)
     window.__processCleanupMobile = cleanupMobileLayout
@@ -171,7 +176,9 @@ function buildVerticalTicks(track, sticky) {
   const count =
     perUnit > 0 ? Math.max(1, Math.floor((containerWidth + gap) / perUnit)) : 1
 
-  track.innerHTML = ''
+  const oldTicks = Array.from(track.querySelectorAll('.scroll-tick.vertical'))
+  oldTicks.forEach((node) => node.remove())
+
   const frag = document.createDocumentFragment()
   for (let i = 0; i < count; i++) {
     const t = document.createElement('div')
@@ -190,9 +197,6 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
   // 0% when the first .process enters the viewport, stays 0 until its top hits the viewport top,
   // progresses from there, and reaches 100% when the bottom of the last .process hits the viewport bottom.
 
-  const ticks = Array.from(track.querySelectorAll('.scroll-tick.vertical'))
-  if (!ticks.length) return
-
   const processes = Array.from(section.querySelectorAll('.process'))
   const firstProcess = processes.length ? processes[0] : null
   const lastProcess = processes.length ? processes[processes.length - 1] : null
@@ -200,6 +204,9 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
   const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v)
 
   const update = () => {
+    const ticks = Array.from(track.querySelectorAll('.scroll-tick.vertical'))
+    if (!ticks.length) return
+
     const viewportH =
       window.innerHeight || document.documentElement.clientHeight || 0
 
@@ -315,6 +322,7 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
   })
 
   update()
+  return { update }
 }
 
 export function syncProcessMobileLayout(section) {

@@ -15,35 +15,17 @@ import { prepareIcons } from './app/icons-runtime.js'
 import { initContainerModules } from './app/page-registry.js'
 import siteStyles from './styles/style.css?inline'
 
-const DEBUG_PREFIX = '[cominvi-debug]'
-
-function logDebug(label, data = {}) {
-  try {
-    console.log(DEBUG_PREFIX, label, data)
-  } catch (e) {
-    // ignore
-  }
-}
-
 function injectSiteStyles() {
   try {
     if (document.querySelector('style[data-cominvi-site-styles]')) {
-      logDebug('site-css:already-injected')
       return
     }
     const style = document.createElement('style')
     style.setAttribute('data-cominvi-site-styles', '')
     style.textContent = siteStyles
     document.head.appendChild(style)
-    logDebug('site-css:injected', {
-      length: siteStyles.length,
-      pageWrapOverflow:
-        window.getComputedStyle &&
-        document.querySelector('.page-wrap') &&
-        getComputedStyle(document.querySelector('.page-wrap')).overflow,
-    })
   } catch (e) {
-    logDebug('site-css:error', { message: e && e.message })
+    // ignore
   }
 }
 
@@ -77,11 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   }
   injectSiteStyles()
-  logDebug('dom-ready', {
-    namespace: getCurrentNamespace(document),
-    readyState: document.readyState,
-    scripts: [...document.scripts].map((script) => script.src).filter(Boolean),
-  })
 
   try {
     if ('scrollRestoration' in history) {
@@ -96,43 +73,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   try {
     const eagerHeroVideo = isHomeNamespace(document)
-    const heroMedia = eagerHeroVideo
-      ? prepareHeroMedia(document, { deferSources: false })
-      : prepareHeroMedia(document)
-    logDebug('shell:hero-media-prepared', {
-      hasVideo: !!(heroMedia && heroMedia.video),
-      posterUrl: heroMedia && heroMedia.posterUrl,
-      eagerHeroVideo,
-    })
+    if (eagerHeroVideo) {
+      prepareHeroMedia(document, { deferSources: false })
+    } else {
+      prepareHeroMedia(document)
+    }
   } catch (e) {
-    logDebug('shell:hero-media-error', { message: e && e.message })
+    // ignore
   }
-  logDebug('shell:init:start')
   if (isHomeNamespace(document)) {
     initHomeLoader()
-    logDebug('shell:loader-ready')
   }
   initializePageTransitionNav()
-  logDebug('shell:barba-ready')
   if (!isHomeNamespace(document)) {
     initDefaultLoader()
-    logDebug('shell:loader-ready')
   }
   initLenis()
-  logDebug('shell:lenis-init-called', {
-    hasLenis: !!window.lenis,
-    hasWrapper: !!window.__lenisWrapper,
-  })
   initializeNav2()
-  logDebug('shell:nav-ready')
   // Priorité home: initialiser d'abord le hero.
   initParallax()
-  logDebug('shell:hero-parallax-ready')
   try {
     prepareIcons(document)
-    logDebug('shell:icons-prepared')
-  } catch (e) {
-    logDebug('shell:icons-prepare-error', { message: e && e.message })
+  } catch {
+    // ignore
   }
   try {
     if (document.querySelector('.cylindar__wrapper')) {
@@ -150,24 +113,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // ignore
   }
   const runNonCriticalInitializers = () => {
-    logDebug('dynamic:init-current:start', {
-      namespace: getCurrentNamespace(document),
-    })
     initContainerModules(document, {
       includeScrollRefresh: true,
       includeParallax: true,
       includeButtonHover: true,
     })
       .then(() => {
-        logDebug('dynamic:init-current:done', {
-          namespace: getCurrentNamespace(document),
-        })
+        // Initialization complete
       })
-      .catch((e) => {
-        logDebug('dynamic:init-current:error', {
-          message: e && e.message,
-          stack: e && e.stack,
-        })
+      .catch(() => {
+        // Initialization error
       })
   }
 

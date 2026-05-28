@@ -30,43 +30,20 @@ export function initBlog(root = document) {
       )
       s.setAttribute('fs-list', '')
 
-      // Debug: log load / error of the Finsweet script
-      try {
-        s.addEventListener('load', () => {
-          // eslint-disable-next-line no-console
-          console.log('[fs-list] Script Finsweet chargé (load)')
-        })
-        s.addEventListener('error', () => {
-          // eslint-disable-next-line no-console
-          console.error('[fs-list] Échec du chargement du script Finsweet')
-        })
-      } catch (err) {
-        // ignore
-      }
-
       const appendTarget = document.head || document.documentElement
       appendTarget.appendChild(s)
-    } else {
-      // eslint-disable-next-line no-console
-      console.log('[fs-list] Script Finsweet déjà présent dans le DOM')
     }
   } catch (e) {
     // ignore
   }
 
-  // Debug: hook sur fsAttributes.list pour vérifier que List Filter s'initialise
   try {
     if (typeof window !== 'undefined') {
       window.fsAttributes = window.fsAttributes || []
       window.fsAttributes.push([
         'list',
-        (listInstances) => {
-          try {
-            // eslint-disable-next-line no-console
-            console.log('[fs-list][Blog] init List Filter', listInstances)
-          } catch (err) {
-            // ignore
-          }
+        () => {
+          // List Filter initialized
         },
       ])
     }

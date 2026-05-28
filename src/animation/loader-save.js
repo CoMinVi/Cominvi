@@ -196,11 +196,7 @@ export function initLoader() {
       (isMacPlatform && (isSafariUA || isSafariVendor))
 
     if (isSafariMac) {
-      try {
-        console.log('safari detected')
-      } catch (e) {
-        // ignore
-      }
+      // Safari Mac detected
     }
 
     if (isTabletOrMobile || isSafariMac) {

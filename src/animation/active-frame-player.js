@@ -127,8 +127,8 @@ export class ActiveFrame {
 
     this.decoder = new VideoDecoderCtor({
       output: this.outputFrame.bind(this),
-      error: (e) => {
-        console.error('ActiveFrame decoder error:', e)
+      error: () => {
+        // Decoder error occurred
       },
     })
 

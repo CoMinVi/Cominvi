@@ -1,4 +1,3 @@
-const LOG_PREFIX = '[cominvi-hero-size]'
 const MAX_STORED = 400
 
 function round(value) {
@@ -118,23 +117,6 @@ function sizeKey(snapshot) {
   ].join('x')
 }
 
-function logSizeChange(snapshot) {
-  console.log(
-    LOG_PREFIX,
-    snapshot.tag,
-    `placeholder=${snapshot.placeholder.w}x${snapshot.placeholder.h}`,
-    `video=${snapshot.video.w}x${snapshot.video.h}`,
-    `intrinsic=${snapshot.video.intrinsicW}x${snapshot.video.intrinsicH}`,
-    snapshot.wrapper
-      ? `wrapper=${snapshot.wrapper.w}x${snapshot.wrapper.h}`
-      : 'wrapper=null',
-    snapshot.inner
-      ? `inner=${snapshot.inner.w}x${snapshot.inner.h}`
-      : 'inner=null',
-    snapshot
-  )
-}
-
 export function logHeroSizeSnapshot(root = document, tag = 'sample') {
   const snapshot = readHeroSizeSnapshot(root, tag)
   if (!window.__cominviHeroSizeDebug) {
@@ -162,12 +144,6 @@ export function startHeroSizeDebug(root = document) {
     sampleCount += 1
     store.push(snapshot)
     if (store.length > MAX_STORED) store.shift()
-
-    if (snapshot.ready) {
-      logSizeChange(snapshot)
-    } else {
-      console.log(LOG_PREFIX, snapshot.tag, 'video absent', snapshot)
-    }
   }
 
   const tick = () => {
@@ -221,11 +197,6 @@ export function startHeroSizeDebug(root = document) {
     },
     sampleCount,
   }
-
-  console.info(
-    LOG_PREFIX,
-    'started — logs uniquement si une taille change. window.__cominviHeroSizeDebug.dump()'
-  )
 
   return window.__cominviHeroSizeDebug
 }

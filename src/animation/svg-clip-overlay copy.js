@@ -16,17 +16,6 @@ export function createViewportClipOverlay(options = {}) {
   try {
     const existing = document.querySelector('.mask-overlay')
     if (existing && existing.__overlay) {
-      try {
-        // Debug: existing overlay present
-        console.debug('[mask-overlay] reuse existing', {
-          left: existing.style.left,
-          display: existing.style.display,
-          zIndex: existing.style.zIndex,
-          rect: existing.getBoundingClientRect(),
-        })
-      } catch (e) {
-        // ignore
-      }
       return {
         container: existing,
         wrap: existing.__overlay.wrap,
@@ -126,17 +115,6 @@ export function createViewportClipOverlay(options = {}) {
     // ignore
   }
   document.body.appendChild(container)
-  try {
-    // Debug: created overlay
-    console.debug('[mask-overlay] created', {
-      left: container.style.left,
-      display: container.style.display,
-      zIndex: container.style.zIndex,
-      rect: container.getBoundingClientRect(),
-    })
-  } catch (e) {
-    // ignore
-  }
 
   // Create a fixed, horizontally centered page-info inside the overlay
   // Positioned 4.5em from the top of the viewport

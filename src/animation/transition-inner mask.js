@@ -64,7 +64,6 @@ if (!window.__ptInnerClickListenerAttached) {
         const match = target.closest('.pt-inner')
         if (match) {
           window.__clickedPtInner = true
-          console.debug('[mask-overlay] pointer/click on .pt-inner')
           // Reset geometry before making overlay active to ensure correct start state
           try {
             resetOverlayClipBaseState()
@@ -81,16 +80,6 @@ if (!window.__ptInnerClickListenerAttached) {
             } catch (e) {
               // ignore
             }
-            console.debug('[mask-overlay] immediate show on pointer', {
-              display:
-                (window.getComputedStyle &&
-                  window.getComputedStyle(container).display) ||
-                (container && container.style.display),
-              zIndex:
-                (window.getComputedStyle &&
-                  window.getComputedStyle(container).zIndex) ||
-                (container && container.style.zIndex),
-            })
           } catch (e) {
             // ignore
           }
@@ -201,11 +190,7 @@ export function slideScaleLeave({ current }) {
       try {
         const el = document.querySelector('.mask-overlay')
         if (el) {
-          console.debug('[mask-overlay] tl start state', {
-            left: el.style.left,
-            display: el.style.display,
-            rect: el.getBoundingClientRect(),
-          })
+          // Timeline started
         }
       } catch (e) {
         // ignore
@@ -228,13 +213,6 @@ export function slideScaleLeave({ current }) {
         duration: slideDur,
         ease: gsap.parseEase(`custom(${easeCurve})`),
         overwrite: 'auto',
-        onUpdate: () => {
-          try {
-            console.debug('[mask-overlay] left tween', overlayTarget.style.left)
-          } catch (e) {
-            // ignore
-          }
-        },
       },
       '<'
     )
@@ -307,7 +285,6 @@ export function slideScaleEnter({ next }) {
       try {
         const container = document.querySelector('.mask-overlay')
         if (window.__clickedPtInner) {
-          console.debug('[mask-overlay] descale: show & play clip')
           if (container) {
             try {
               container.classList.add('is-active')

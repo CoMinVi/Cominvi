@@ -5,7 +5,6 @@ import { ActiveFrame } from './active-frame-player.js'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const LOG = '[minerals-canvas]'
 const ALLOWED_NAMESPACES = new Set(['home', 'services'])
 const LOOP_COUNT = 1
 const SCRUB_SMOOTHING = 0.4
@@ -130,14 +129,12 @@ export function shouldKeepMineralsQueuedIndex({
   )
 }
 
-function info(...args) {
-  // eslint-disable-next-line no-console
-  console.log(LOG, ...args)
+function info() {
+  // Info logging removed
 }
 
-function err(...args) {
-  // eslint-disable-next-line no-console
-  console.error(LOG, ...args)
+function err() {
+  // Error logging removed
 }
 
 function parseImageUrls(raw) {

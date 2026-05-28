@@ -4,16 +4,6 @@ import Lenis from 'lenis'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const DEBUG_PREFIX = '[cominvi-scroll]'
-
-function logScrollDebug(label, data = {}) {
-  try {
-    console.log(DEBUG_PREFIX, label, data)
-  } catch (e) {
-    // ignore
-  }
-}
-
 // Minimal Lenis + ScrollTrigger setup using .page-wrap and .content-wrap
 export function initLenis(root = document) {
   const wrapper =
@@ -21,18 +11,8 @@ export function initLenis(root = document) {
   const content =
     root.querySelector('.content-wrap') ||
     document.querySelector('.content-wrap')
-  const rootNamespace =
-    root && root.getAttribute ? root.getAttribute('data-barba-namespace') : null
-  logScrollDebug('init:start', {
-    hasRoot: !!root,
-    rootNamespace,
-    hasWrapper: !!wrapper,
-    hasContent: !!content,
-    wrapperClass: wrapper && wrapper.className,
-    contentClass: content && content.className,
-  })
+
   if (!wrapper || !content) {
-    logScrollDebug('init:missing-elements')
     return null
   }
 
@@ -48,34 +28,9 @@ export function initLenis(root = document) {
   })
   window.lenis = lenis
   window.__lenisWrapper = wrapper
-  logScrollDebug('init:created', {
-    limit: lenis.limit,
-    scroll: lenis.scroll,
-    targetScroll: lenis.targetScroll,
-    wrapperScrollHeight: wrapper.scrollHeight,
-    wrapperClientHeight: wrapper.clientHeight,
-    wrapperOverflow:
-      window.getComputedStyle && getComputedStyle(wrapper).overflow,
-    contentTransform:
-      window.getComputedStyle && getComputedStyle(content).transform,
-  })
 
   // Synchronize Lenis with ScrollTrigger
-  let hasLoggedFirstScroll = false
-  lenis.on('scroll', (event) => {
-    if (!hasLoggedFirstScroll) {
-      hasLoggedFirstScroll = true
-      logScrollDebug('scroll:first', {
-        scroll: event && event.scroll,
-        velocity: event && event.velocity,
-        limit: lenis.limit,
-        actualScroll: lenis.actualScroll,
-        targetScroll: lenis.targetScroll,
-        wrapperScrollTop: wrapper.scrollTop,
-        contentTransform:
-          window.getComputedStyle && getComputedStyle(content).transform,
-      })
-    }
+  lenis.on('scroll', () => {
     ScrollTrigger.update()
   })
 
@@ -156,19 +111,6 @@ export function initLenis(root = document) {
     }
     try {
       ScrollTrigger.refresh()
-      logScrollDebug('init:raf-refresh', {
-        limit: lenis.limit,
-        scroll: lenis.scroll,
-        targetScroll: lenis.targetScroll,
-        actualScroll: lenis.actualScroll,
-        wrapperScrollTop: wrapper.scrollTop,
-        wrapperScrollHeight: wrapper.scrollHeight,
-        wrapperClientHeight: wrapper.clientHeight,
-        wrapperOverflow:
-          window.getComputedStyle && getComputedStyle(wrapper).overflow,
-        contentTransform:
-          window.getComputedStyle && getComputedStyle(content).transform,
-      })
     } catch (e) {
       // ignore
     }
@@ -178,10 +120,6 @@ export function initLenis(root = document) {
 }
 
 export function destroyLenis() {
-  logScrollDebug('destroy:start', {
-    hasLenis: !!window.lenis,
-    hasTicker: !!window.__lenisTickerRaf,
-  })
   try {
     if (window.__lenisTickerRaf) {
       gsap.ticker.remove(window.__lenisTickerRaf)

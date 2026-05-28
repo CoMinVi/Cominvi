@@ -544,7 +544,6 @@ function startLoop() {
             // Catch up: log once per missing 1vh step
             while (state.lastVHStep < currentVHStep) {
               state.lastVHStep += 1
-              console.log('1vh scrollé')
             }
           } else if (currentVHStep < state.lastVHStep) {
             // Scrolling up: rebase to current step to avoid spam

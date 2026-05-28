@@ -1127,3 +1127,20 @@ button.maplibregl-ctrl-compass {
 .hero-content_right {
   margin-bottom: -0.5em;
 }
+
+/* Fix MIS-302: Hide any visible text from SVG groups/titles in the map */
+svg.is-map title,
+svg.is-map text {
+  display: none;
+  visibility: hidden;
+}
+
+/* Ensure SVG group IDs don't display as tooltips */
+svg.is-map g[id] {
+  pointer-events: none;
+}
+
+svg.is-map g.marker[id],
+svg.is-map g.region[id] {
+  pointer-events: all;
+}

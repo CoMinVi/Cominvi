@@ -94,6 +94,28 @@ export function initMap(root = document) {
     }
   }
 
+  // Fix: Ensure SVG groups don't display text tooltips
+  try {
+    const mapSvg = scope.querySelector('svg.is-map')
+    if (mapSvg) {
+      mapSvg.setAttribute(
+        'aria-label',
+        'Interactive map of CoMinVi mining locations'
+      )
+      mapSvg.setAttribute('role', 'img')
+
+      // Hide any visible text from SVG group IDs by adding proper title elements
+      const mapGroups = mapSvg.querySelectorAll('g[id]')
+      mapGroups.forEach((group) => {
+        // Remove any existing <title> elements that might display
+        const existingTitles = group.querySelectorAll(':scope > title')
+        existingTitles.forEach((title) => title.remove())
+      })
+    }
+  } catch (e) {
+    // ignore
+  }
+
   // Collect elements
   const markers = Array.from(scope.querySelectorAll('.marker[id^="marker-"]'))
   const regions = Array.from(scope.querySelectorAll('.region[id^="region-"]'))

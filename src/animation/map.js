@@ -750,11 +750,47 @@ export function initMap(root = document) {
             : null
           if (!pointKey) return
           highlightPointAndRegion(pointKey)
+
+          // Animate project-card entrance
+          const projectCard = activeSlide.querySelector('.project-card')
+          if (projectCard) {
+            gsap.fromTo(
+              projectCard,
+              {
+                opacity: 0,
+                scale: 0.95,
+                y: 20,
+              },
+              {
+                opacity: 1,
+                scale: 1,
+                y: 0,
+                duration: 0.4,
+                ease: 'power2.out',
+              }
+            )
+          }
         } catch (e) {
           // ignore
         }
       }
       try {
+        instance.on('slideChangeTransitionStart', () => {
+          // Animate out the previous slide's project-card
+          const prevSlide = instance.slides[instance.previousIndex]
+          if (prevSlide) {
+            const prevCard = prevSlide.querySelector('.project-card')
+            if (prevCard) {
+              gsap.to(prevCard, {
+                opacity: 0,
+                scale: 0.95,
+                y: -10,
+                duration: 0.3,
+                ease: 'power2.in',
+              })
+            }
+          }
+        })
         instance.on('slideChange', () => syncFromActiveSlide(instance))
         instance.on('activeIndexChange', () => syncFromActiveSlide(instance))
         instance.on('transitionEnd', () => syncFromActiveSlide(instance))
@@ -763,6 +799,34 @@ export function initMap(root = document) {
       }
       // Initial sync to currently active slide
       syncFromActiveSlide(instance)
+
+      // Animate initial project-card on page load
+      try {
+        const initialSlide = instance.slides[instance.activeIndex]
+        if (initialSlide) {
+          const initialCard = initialSlide.querySelector('.project-card')
+          if (initialCard) {
+            gsap.fromTo(
+              initialCard,
+              {
+                opacity: 0,
+                scale: 0.95,
+                y: 20,
+              },
+              {
+                opacity: 1,
+                scale: 1,
+                y: 0,
+                duration: 0.5,
+                delay: 0.2,
+                ease: 'power2.out',
+              }
+            )
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
 
       // Désactive la navigation manuelle hors mobile (desktop + tablette)
       const syncPointerControls = () => {

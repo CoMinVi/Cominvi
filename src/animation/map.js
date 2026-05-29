@@ -469,217 +469,14 @@ export function initMap(root = document) {
 
   // Helpers
 
-  const isSafariLike = () => {
-    try {
-      if (typeof navigator === 'undefined') return false
-      const ua = navigator.userAgent || ''
-      const isIOS = /iP(ad|hone|od)/.test(ua)
-      const isSafari =
-        /Safari\//.test(ua) && !/Chrome\//.test(ua) && !/CriOS\//.test(ua)
-      return isIOS || isSafari
-    } catch (e) {
-      return false
-    }
-  }
-
   const highlightMarkerWithoutDimming = (pointKey) => {
     try {
       const markerEl = pointToMarker.get(pointKey)
-      // Ensure SVG filter exists in the nearest SVG for Safari/iOS support
-      const ensureMarkerShadowFilter = (svgEl) => {
-        try {
-          if (!svgEl) return null
-          const FILTER_ID = 'marker-shadow'
-          // Try to find existing filter within this SVG
-          let filterEl = svgEl.querySelector(`#${FILTER_ID}`)
-          if (!filterEl) {
-            let defs = svgEl.querySelector('defs')
-            if (!defs) {
-              defs = document.createElementNS(
-                'http://www.w3.org/2000/svg',
-                'defs'
-              )
-              svgEl.insertBefore(defs, svgEl.firstChild)
-            }
-            filterEl = document.createElementNS(
-              'http://www.w3.org/2000/svg',
-              'filter'
-            )
-            filterEl.setAttribute('id', FILTER_ID)
-            // Use userSpaceOnUse to ensure visible shadow around small circles
-            filterEl.setAttribute('x', '-50%')
-            filterEl.setAttribute('y', '-50%')
-            filterEl.setAttribute('width', '200%')
-            filterEl.setAttribute('height', '200%')
-            filterEl.setAttribute('filterUnits', 'userSpaceOnUse')
-            filterEl.setAttribute('color-interpolation-filters', 'sRGB')
-            // Approximate previous CSS drop-shadows with stacked feDropShadow
-            const makeShadow = (dx, dy, stdDeviation, color) => {
-              const fe = document.createElementNS(
-                'http://www.w3.org/2000/svg',
-                'feDropShadow'
-              )
-              fe.setAttribute('dx', String(dx))
-              fe.setAttribute('dy', String(dy))
-              fe.setAttribute('stdDeviation', String(stdDeviation))
-              // Split opacity for Safari compatibility
-              if (typeof color === 'object' && color) {
-                const { hex, opacity } = color
-                fe.setAttribute('flood-color', hex)
-                fe.setAttribute('flood-opacity', String(opacity))
-              } else {
-                fe.setAttribute('flood-color', String(color))
-              }
-              return fe
-            }
-            // Layered shadows: subtle white halo + two orange glows
-            filterEl.appendChild(
-              makeShadow(0, 0, 2, { hex: '#ffffff', opacity: 0.5 })
-            )
-            filterEl.appendChild(
-              makeShadow(0, 0, 5, { hex: '#ff8832', opacity: 1 })
-            )
-            filterEl.appendChild(
-              makeShadow(0, 0, 12, { hex: '#ff8832', opacity: 1 })
-            )
-
-            // Fallback chain for older Safari: Gaussian blur + flood + merge
-            const feGB = document.createElementNS(
-              'http://www.w3.org/2000/svg',
-              'feGaussianBlur'
-            )
-            feGB.setAttribute('in', 'SourceAlpha')
-            feGB.setAttribute('stdDeviation', '4')
-            feGB.setAttribute('result', 'blur')
-            const feOf = document.createElementNS(
-              'http://www.w3.org/2000/svg',
-              'feOffset'
-            )
-            feOf.setAttribute('dx', '0')
-            feOf.setAttribute('dy', '0')
-            feOf.setAttribute('result', 'offsetBlur')
-            const feFl = document.createElementNS(
-              'http://www.w3.org/2000/svg',
-              'feFlood'
-            )
-            feFl.setAttribute('flood-color', '#ff8832')
-            feFl.setAttribute('flood-opacity', '0.8')
-            feFl.setAttribute('result', 'color')
-            const feCp = document.createElementNS(
-              'http://www.w3.org/2000/svg',
-              'feComposite'
-            )
-            feCp.setAttribute('in', 'color')
-            feCp.setAttribute('in2', 'offsetBlur')
-            feCp.setAttribute('operator', 'in')
-            feCp.setAttribute('result', 'shadow')
-            const feMg = document.createElementNS(
-              'http://www.w3.org/2000/svg',
-              'feMerge'
-            )
-            const feMn1 = document.createElementNS(
-              'http://www.w3.org/2000/svg',
-              'feMergeNode'
-            )
-            feMn1.setAttribute('in', 'shadow')
-            const feMn2 = document.createElementNS(
-              'http://www.w3.org/2000/svg',
-              'feMergeNode'
-            )
-            feMn2.setAttribute('in', 'SourceGraphic')
-            feMg.appendChild(feMn1)
-            feMg.appendChild(feMn2)
-
-            filterEl.appendChild(feGB)
-            filterEl.appendChild(feOf)
-            filterEl.appendChild(feFl)
-            filterEl.appendChild(feCp)
-            filterEl.appendChild(feMg)
-            defs.appendChild(filterEl)
-          }
-          return FILTER_ID
-        } catch (e) {
-          return null
-        }
-      }
-
-      const applyFilterToMarker = (el, active) => {
-        try {
-          const svg = el && el.closest ? el.closest('svg') : null
-          if (!svg) return
-          const filterId = ensureMarkerShadowFilter(svg)
-          const targetCircle = el.querySelector
-            ? el.querySelector('circle')
-            : null
-          const targetEl = targetCircle || el
-          if (active && filterId) {
-            if (isSafariLike()) {
-              targetEl.setAttribute('filter', `url(#${filterId})`)
-              // Force reflow to ensure filter is committed
-              try {
-                if (typeof targetEl.getBBox === 'function') targetEl.getBBox()
-              } catch (err) {
-                // ignore
-              }
-            }
-          } else {
-            if (isSafariLike()) {
-              targetEl.removeAttribute('filter')
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      // Fallback glow for Safari/iOS that ignores filters: inject circle shadows
-      const ensureGlowForMarker = (el, active) => {
-        try {
-          const svg = el && el.closest ? el.closest('svg') : null
-          if (!svg) return
-          const dot = el.querySelector ? el.querySelector('circle') : null
-          if (!dot) return
-          const cx = dot.getAttribute('cx') || '0'
-          const cy = dot.getAttribute('cy') || '0'
-          const rStr = dot.getAttribute('r') || '0'
-          const r = Number(rStr) || 0
-          // Remove previous glows
-          const oldGlows = el.querySelectorAll('.marker-glow, .marker-glow-2')
-          oldGlows.forEach((n) => n.parentNode && n.parentNode.removeChild(n))
-          if (!active) return
-          const makeCircle = (cls, radius, fill, opacity) => {
-            const c = document.createElementNS(
-              'http://www.w3.org/2000/svg',
-              'circle'
-            )
-            c.setAttribute('class', cls)
-            c.setAttribute('cx', cx)
-            c.setAttribute('cy', cy)
-            c.setAttribute('r', String(radius))
-            c.setAttribute('fill', fill)
-            c.setAttribute('opacity', String(opacity))
-            return c
-          }
-          // Two-layer glow approximating CSS drop-shadows
-          const glowOuter = makeCircle('marker-glow', r + 10, '#ff8832', 0.35)
-          const glowInner = makeCircle('marker-glow-2', r + 5, '#ff8832', 0.6)
-          // Insert behind the dot inside this marker group
-          if (dot.parentNode) {
-            dot.parentNode.insertBefore(glowOuter, dot)
-            dot.parentNode.insertBefore(glowInner, dot)
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-
       markers.forEach((m) => {
         const isActive = m === markerEl
         if (isActive) m.classList.add('highlight')
         else m.classList.remove('highlight')
         m.classList.remove('dimmed')
-        if (isSafariLike()) ensureGlowForMarker(m, isActive)
-        else applyFilterToMarker(m, isActive)
       })
     } catch (e) {
       // ignore
@@ -746,29 +543,15 @@ export function initMap(root = document) {
 
   // GSAP scale/opacity on cards conflicts with Swiper touch transforms on mobile
   const shouldAnimateProjectCardOnSlide = () => !isTouchOrSmallNow()
-
-  const resetProjectCardTransforms = (card) => {
-    if (!card) return
-    gsap.killTweensOf(card)
-    const prevTransition = card.style.transition
-    if (isMobileOnlyNow()) {
-      card.style.transition = 'none'
-    }
-    gsap.set(card, { clearProps: 'opacity,transform,y' })
-    if (isMobileOnlyNow()) {
-      card.offsetHeight
-      card.style.transition = prevTransition
-    }
-  }
   const resetMarkers = () => {
     markers.forEach((m) => {
       m.classList.remove('highlight')
       m.classList.remove('dimmed')
       try {
+        // Cleanup stale runtime artifacts left by older implementations.
         const circle = m.querySelector ? m.querySelector('circle') : null
         const targetEl = circle || m
-        if (isSafariLike()) targetEl.removeAttribute('filter')
-        // Remove injected fallback glows if any
+        targetEl.removeAttribute('filter')
         const oldGlows = m.querySelectorAll('.marker-glow, .marker-glow-2')
         oldGlows.forEach((n) => n.parentNode && n.parentNode.removeChild(n))
       } catch (e) {
@@ -947,11 +730,6 @@ export function initMap(root = document) {
       scope.querySelector('.projects-wrapper.swiper')
     if (container && !container.__swiperInitialized) {
       container.__swiperInitialized = true
-      const resetAllProjectCardTransforms = () => {
-        container
-          .querySelectorAll('.project-card')
-          .forEach(resetProjectCardTransforms)
-      }
       const instance = new Swiper(container, {
         modules: [Mousewheel],
         slidesPerView: 1.1,
@@ -1034,8 +812,6 @@ export function initMap(root = document) {
                   ease: 'power2.out',
                 }
               )
-            } else {
-              resetAllProjectCardTransforms()
             }
           }
         } catch (e) {
@@ -1044,10 +820,7 @@ export function initMap(root = document) {
       }
       try {
         instance.on('slideChangeTransitionStart', () => {
-          if (!shouldAnimateProjectCardOnSlide()) {
-            resetAllProjectCardTransforms()
-            return
-          }
+          if (!shouldAnimateProjectCardOnSlide()) return
           const prevSlide = instance.slides[instance.previousIndex]
           if (prevSlide) {
             const prevCard = prevSlide.querySelector('.project-card')
@@ -1065,10 +838,6 @@ export function initMap(root = document) {
         instance.on('slideChange', () => syncFromActiveSlide(instance))
         instance.on('activeIndexChange', () => syncFromActiveSlide(instance))
         instance.on('transitionEnd', () => syncFromActiveSlide(instance))
-        if (!shouldAnimateProjectCardOnSlide()) {
-          instance.on('touchStart', resetAllProjectCardTransforms)
-          instance.on('sliderMove', resetAllProjectCardTransforms)
-        }
       } catch (e) {
         // ignore
       }
@@ -1098,8 +867,6 @@ export function initMap(root = document) {
                   ease: 'power2.out',
                 }
               )
-            } else {
-              resetAllProjectCardTransforms()
             }
           }
         }
@@ -1127,9 +894,8 @@ export function initMap(root = document) {
         }
       }
       const syncMobileProjectCards = () => {
-        if (!shouldAnimateProjectCardOnSlide()) {
-          resetAllProjectCardTransforms()
-        }
+        // Intentionally no-op on touch/small viewports to avoid
+        // layout thrashing while Swiper is translating slides.
       }
       const syncTouchMarkerState = () => {
         if (!isTouchOrSmallNow()) return

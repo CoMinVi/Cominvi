@@ -14,17 +14,31 @@ const PROJECT_READ_MORE_EASE = CustomEase.create(
   'M0,0 C0.6,0 0,1 1,1'
 )
 
+function measureFullDescriptionHeight(textEl) {
+  const clone = textEl.cloneNode(true)
+  clone.classList.add(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+  clone.removeAttribute('style')
+  Object.assign(clone.style, {
+    position: 'absolute',
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    height: 'auto',
+    width: `${textEl.offsetWidth}px`,
+    overflow: 'visible',
+  })
+  const parent = textEl.parentNode
+  if (!parent) return textEl.scrollHeight
+  parent.appendChild(clone)
+  const height = clone.offsetHeight
+  clone.remove()
+  return height
+}
+
 function hasClampedOverflow(textEl) {
   if (!textEl) return false
-  const wasExpanded = textEl.classList.contains(
-    PROJECT_DESCRIPTION_EXPANDED_CLASS
-  )
-
-  textEl.classList.remove(PROJECT_DESCRIPTION_EXPANDED_CLASS)
-  const hasOverflow = textEl.scrollHeight > textEl.clientHeight + 1
-  if (wasExpanded) textEl.classList.add(PROJECT_DESCRIPTION_EXPANDED_CLASS)
-
-  return hasOverflow
+  const collapsedHeight = measureCollapsedDescriptionHeight(textEl)
+  const fullHeight = measureFullDescriptionHeight(textEl)
+  return fullHeight > collapsedHeight + 1
 }
 
 function measureCollapsedDescriptionHeight(textEl) {
@@ -116,9 +130,68 @@ function animateProjectDescription(textEl, expanding, callbacks = {}) {
   return textEl.__descriptionTween
 }
 
-function syncProjectCardReadMore(root = document, options = {}) {
+function bindProjectReadMoreButton(button, textEl, options = {}) {
+  if (button.__projectReadMoreBound) return
+  button.__projectReadMoreBound = true
+
   const { onDescriptionAnimationStart, onDescriptionAnimationComplete } =
     options
+  let lastActivateAt = 0
+
+  const handleActivate = (ev) => {
+    ev.preventDefault()
+    ev.stopPropagation()
+    if (ev.type === 'click' && button.__projectReadMorePointerHandled) {
+      button.__projectReadMorePointerHandled = false
+      return
+    }
+    if (ev.type === 'pointerup' && ev.button !== 0) return
+
+    const now = Date.now()
+    if (now - lastActivateAt < 400) return
+    lastActivateAt = now
+
+    if (textEl.__descriptionTween) return
+
+    const isExpanded = textEl.classList.contains(
+      PROJECT_DESCRIPTION_EXPANDED_CLASS
+    )
+    const willExpand = !isExpanded
+
+    const syncButtonLabel = () => {
+      button.textContent = willExpand ? 'Show less' : 'Show more'
+      button.setAttribute('aria-expanded', willExpand ? 'true' : 'false')
+    }
+
+    const tween = animateProjectDescription(textEl, willExpand, {
+      onStart: onDescriptionAnimationStart,
+      onComplete: () => {
+        syncButtonLabel()
+        onDescriptionAnimationComplete?.()
+      },
+    })
+
+    if (!tween) syncButtonLabel()
+  }
+
+  button.addEventListener('click', handleActivate)
+  try {
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(pointer: coarse)').matches
+    ) {
+      button.addEventListener('pointerup', (ev) => {
+        button.__projectReadMorePointerHandled = true
+        handleActivate(ev)
+      })
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function syncProjectCardReadMore(root = document, options = {}) {
   const scope = root && root.querySelector ? root : document
   const descriptions = Array.from(
     scope.querySelectorAll(PROJECT_DESCRIPTION_SELECTOR)
@@ -133,40 +206,15 @@ function syncProjectCardReadMore(root = document, options = {}) {
     if (!button) {
       button = document.createElement('button')
       button.type = 'button'
-      button.className = PROJECT_READ_MORE_CLASS
+      button.className = `${PROJECT_READ_MORE_CLASS} swiper-no-swiping`
       button.textContent = 'Show more'
       button.setAttribute('aria-expanded', 'false')
       col.appendChild(button)
+    } else {
+      button.classList.add('swiper-no-swiping')
     }
 
-    if (!textEl.__projectReadMoreBound) {
-      textEl.__projectReadMoreBound = true
-      button.addEventListener('click', (ev) => {
-        ev.preventDefault()
-        ev.stopPropagation()
-        if (textEl.__descriptionTween) return
-
-        const isExpanded = textEl.classList.contains(
-          PROJECT_DESCRIPTION_EXPANDED_CLASS
-        )
-        const willExpand = !isExpanded
-
-        const runToggle = () => {
-          button.textContent = willExpand ? 'Show less' : 'Show more'
-          button.setAttribute('aria-expanded', willExpand ? 'true' : 'false')
-        }
-
-        const tween = animateProjectDescription(textEl, willExpand, {
-          onStart: onDescriptionAnimationStart,
-          onComplete: () => {
-            runToggle()
-            onDescriptionAnimationComplete?.()
-          },
-        })
-
-        if (!tween) runToggle()
-      })
-    }
+    bindProjectReadMoreButton(button, textEl, options)
 
     const shouldShowButton = hasClampedOverflow(textEl)
     button.hidden = !shouldShowButton
@@ -675,6 +723,23 @@ export function initMap(root = document) {
       return false
     }
   }
+
+  // GSAP scale/opacity on cards conflicts with Swiper touch transforms on mobile
+  const shouldAnimateProjectCardOnSlide = () => !isMobileOnlyNow()
+
+  const resetProjectCardTransforms = (card) => {
+    if (!card) return
+    gsap.killTweensOf(card)
+    const prevTransition = card.style.transition
+    if (isMobileOnlyNow()) {
+      card.style.transition = 'none'
+    }
+    gsap.set(card, { clearProps: 'opacity,transform,y' })
+    if (isMobileOnlyNow()) {
+      card.offsetHeight
+      card.style.transition = prevTransition
+    }
+  }
   const resetMarkers = () => {
     markers.forEach((m) => {
       m.classList.remove('highlight')
@@ -843,6 +908,11 @@ export function initMap(root = document) {
       scope.querySelector('.projects-wrapper.swiper')
     if (container && !container.__swiperInitialized) {
       container.__swiperInitialized = true
+      const resetAllProjectCardTransforms = () => {
+        container
+          .querySelectorAll('.project-card')
+          .forEach(resetProjectCardTransforms)
+      }
       const instance = new Swiper(container, {
         modules: [Mousewheel],
         slidesPerView: 1.1,
@@ -857,8 +927,10 @@ export function initMap(root = document) {
         touchStartPreventDefault: false,
         passiveListeners: false,
         touchEventsTarget: 'container',
-        preventClicks: true,
-        preventClicksPropagation: true,
+        // Keep taps on "Show more" / description from being swallowed as swipes
+        preventClicks: false,
+        preventClicksPropagation: false,
+        noSwipingSelector: `.${PROJECT_READ_MORE_CLASS}, .project-card_infos-col.is-left`,
         threshold: 0,
         mousewheel: {
           enabled: true,
@@ -905,24 +977,27 @@ export function initMap(root = document) {
           if (!pointKey) return
           highlightPointAndRegion(pointKey)
 
-          // Animate project-card entrance
           const projectCard = activeSlide.querySelector('.project-card')
           if (projectCard) {
-            gsap.fromTo(
-              projectCard,
-              {
-                opacity: 0,
-                scale: 0.95,
-                y: 20,
-              },
-              {
-                opacity: 1,
-                scale: 1,
-                y: 0,
-                duration: 0.4,
-                ease: 'power2.out',
-              }
-            )
+            if (shouldAnimateProjectCardOnSlide()) {
+              gsap.fromTo(
+                projectCard,
+                {
+                  opacity: 0,
+                  scale: 0.95,
+                  y: 20,
+                },
+                {
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                  duration: 0.4,
+                  ease: 'power2.out',
+                }
+              )
+            } else {
+              resetAllProjectCardTransforms()
+            }
           }
         } catch (e) {
           // ignore
@@ -930,7 +1005,10 @@ export function initMap(root = document) {
       }
       try {
         instance.on('slideChangeTransitionStart', () => {
-          // Animate out the previous slide's project-card
+          if (!shouldAnimateProjectCardOnSlide()) {
+            resetAllProjectCardTransforms()
+            return
+          }
           const prevSlide = instance.slides[instance.previousIndex]
           if (prevSlide) {
             const prevCard = prevSlide.querySelector('.project-card')
@@ -948,34 +1026,42 @@ export function initMap(root = document) {
         instance.on('slideChange', () => syncFromActiveSlide(instance))
         instance.on('activeIndexChange', () => syncFromActiveSlide(instance))
         instance.on('transitionEnd', () => syncFromActiveSlide(instance))
+        if (!shouldAnimateProjectCardOnSlide()) {
+          instance.on('touchStart', resetAllProjectCardTransforms)
+          instance.on('sliderMove', resetAllProjectCardTransforms)
+        }
       } catch (e) {
         // ignore
       }
       // Initial sync to currently active slide
       syncFromActiveSlide(instance)
 
-      // Animate initial project-card on page load
+      // Animate initial project-card on page load (desktop/tablet only)
       try {
         const initialSlide = instance.slides[instance.activeIndex]
         if (initialSlide) {
           const initialCard = initialSlide.querySelector('.project-card')
           if (initialCard) {
-            gsap.fromTo(
-              initialCard,
-              {
-                opacity: 0,
-                scale: 0.95,
-                y: 20,
-              },
-              {
-                opacity: 1,
-                scale: 1,
-                y: 0,
-                duration: 0.5,
-                delay: 0.2,
-                ease: 'power2.out',
-              }
-            )
+            if (shouldAnimateProjectCardOnSlide()) {
+              gsap.fromTo(
+                initialCard,
+                {
+                  opacity: 0,
+                  scale: 0.95,
+                  y: 20,
+                },
+                {
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                  duration: 0.5,
+                  delay: 0.2,
+                  ease: 'power2.out',
+                }
+              )
+            } else {
+              resetAllProjectCardTransforms()
+            }
           }
         }
       } catch (e) {
@@ -1001,8 +1087,17 @@ export function initMap(root = document) {
           // ignore
         }
       }
+      const syncMobileProjectCards = () => {
+        if (!shouldAnimateProjectCardOnSlide()) {
+          resetAllProjectCardTransforms()
+        }
+      }
       syncPointerControls()
-      window.addEventListener('resize', syncPointerControls)
+      syncMobileProjectCards()
+      window.addEventListener('resize', () => {
+        syncPointerControls()
+        syncMobileProjectCards()
+      })
     }
   } catch (e) {
     // ignore

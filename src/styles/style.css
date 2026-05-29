@@ -742,6 +742,8 @@ html[data-menu-open='true'] .service-card .desc .line-inner {
 }
 
 .project-card_read-more {
+  position: relative;
+  z-index: 2;
   align-self: flex-end;
   margin-top: 1.25em;
   border: 0;
@@ -756,6 +758,30 @@ html[data-menu-open='true'] .service-card .desc .line-inner {
   text-decoration-thickness: 1px;
   text-underline-offset: 0.25em;
   transition: opacity 0.2s ease-out;
+  touch-action: manipulation;
+}
+
+/* Webflow sets pointer-events:none on .project-card_infos at ≤767px for swipe */
+@media (max-width: 767px) {
+  .swiper.projects-wrapper .project-card_infos-col.is-left {
+    pointer-events: auto;
+  }
+
+  .swiper.projects-wrapper .project-card_read-more {
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  /* GSAP clearProps + transition:all caused scale/opacity flashes during swipe */
+  .swiper.projects-wrapper .project-card,
+  .swiper.projects-wrapper .project-item {
+    transition: none !important;
+  }
+
+  .swiper.projects-wrapper .project-card {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 .project-card_read-more:hover,

@@ -8,6 +8,11 @@ const PROJECT_DESCRIPTION_SELECTOR =
   '.project-card_infos-col.is-left .eyebrow-l-alt'
 const PROJECT_DESCRIPTION_EXPANDED_CLASS = 'is-project-description-open'
 const PROJECT_READ_MORE_CLASS = 'project-card_read-more'
+const PROJECT_READ_MORE_DURATION = 0.5
+const PROJECT_READ_MORE_EASE = CustomEase.create(
+  'map-read-more-ease',
+  'M0,0 C0.6,0 0,1 1,1'
+)
 
 function hasClampedOverflow(textEl) {
   if (!textEl) return false
@@ -22,7 +27,98 @@ function hasClampedOverflow(textEl) {
   return hasOverflow
 }
 
-function syncProjectCardReadMore(root = document) {
+function measureCollapsedDescriptionHeight(textEl) {
+  const clone = textEl.cloneNode(true)
+  clone.classList.remove(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+  clone.removeAttribute('style')
+  Object.assign(clone.style, {
+    position: 'absolute',
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    height: 'auto',
+    width: `${textEl.offsetWidth}px`,
+    overflow: 'hidden',
+  })
+  const parent = textEl.parentNode
+  if (!parent) return textEl.offsetHeight
+  parent.appendChild(clone)
+  const height = clone.offsetHeight
+  clone.remove()
+  return height
+}
+
+function animateProjectDescription(textEl, expanding, callbacks = {}) {
+  if (textEl.__descriptionTween) {
+    textEl.__descriptionTween.kill()
+    textEl.__descriptionTween = null
+  }
+
+  const isExpanded = textEl.classList.contains(
+    PROJECT_DESCRIPTION_EXPANDED_CLASS
+  )
+  if (expanding === isExpanded) return null
+
+  if (expanding) {
+    textEl.classList.remove(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+    textEl.style.height = 'auto'
+    textEl.style.overflow = ''
+    const startHeight = textEl.offsetHeight
+
+    textEl.classList.add(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+    const endHeight = textEl.offsetHeight
+
+    textEl.classList.remove(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+    textEl.style.height = `${startHeight}px`
+    textEl.style.overflow = 'hidden'
+    textEl.classList.add(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+
+    callbacks.onStart?.()
+
+    textEl.__descriptionTween = gsap.to(textEl, {
+      height: endHeight,
+      duration: PROJECT_READ_MORE_DURATION,
+      ease: PROJECT_READ_MORE_EASE,
+      onComplete: () => {
+        textEl.style.height = 'auto'
+        textEl.style.overflow = ''
+        textEl.classList.add(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+        textEl.__descriptionTween = null
+        callbacks.onComplete?.()
+      },
+    })
+
+    return textEl.__descriptionTween
+  }
+
+  const startHeight = textEl.offsetHeight
+  const endHeight = measureCollapsedDescriptionHeight(textEl)
+  textEl.style.height = `${startHeight}px`
+  textEl.style.overflow = 'hidden'
+
+  callbacks.onStart?.()
+
+  textEl.__descriptionTween = gsap.to(textEl, {
+    height: endHeight,
+    duration: PROJECT_READ_MORE_DURATION,
+    ease: PROJECT_READ_MORE_EASE,
+    onStart: () => {
+      textEl.classList.remove(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+    },
+    onComplete: () => {
+      textEl.classList.remove(PROJECT_DESCRIPTION_EXPANDED_CLASS)
+      textEl.style.height = ''
+      textEl.style.overflow = ''
+      textEl.__descriptionTween = null
+      callbacks.onComplete?.()
+    },
+  })
+
+  return textEl.__descriptionTween
+}
+
+function syncProjectCardReadMore(root = document, options = {}) {
+  const { onDescriptionAnimationStart, onDescriptionAnimationComplete } =
+    options
   const scope = root && root.querySelector ? root : document
   const descriptions = Array.from(
     scope.querySelectorAll(PROJECT_DESCRIPTION_SELECTOR)
@@ -47,11 +143,28 @@ function syncProjectCardReadMore(root = document) {
       textEl.__projectReadMoreBound = true
       button.addEventListener('click', (ev) => {
         ev.preventDefault()
-        const isExpanded = textEl.classList.toggle(
+        ev.stopPropagation()
+        if (textEl.__descriptionTween) return
+
+        const isExpanded = textEl.classList.contains(
           PROJECT_DESCRIPTION_EXPANDED_CLASS
         )
-        button.textContent = isExpanded ? 'Show less' : 'Show more'
-        button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false')
+        const willExpand = !isExpanded
+
+        const runToggle = () => {
+          button.textContent = willExpand ? 'Show less' : 'Show more'
+          button.setAttribute('aria-expanded', willExpand ? 'true' : 'false')
+        }
+
+        const tween = animateProjectDescription(textEl, willExpand, {
+          onStart: onDescriptionAnimationStart,
+          onComplete: () => {
+            runToggle()
+            onDescriptionAnimationComplete?.()
+          },
+        })
+
+        if (!tween) runToggle()
       })
     }
 
@@ -61,8 +174,8 @@ function syncProjectCardReadMore(root = document) {
   })
 }
 
-function initProjectCardReadMore(root = document) {
-  syncProjectCardReadMore(root)
+function initProjectCardReadMore(root = document, options = {}) {
+  syncProjectCardReadMore(root, options)
 
   try {
     if (window.__projectReadMoreResizeBound) return
@@ -125,8 +238,6 @@ export function initMap(root = document) {
   )
 
   if (!markers.length && !regions.length && !projectItems.length) return
-
-  initProjectCardReadMore(scope)
 
   // Build lookups
   const pointToMarker = new Map()
@@ -585,6 +696,48 @@ export function initMap(root = document) {
     regions.forEach((r) => r.classList.remove('highlight'))
   }
 
+  const dimNonActiveMarkers = (pointKey) => {
+    markers.forEach((m) => {
+      const mkPoint = markerToPoint.get(m)
+      if (mkPoint && mkPoint !== pointKey) {
+        m.classList.add('dimmed')
+        m.classList.remove('highlight')
+      }
+    })
+  }
+
+  let hoveredCardPointKey = null
+
+  const getHoveredCardPointKey = () => {
+    try {
+      for (const cardEl of projectItems) {
+        if (cardEl.matches(':hover')) {
+          const pk = cardEl?.dataset?.point
+          return pk ? String(pk) : null
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return null
+  }
+
+  const syncMarkerVisualState = () => {
+    try {
+      const hoverPk = hoveredCardPointKey || getHoveredCardPointKey()
+      const pk = hoverPk || selectedPointKey
+      if (!pk) {
+        resetMarkers()
+        resetRegions()
+        return
+      }
+      highlightPointAndRegion(pk)
+      if (hoverPk) dimNonActiveMarkers(hoverPk)
+    } catch (e) {
+      // ignore
+    }
+  }
+
   const resetCardsDimming = () => {
     projectItems.forEach((c) => c.classList.remove('is-dimmed'))
   }
@@ -636,16 +789,17 @@ export function initMap(root = document) {
 
   const reapplyActiveMarker = () => {
     try {
-      const pk = selectedPointKey
-      if (pk) highlightPointAndRegion(pk)
-      else {
-        resetMarkers()
-        resetRegions()
-      }
+      hoveredCardPointKey = getHoveredCardPointKey()
+      syncMarkerVisualState()
     } catch (e) {
       // ignore
     }
   }
+
+  initProjectCardReadMore(scope, {
+    onDescriptionAnimationStart: () => reapplyActiveMarker(),
+    onDescriptionAnimationComplete: () => reapplyActiveMarker(),
+  })
 
   const highlightRegionByName = (regionKey) => {
     const normalized = normalizeRegionKey(regionKey)
@@ -965,18 +1119,9 @@ export function initMap(root = document) {
       const pointKey = cardEl?.dataset?.point
         ? String(cardEl.dataset.point)
         : null
-      /* keep direct normalization for potential future use */
-      if (pointKey) highlightPointAndRegion(pointKey)
-      // Also dim other points per spec
       if (!pointKey) return
-      markers.forEach((m) => {
-        const mkPoint = markerToPoint.get(m)
-        if (mkPoint && mkPoint !== pointKey) {
-          m.classList.add('dimmed')
-          m.classList.remove('highlight')
-        }
-      })
-      // Do not change is-active here; hover shouldn't change persistent selection
+      hoveredCardPointKey = pointKey
+      syncMarkerVisualState()
     })
     cardEl.addEventListener('mouseleave', () => {
       if (isTouchOrSmallNow()) return
@@ -984,30 +1129,36 @@ export function initMap(root = document) {
         '.projects_overlays'
       )
       if (currentOverlays?.dataset?.open === 'true') return
-      // Reapply active marker AND region; do not clear region after
-      reapplyActiveMarker()
+      // Defer: layout shifts during "show more" can fire spurious mouseleave
+      window.requestAnimationFrame(() => {
+        const stillHovered = getHoveredCardPointKey()
+        if (stillHovered) {
+          hoveredCardPointKey = stillHovered
+          syncMarkerVisualState()
+          return
+        }
+        hoveredCardPointKey = null
+        syncMarkerVisualState()
+      })
     })
     cardEl.addEventListener('click', (ev) => {
       try {
+        if (
+          ev.target &&
+          ev.target.closest &&
+          ev.target.closest(`.${PROJECT_READ_MORE_CLASS}`)
+        ) {
+          return
+        }
         const pointKey = cardEl?.dataset?.point
           ? String(cardEl.dataset.point)
           : null
         if (!pointKey) return
         ev.preventDefault()
         ev.stopPropagation()
-        // Persist selection & sync highlight; remove scroll/overlay
         selectedPointKey = String(pointKey)
-        highlightMarkerWithoutDimming(selectedPointKey)
-        try {
-          const regionKeyRaw = cardEl?.dataset?.region
-          const rk = regionKeyRaw
-            ? normalizeRegionKey(regionKeyRaw)
-            : pointToRegionName.get(selectedPointKey)
-          if (rk) highlightRegionByName(rk)
-          else resetRegions()
-        } catch (e) {
-          // ignore
-        }
+        hoveredCardPointKey = pointKey
+        syncMarkerVisualState()
         slideToPoint(pointKey)
       } catch (e) {
         // ignore

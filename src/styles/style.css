@@ -730,6 +730,8 @@ html[data-menu-open='true'] .service-card .desc .line-inner {
   -webkit-line-clamp: 4;
   line-clamp: 4;
   opacity: 0.6;
+  user-select: none;
+  pointer-events: none;
 }
 
 .swiper.projects-wrapper

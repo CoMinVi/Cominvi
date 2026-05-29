@@ -468,14 +468,60 @@ export function initMap(root = document) {
   })
 
   // Helpers
+  const clearMarkerInlineVisual = (markerEl) => {
+    if (!markerEl || !markerEl.querySelector) return
+    const circle = markerEl.querySelector('circle')
+    const rect = markerEl.querySelector('rect')
+    if (circle && circle.style) {
+      circle.style.fill = ''
+      circle.style.opacity = ''
+      circle.style.visibility = ''
+      circle.style.filter = ''
+      circle.style.stroke = ''
+      circle.style.strokeWidth = ''
+      circle.style.paintOrder = ''
+    }
+    if (rect && rect.style) {
+      rect.style.fill = ''
+      rect.style.fillOpacity = ''
+    }
+  }
 
   const highlightMarkerWithoutDimming = (pointKey) => {
     try {
       const markerEl = pointToMarker.get(pointKey)
+      const useFilterGlow = !isTouchOrSmallNow()
       markers.forEach((m) => {
         const isActive = m === markerEl
-        if (isActive) m.classList.add('highlight')
-        else m.classList.remove('highlight')
+        const circle = m.querySelector ? m.querySelector('circle') : null
+        const rect = m.querySelector ? m.querySelector('rect') : null
+        if (isActive) {
+          m.classList.add('highlight')
+          if (circle && circle.style) {
+            circle.style.fill = '#ff9345'
+            circle.style.opacity = '1'
+            circle.style.visibility = 'visible'
+            if (useFilterGlow) {
+              circle.style.filter =
+                'drop-shadow(0 0 2px rgba(255, 255, 255, 0.5)) drop-shadow(0 0 5px #ff8832) drop-shadow(0 0 12px #ff8832)'
+              circle.style.stroke = ''
+              circle.style.strokeWidth = ''
+            } else {
+              // Mobile Chrome drops SVG drop-shadows intermittently; keep a non-filter halo fallback.
+              circle.style.filter = 'none'
+              circle.style.stroke = '#ff8832'
+              circle.style.strokeWidth = '2'
+              circle.style.paintOrder = 'stroke fill'
+            }
+          }
+          if (rect && rect.style && !useFilterGlow) {
+            rect.style.fill = '#ff8832'
+            rect.style.fillOpacity = '0.18'
+          }
+        } else {
+          m.classList.remove('highlight')
+          clearMarkerInlineVisual(m)
+        }
         m.classList.remove('dimmed')
       })
     } catch (e) {
@@ -547,6 +593,7 @@ export function initMap(root = document) {
     markers.forEach((m) => {
       m.classList.remove('highlight')
       m.classList.remove('dimmed')
+      clearMarkerInlineVisual(m)
       try {
         // Cleanup stale runtime artifacts left by older implementations.
         const circle = m.querySelector ? m.querySelector('circle') : null

@@ -1074,7 +1074,22 @@ button.maplibregl-ctrl-compass {
     padding-top: 0;
     width: 100%;
     height: 100%;
-    overflow: hidden;
+    min-height: 0;
+    overflow: visible;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: constant(safe-area-inset-bottom);
+  }
+
+  [data-barba-namespace='services'] .section_minerals .minerals-inner {
+    height: var(--services-minerals-vh, 100svh);
+    min-height: var(--services-minerals-vh, 100svh);
+    padding-bottom: calc(1em + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(1em + constant(safe-area-inset-bottom));
+  }
+
+  [data-barba-namespace='services'] .section_minerals .minerals-list {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: constant(safe-area-inset-bottom);
   }
 }
 

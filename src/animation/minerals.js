@@ -26,6 +26,57 @@ export function initMinerals(root = document) {
   const darkSvg = content.querySelector('.circle.is-2')
   if (!darkSvg) return null
   const cleanupCallbacks = []
+  const isServicesNamespace = !!section.closest(
+    '[data-barba-namespace="services"]'
+  )
+
+  const syncServicesViewportHeight = () => {
+    if (!isServicesNamespace) return
+    try {
+      const vv = window.visualViewport
+      const vh = vv && vv.height ? vv.height : window.innerHeight
+      if (!vh || !Number.isFinite(vh)) return
+      section.style.setProperty('--services-minerals-vh', `${Math.round(vh)}px`)
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const bindServicesViewportHeight = () => {
+    if (!isServicesNamespace) return
+    const onViewportChange = () => {
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(syncServicesViewportHeight)
+      } else {
+        syncServicesViewportHeight()
+      }
+    }
+    syncServicesViewportHeight()
+    window.addEventListener('resize', onViewportChange)
+    window.addEventListener('orientationchange', onViewportChange)
+    cleanupCallbacks.push(() => {
+      window.removeEventListener('resize', onViewportChange)
+      window.removeEventListener('orientationchange', onViewportChange)
+    })
+
+    const vv = window.visualViewport
+    if (vv && typeof vv.addEventListener === 'function') {
+      vv.addEventListener('resize', onViewportChange)
+      vv.addEventListener('scroll', onViewportChange)
+      cleanupCallbacks.push(() => {
+        vv.removeEventListener('resize', onViewportChange)
+        vv.removeEventListener('scroll', onViewportChange)
+      })
+    }
+    cleanupCallbacks.push(() => {
+      try {
+        section.style.removeProperty('--services-minerals-vh')
+      } catch (e) {
+        // ignore
+      }
+    })
+  }
+  bindServicesViewportHeight()
 
   // No pin target needed in sticky mode
 

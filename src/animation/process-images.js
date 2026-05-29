@@ -47,9 +47,107 @@ function ensureState() {
       lastFixedRemoved: false,
       prevFirstTop: null,
       prevLastTop: null,
+      processVideoObserver: null,
+      processVideos: [],
     }
   }
   return window.__videoClipSticky
+}
+
+function collectProcessVideos(root = document) {
+  const scope = root && root.querySelector ? root : document
+  const candidates = new Set()
+  try {
+    const directVideos = scope.querySelectorAll('.processes .video video')
+    directVideos.forEach((video) => candidates.add(video))
+    const allProcessVideos = scope.querySelectorAll('.processes video')
+    allProcessVideos.forEach((video) => candidates.add(video))
+  } catch (e) {
+    // ignore
+  }
+  return Array.from(candidates).filter(
+    (video) => video && typeof video.play === 'function'
+  )
+}
+
+function pauseProcessVideo(video) {
+  try {
+    if (video && typeof video.pause === 'function') video.pause()
+  } catch (e) {
+    // ignore
+  }
+}
+
+function playProcessVideo(video) {
+  try {
+    if (!video) return
+    video.muted = true
+    video.playsInline = true
+    video.setAttribute('muted', '')
+    video.setAttribute('playsinline', '')
+    const playPromise = video.play && video.play()
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {})
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function destroyProcessVideosVisibilityObserver() {
+  const state = ensureState()
+  try {
+    if (
+      state.processVideoObserver &&
+      typeof state.processVideoObserver.disconnect === 'function'
+    ) {
+      state.processVideoObserver.disconnect()
+    }
+  } catch (e) {
+    // ignore
+  }
+  try {
+    ;(state.processVideos || []).forEach((video) => pauseProcessVideo(video))
+  } catch (e) {
+    // ignore
+  }
+  state.processVideoObserver = null
+  state.processVideos = []
+}
+
+function initProcessVideosVisibilityObserver(root = document) {
+  destroyProcessVideosVisibilityObserver()
+  if (typeof IntersectionObserver === 'undefined') return
+  const state = ensureState()
+  const videos = collectProcessVideos(root)
+  if (!videos.length) return
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target
+        if (!video || !video.isConnected) return
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
+          playProcessVideo(video)
+        } else {
+          pauseProcessVideo(video)
+        }
+      })
+    },
+    {
+      root: null,
+      rootMargin: '0px 0px -8% 0px',
+      threshold: [0, 0.2, 0.35, 0.6, 1],
+    }
+  )
+
+  videos.forEach((video) => {
+    pauseProcessVideo(video)
+    observer.observe(video)
+  })
+
+  state.processVideoObserver = observer
+  state.processVideos = videos
 }
 
 function getNodeScaleY(node) {
@@ -344,6 +442,7 @@ function stopLoopIfIdle() {
 export function initVideoClipStickyTransform(root = document) {
   const state = ensureState()
   const scope = root && root.querySelector ? root : document
+  initProcessVideosVisibilityObserver(scope)
   // Gestion responsive: désactive sur mobile et réactive au changement de breakpoint
   try {
     if (state.breakpointHandler) {
@@ -524,6 +623,7 @@ export function initVideoClipStickyTransform(root = document) {
 
 export function destroyVideoClipStickyTransform() {
   const state = ensureState()
+  destroyProcessVideosVisibilityObserver()
   try {
     state.items.forEach((it) => {
       if (it && it.el) {

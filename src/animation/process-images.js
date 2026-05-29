@@ -48,7 +48,10 @@ function ensureState() {
       prevFirstTop: null,
       prevLastTop: null,
       processVideoObserver: null,
+      processSectionObserver: null,
       processVideos: [],
+      processVideoVisibility: new Map(),
+      processSectionVisible: false,
     }
   }
   return window.__videoClipSticky
@@ -94,6 +97,32 @@ function playProcessVideo(video) {
   }
 }
 
+function isSectionVisibleInViewport(sectionEl) {
+  if (!sectionEl || !sectionEl.isConnected) return false
+  try {
+    const rect = sectionEl.getBoundingClientRect()
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0
+    if (!vh) return false
+    return rect.bottom > vh * 0.05 && rect.top < vh * 0.95
+  } catch (e) {
+    return false
+  }
+}
+
+function syncProcessVideosPlayback(state) {
+  const sectionVisible = !!state.processSectionVisible
+  ;(state.processVideos || []).forEach((video) => {
+    const videoVisible = !!(
+      state.processVideoVisibility && state.processVideoVisibility.get(video)
+    )
+    if (sectionVisible && videoVisible) {
+      playProcessVideo(video)
+    } else {
+      pauseProcessVideo(video)
+    }
+  })
+}
+
 function destroyProcessVideosVisibilityObserver() {
   const state = ensureState()
   try {
@@ -107,12 +136,25 @@ function destroyProcessVideosVisibilityObserver() {
     // ignore
   }
   try {
+    if (
+      state.processSectionObserver &&
+      typeof state.processSectionObserver.disconnect === 'function'
+    ) {
+      state.processSectionObserver.disconnect()
+    }
+  } catch (e) {
+    // ignore
+  }
+  try {
     ;(state.processVideos || []).forEach((video) => pauseProcessVideo(video))
   } catch (e) {
     // ignore
   }
   state.processVideoObserver = null
+  state.processSectionObserver = null
   state.processVideos = []
+  state.processVideoVisibility = new Map()
+  state.processSectionVisible = false
 }
 
 function initProcessVideosVisibilityObserver(root = document) {
@@ -121,18 +163,42 @@ function initProcessVideosVisibilityObserver(root = document) {
   const state = ensureState()
   const videos = collectProcessVideos(root)
   if (!videos.length) return
+  const sectionEl =
+    (root && root.querySelector && root.querySelector('.section_process')) ||
+    document.querySelector('.section_process')
+  state.processSectionVisible = sectionEl
+    ? isSectionVisibleInViewport(sectionEl)
+    : true
+
+  if (sectionEl) {
+    const sectionObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          state.processSectionVisible =
+            entry.isIntersecting && entry.intersectionRatio >= 0.05
+        })
+        syncProcessVideosPlayback(state)
+      },
+      {
+        root: null,
+        threshold: [0, 0.05, 0.2],
+      }
+    )
+    sectionObserver.observe(sectionEl)
+    state.processSectionObserver = sectionObserver
+  }
 
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         const video = entry.target
         if (!video || !video.isConnected) return
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
-          playProcessVideo(video)
-        } else {
-          pauseProcessVideo(video)
-        }
+        state.processVideoVisibility.set(
+          video,
+          entry.isIntersecting && entry.intersectionRatio >= 0.35
+        )
       })
+      syncProcessVideosPlayback(state)
     },
     {
       root: null,
@@ -142,12 +208,14 @@ function initProcessVideosVisibilityObserver(root = document) {
   )
 
   videos.forEach((video) => {
+    state.processVideoVisibility.set(video, false)
     pauseProcessVideo(video)
     observer.observe(video)
   })
 
   state.processVideoObserver = observer
   state.processVideos = videos
+  syncProcessVideosPlayback(state)
 }
 
 function getNodeScaleY(node) {

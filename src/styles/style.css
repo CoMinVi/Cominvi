@@ -962,11 +962,12 @@ button.maplibregl-ctrl-compass {
 }
 
 @media (max-width: 991px) {
-  [data-barba-namespace='services'].page-wrap {
+  [data-barba-namespace='services' i].page-wrap,
+  [data-barba-namespace='services' i] .page-wrap {
     height: var(--services-minerals-vh, 100svh);
   }
 
-  [data-barba-namespace='services'] .section_minerals .minerals-inner {
+  [data-barba-namespace='services' i] .section_minerals .minerals-inner {
     --services-minerals-safe-bottom: max(
       env(safe-area-inset-bottom, 0px),
       var(--services-minerals-chrome-bottom, 0px)
@@ -979,7 +980,7 @@ button.maplibregl-ctrl-compass {
     padding-bottom: calc(1em + var(--services-minerals-safe-bottom));
   }
 
-  [data-barba-namespace='services'] .section_minerals .minerals_left {
+  [data-barba-namespace='services' i] .section_minerals .minerals_left {
     padding-top: 0;
     width: 100%;
     height: 100%;
@@ -988,7 +989,7 @@ button.maplibregl-ctrl-compass {
     padding-bottom: var(--services-minerals-safe-bottom);
   }
 
-  [data-barba-namespace='services'] .section_minerals .minerals-list {
+  [data-barba-namespace='services' i] .section_minerals .minerals-list {
     padding-bottom: var(--services-minerals-safe-bottom);
   }
 }

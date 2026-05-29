@@ -362,6 +362,7 @@ export function initMap(root = document) {
       })
       // Button takes over all marker interactions
       btn.addEventListener('mouseenter', () => {
+        if (shouldBlockMapInteraction()) return
         const pointKey = markerToPoint.get(markerEl)
         if (!pointKey) return
         highlightPointAndRegion(pointKey)
@@ -371,6 +372,7 @@ export function initMap(root = document) {
         if (isMobileOnlyNow()) slideToPoint(pointKey)
       })
       btn.addEventListener('mouseleave', () => {
+        if (shouldBlockMapInteraction()) return
         const currentOverlays = (scope || document).querySelector(
           '.projects_overlays'
         )
@@ -379,6 +381,7 @@ export function initMap(root = document) {
         reapplyActiveMarker()
       })
       btn.addEventListener('click', (ev) => {
+        if (shouldBlockMapInteraction()) return
         ev.preventDefault()
         ev.stopPropagation()
         const pointKey = markerToPoint.get(markerEl)
@@ -625,6 +628,30 @@ export function initMap(root = document) {
   let hoveredCardPointKey = null
   let isDescriptionAnimationInProgress = false
   let pinnedDescriptionPointKey = null
+  let isMapInteractionLocked = false
+
+  const shouldBlockMapInteraction = () =>
+    isDescriptionAnimationInProgress || isMapInteractionLocked
+
+  const setMapInteractionLocked = (locked) => {
+    try {
+      isMapInteractionLocked = !!locked
+      markerToButton.forEach((btn) => {
+        if (!btn || !btn.style) return
+        btn.style.pointerEvents = locked ? 'none' : 'auto'
+      })
+      markers.forEach((markerEl) => {
+        if (!markerEl || !markerEl.style) return
+        markerEl.style.pointerEvents = locked ? 'none' : ''
+      })
+      regions.forEach((regionEl) => {
+        if (!regionEl || !regionEl.style) return
+        regionEl.style.pointerEvents = locked ? 'none' : ''
+      })
+    } catch (e) {
+      // ignore
+    }
+  }
 
   const getHoveredCardPointKey = () => {
     try {
@@ -720,6 +747,7 @@ export function initMap(root = document) {
   initProjectCardReadMore(scope, {
     onDescriptionAnimationStart: () => {
       isDescriptionAnimationInProgress = true
+      setMapInteractionLocked(true)
       pinnedDescriptionPointKey =
         hoveredCardPointKey || getHoveredCardPointKey() || selectedPointKey
       if (pinnedDescriptionPointKey) {
@@ -732,6 +760,7 @@ export function initMap(root = document) {
       isDescriptionAnimationInProgress = false
       pinnedDescriptionPointKey = null
       reapplyActiveMarker()
+      window.requestAnimationFrame(() => setMapInteractionLocked(false))
     },
   })
 
@@ -1026,6 +1055,7 @@ export function initMap(root = document) {
     }
     markers.forEach((markerEl) => {
       markerEl.addEventListener('mouseenter', () => {
+        if (shouldBlockMapInteraction()) return
         if (!isDesktopOrTablet()) return
         const pointKey = markerToPoint.get(markerEl)
         if (!pointKey) return
@@ -1039,6 +1069,7 @@ export function initMap(root = document) {
 
   regions.forEach((regionEl) => {
     regionEl.addEventListener('mouseenter', () => {
+      if (shouldBlockMapInteraction()) return
       // Only region highlight per spec
       const id = regionEl.id || ''
       const m = id.match(/^region-(.+)$/)
@@ -1047,6 +1078,7 @@ export function initMap(root = document) {
       else resetRegions()
     })
     regionEl.addEventListener('mouseleave', () => {
+      if (shouldBlockMapInteraction()) return
       reapplyActiveMarker()
     })
   })
@@ -1069,6 +1101,7 @@ export function initMap(root = document) {
 
   projectItems.forEach((cardEl) => {
     cardEl.addEventListener('mouseenter', () => {
+      if (shouldBlockMapInteraction()) return
       if (isTouchOrSmallNow()) return
       const pointKey = cardEl?.dataset?.point
         ? String(cardEl.dataset.point)
@@ -1078,6 +1111,7 @@ export function initMap(root = document) {
       syncMarkerVisualState()
     })
     cardEl.addEventListener('mouseleave', () => {
+      if (shouldBlockMapInteraction()) return
       if (isTouchOrSmallNow()) return
       if (isDescriptionAnimationInProgress) return
       const currentOverlays = (scope || document).querySelector(
@@ -1097,6 +1131,7 @@ export function initMap(root = document) {
       })
     })
     cardEl.addEventListener('click', (ev) => {
+      if (shouldBlockMapInteraction()) return
       try {
         if (
           ev.target &&

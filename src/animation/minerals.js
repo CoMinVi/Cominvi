@@ -26,11 +26,23 @@ export function initMinerals(root = document) {
   const darkSvg = content.querySelector('.circle.is-2')
   if (!darkSvg) return null
   const cleanupCallbacks = []
-  const isServicesNamespace = !!section.closest(
-    '[data-barba-namespace="services"]'
+  const namespaceContainer = section.closest(
+    '[data-barba="container"], [data-barba-namespace]'
   )
-  const servicesContainer = isServicesNamespace
-    ? section.closest('[data-barba-namespace="services"]')
+  const namespaceValue = (
+    namespaceContainer?.getAttribute?.('data-barba-namespace') || ''
+  )
+    .trim()
+    .toLowerCase()
+  const isServicesNamespace = namespaceValue.includes('service')
+  const servicesContainer = isServicesNamespace ? namespaceContainer : null
+  const servicesPageWrap = isServicesNamespace
+    ? section.closest('.page-wrap') ||
+      (servicesContainer &&
+      servicesContainer.classList &&
+      servicesContainer.classList.contains('page-wrap')
+        ? servicesContainer
+        : servicesContainer?.querySelector?.('.page-wrap') || null)
     : null
 
   const syncServicesViewportHeight = () => {
@@ -43,21 +55,18 @@ export function initMinerals(root = document) {
       // On iOS/Android mobile browsers, bottom chrome can still overlap sticky content.
       // We expose it as a CSS var so Services minerals can add extra breathing room.
       const chromeBottomPx = Math.max(0, Math.round(window.innerHeight - vh))
-      section.style.setProperty('--services-minerals-vh', `${roundedVh}px`)
-      section.style.setProperty(
-        '--services-minerals-chrome-bottom',
-        `${chromeBottomPx}px`
+      const vars = [
+        ['--services-minerals-vh', `${roundedVh}px`],
+        ['--services-minerals-chrome-bottom', `${chromeBottomPx}px`],
+      ]
+      const targets = [section, servicesContainer, servicesPageWrap].filter(
+        (node, idx, arr) => node && arr.indexOf(node) === idx
       )
-      if (servicesContainer && servicesContainer !== section) {
-        servicesContainer.style.setProperty(
-          '--services-minerals-vh',
-          `${roundedVh}px`
-        )
-        servicesContainer.style.setProperty(
-          '--services-minerals-chrome-bottom',
-          `${chromeBottomPx}px`
-        )
-      }
+      targets.forEach((target) => {
+        vars.forEach(([prop, value]) => {
+          target.style.setProperty(prop, value)
+        })
+      })
     } catch (e) {
       // ignore
     }
@@ -91,14 +100,16 @@ export function initMinerals(root = document) {
     }
     cleanupCallbacks.push(() => {
       try {
-        section.style.removeProperty('--services-minerals-vh')
-        section.style.removeProperty('--services-minerals-chrome-bottom')
-        if (servicesContainer && servicesContainer !== section) {
-          servicesContainer.style.removeProperty('--services-minerals-vh')
-          servicesContainer.style.removeProperty(
-            '--services-minerals-chrome-bottom'
-          )
-        }
+        const props = [
+          '--services-minerals-vh',
+          '--services-minerals-chrome-bottom',
+        ]
+        const targets = [section, servicesContainer, servicesPageWrap].filter(
+          (node, idx, arr) => node && arr.indexOf(node) === idx
+        )
+        targets.forEach((target) => {
+          props.forEach((prop) => target.style.removeProperty(prop))
+        })
       } catch (e) {
         // ignore
       }

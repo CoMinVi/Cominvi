@@ -199,6 +199,17 @@ function bindProjectReadMoreButton(button, textEl, options = {}) {
   }
 }
 
+function syncProjectReadMoreTypography(button, textEl) {
+  if (!button || !textEl || typeof window === 'undefined') return
+  try {
+    const computed = window.getComputedStyle(textEl)
+    if (!computed) return
+    if (computed.fontSize) button.style.fontSize = computed.fontSize
+  } catch (e) {
+    // ignore
+  }
+}
+
 function syncProjectCardReadMore(root = document, options = {}) {
   const scope = root && root.querySelector ? root : document
   const descriptions = Array.from(
@@ -223,6 +234,7 @@ function syncProjectCardReadMore(root = document, options = {}) {
     }
 
     bindProjectReadMoreButton(button, textEl, options)
+    syncProjectReadMoreTypography(button, textEl)
 
     const shouldShowButton = hasClampedOverflow(textEl)
     button.hidden = !shouldShowButton
@@ -781,6 +793,8 @@ export function initMap(root = document) {
   }
 
   let hoveredCardPointKey = null
+  let isDescriptionAnimationInProgress = false
+  let pinnedDescriptionPointKey = null
 
   const getHoveredCardPointKey = () => {
     try {
@@ -798,8 +812,11 @@ export function initMap(root = document) {
 
   const syncMarkerVisualState = () => {
     try {
+      const pinnedPk = isDescriptionAnimationInProgress
+        ? pinnedDescriptionPointKey
+        : null
       const hoverPk = hoveredCardPointKey || getHoveredCardPointKey()
-      const pk = hoverPk || selectedPointKey
+      const pk = pinnedPk || hoverPk || selectedPointKey
       if (!pk) {
         resetMarkers()
         resetRegions()
@@ -871,8 +888,21 @@ export function initMap(root = document) {
   }
 
   initProjectCardReadMore(scope, {
-    onDescriptionAnimationStart: () => reapplyActiveMarker(),
-    onDescriptionAnimationComplete: () => reapplyActiveMarker(),
+    onDescriptionAnimationStart: () => {
+      isDescriptionAnimationInProgress = true
+      pinnedDescriptionPointKey =
+        hoveredCardPointKey || getHoveredCardPointKey() || selectedPointKey
+      if (pinnedDescriptionPointKey) {
+        highlightPointAndRegion(pinnedDescriptionPointKey)
+      } else {
+        reapplyActiveMarker()
+      }
+    },
+    onDescriptionAnimationComplete: () => {
+      isDescriptionAnimationInProgress = false
+      pinnedDescriptionPointKey = null
+      reapplyActiveMarker()
+    },
   })
 
   const highlightRegionByName = (regionKey) => {
@@ -935,7 +965,7 @@ export function initMap(root = document) {
         grabCursor: true,
         touchStartPreventDefault: false,
         passiveListeners: false,
-        touchEventsTarget: 'container',
+        touchEventsTarget: 'wrapper',
         // Keep taps on "Show more" / description from being swallowed as swipes
         preventClicks: false,
         preventClicksPropagation: false,
@@ -1236,6 +1266,7 @@ export function initMap(root = document) {
     })
     cardEl.addEventListener('mouseleave', () => {
       if (isTouchOrSmallNow()) return
+      if (isDescriptionAnimationInProgress) return
       const currentOverlays = (scope || document).querySelector(
         '.projects_overlays'
       )

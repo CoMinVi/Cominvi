@@ -90,8 +90,11 @@
 
 .marker.highlight circle {
   fill: #ff9345;
+  opacity: 1;
+  visibility: visible;
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.5))
     drop-shadow(0 0 5px #ff8832) drop-shadow(0 0 12px #ff8832);
+  transition: fill 0.3s ease-out, filter 0.3s ease-out, opacity 0.3s ease-out;
 }
 
 .marker.highlight rect {
@@ -100,10 +103,13 @@
 
 .marker,
 .marker.highlight,
-.marker.dimmed,
-.marker.highlight rect {
-  transition: all 0.5s ease-out;
+.marker.dimmed {
+  transition: opacity 0.5s ease-out;
   opacity: 1;
+}
+
+.marker.highlight rect {
+  transition: fill-opacity 0.5s ease-out;
 }
 
 .marker.dimmed {

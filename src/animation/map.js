@@ -145,7 +145,12 @@ function bindProjectReadMoreButton(button, textEl, options = {}) {
       button.__projectReadMorePointerHandled = false
       return
     }
-    if (ev.type === 'pointerup' && ev.button !== 0) return
+    if (
+      ev.type === 'pointerup' &&
+      ev.pointerType === 'mouse' &&
+      ev.button !== 0
+    )
+      return
 
     const now = Date.now()
     if (now - lastActivateAt < 400) return
@@ -182,6 +187,9 @@ function bindProjectReadMoreButton(button, textEl, options = {}) {
       window.matchMedia('(pointer: coarse)').matches
     ) {
       button.addEventListener('pointerup', (ev) => {
+        const isPrimaryLikePointer =
+          ev.pointerType !== 'mouse' || ev.button === 0
+        if (!isPrimaryLikePointer) return
         button.__projectReadMorePointerHandled = true
         handleActivate(ev)
       })
@@ -725,7 +733,7 @@ export function initMap(root = document) {
   }
 
   // GSAP scale/opacity on cards conflicts with Swiper touch transforms on mobile
-  const shouldAnimateProjectCardOnSlide = () => !isMobileOnlyNow()
+  const shouldAnimateProjectCardOnSlide = () => !isTouchOrSmallNow()
 
   const resetProjectCardTransforms = (card) => {
     if (!card) return
@@ -762,6 +770,7 @@ export function initMap(root = document) {
   }
 
   const dimNonActiveMarkers = (pointKey) => {
+    if (isTouchOrSmallNow()) return
     markers.forEach((m) => {
       const mkPoint = markerToPoint.get(m)
       if (mkPoint && mkPoint !== pointKey) {
@@ -930,7 +939,7 @@ export function initMap(root = document) {
         // Keep taps on "Show more" / description from being swallowed as swipes
         preventClicks: false,
         preventClicksPropagation: false,
-        noSwipingSelector: `.${PROJECT_READ_MORE_CLASS}, .project-card_infos-col.is-left`,
+        noSwipingSelector: `.${PROJECT_READ_MORE_CLASS}`,
         threshold: 0,
         mousewheel: {
           enabled: true,
@@ -1092,11 +1101,18 @@ export function initMap(root = document) {
           resetAllProjectCardTransforms()
         }
       }
+      const syncTouchMarkerState = () => {
+        if (!isTouchOrSmallNow()) return
+        hoveredCardPointKey = null
+        if (selectedPointKey) highlightPointAndRegion(selectedPointKey)
+      }
       syncPointerControls()
       syncMobileProjectCards()
+      syncTouchMarkerState()
       window.addEventListener('resize', () => {
         syncPointerControls()
         syncMobileProjectCards()
+        syncTouchMarkerState()
       })
     }
   } catch (e) {

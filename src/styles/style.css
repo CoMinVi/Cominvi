@@ -763,8 +763,8 @@ html[data-menu-open='true'] .service-card .desc .line-inner {
   touch-action: manipulation;
 }
 
-/* Webflow sets pointer-events:none on .project-card_infos at ≤767px for swipe */
-@media (max-width: 767px) {
+/* Webflow sets pointer-events:none on .project-card_infos at mobile breakpoints */
+@media (max-width: 991px) {
   .swiper.projects-wrapper .project-card_infos-col.is-left {
     pointer-events: auto;
   }
@@ -783,6 +783,22 @@ html[data-menu-open='true'] .service-card .desc .line-inner {
   .swiper.projects-wrapper .project-card {
     opacity: 1 !important;
     transform: none !important;
+  }
+}
+
+/* Tablet / desktop-mobile-large: keep cards anchored to bottom during read-more */
+@media (min-width: 768px) and (max-width: 991px) {
+  .cards-wrapper {
+    justify-content: flex-end;
+    align-items: flex-end;
+  }
+
+  .projects-list.swiper-wrapper {
+    align-items: flex-end;
+  }
+
+  .project-item.swiper-slide {
+    align-items: flex-end;
   }
 }
 

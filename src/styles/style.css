@@ -961,6 +961,38 @@ button.maplibregl-ctrl-compass {
   }
 }
 
+@media (max-width: 991px) {
+  [data-barba-namespace='services'].page-wrap {
+    height: var(--services-minerals-vh, 100svh);
+  }
+
+  [data-barba-namespace='services'] .section_minerals .minerals-inner {
+    --services-minerals-safe-bottom: max(
+      env(safe-area-inset-bottom, 0px),
+      var(--services-minerals-chrome-bottom, 0px)
+    );
+    box-sizing: border-box;
+    height: auto;
+    min-height: calc(
+      var(--services-minerals-vh, 100svh) + var(--services-minerals-safe-bottom)
+    );
+    padding-bottom: calc(1em + var(--services-minerals-safe-bottom));
+  }
+
+  [data-barba-namespace='services'] .section_minerals .minerals_left {
+    padding-top: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: visible;
+    padding-bottom: var(--services-minerals-safe-bottom);
+  }
+
+  [data-barba-namespace='services'] .section_minerals .minerals-list {
+    padding-bottom: var(--services-minerals-safe-bottom);
+  }
+}
+
 /* Hide machines sections on mobile and large mobile */
 @media (max-width: 767px) {
   .page-wrap,
@@ -1067,29 +1099,6 @@ button.maplibregl-ctrl-compass {
 
   .minerals-inner > .col-3 {
     order: 3;
-  }
-
-  /* Our Services: markup lacks .minerals_left-wrap used on Home */
-  [data-barba-namespace='services'] .section_minerals .minerals_left {
-    padding-top: 0;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    overflow: visible;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-bottom: constant(safe-area-inset-bottom);
-  }
-
-  [data-barba-namespace='services'] .section_minerals .minerals-inner {
-    height: var(--services-minerals-vh, 100svh);
-    min-height: var(--services-minerals-vh, 100svh);
-    padding-bottom: calc(1em + env(safe-area-inset-bottom, 0px));
-    padding-bottom: calc(1em + constant(safe-area-inset-bottom));
-  }
-
-  [data-barba-namespace='services'] .section_minerals .minerals-list {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-bottom: constant(safe-area-inset-bottom);
   }
 }
 

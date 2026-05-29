@@ -29,6 +29,9 @@ export function initMinerals(root = document) {
   const isServicesNamespace = !!section.closest(
     '[data-barba-namespace="services"]'
   )
+  const servicesContainer = isServicesNamespace
+    ? section.closest('[data-barba-namespace="services"]')
+    : null
 
   const syncServicesViewportHeight = () => {
     if (!isServicesNamespace) return
@@ -36,7 +39,25 @@ export function initMinerals(root = document) {
       const vv = window.visualViewport
       const vh = vv && vv.height ? vv.height : window.innerHeight
       if (!vh || !Number.isFinite(vh)) return
-      section.style.setProperty('--services-minerals-vh', `${Math.round(vh)}px`)
+      const roundedVh = Math.round(vh)
+      // On iOS/Android mobile browsers, bottom chrome can still overlap sticky content.
+      // We expose it as a CSS var so Services minerals can add extra breathing room.
+      const chromeBottomPx = Math.max(0, Math.round(window.innerHeight - vh))
+      section.style.setProperty('--services-minerals-vh', `${roundedVh}px`)
+      section.style.setProperty(
+        '--services-minerals-chrome-bottom',
+        `${chromeBottomPx}px`
+      )
+      if (servicesContainer && servicesContainer !== section) {
+        servicesContainer.style.setProperty(
+          '--services-minerals-vh',
+          `${roundedVh}px`
+        )
+        servicesContainer.style.setProperty(
+          '--services-minerals-chrome-bottom',
+          `${chromeBottomPx}px`
+        )
+      }
     } catch (e) {
       // ignore
     }
@@ -71,6 +92,13 @@ export function initMinerals(root = document) {
     cleanupCallbacks.push(() => {
       try {
         section.style.removeProperty('--services-minerals-vh')
+        section.style.removeProperty('--services-minerals-chrome-bottom')
+        if (servicesContainer && servicesContainer !== section) {
+          servicesContainer.style.removeProperty('--services-minerals-vh')
+          servicesContainer.style.removeProperty(
+            '--services-minerals-chrome-bottom'
+          )
+        }
       } catch (e) {
         // ignore
       }

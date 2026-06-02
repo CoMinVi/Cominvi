@@ -366,29 +366,6 @@ export function slideScaleEnter({ next }) {
   tl.addLabel('lift', liftStart)
   tl.addLabel('descale', descaleStart)
 
-  // Ensure menu-icon shows a primary border during the first phase (before descale)
-  tl.call(
-    () => {
-      try {
-        const el = document.querySelector('.menu-icon')
-        const bars = document.querySelectorAll('.menu-icon_bar')
-        if (el) {
-          gsap.set(el, { borderColor: 'var(--primary)', overwrite: 'auto' })
-        }
-        if (bars && bars.length) {
-          gsap.set(bars, {
-            backgroundColor: 'var(--primary)',
-            overwrite: 'auto',
-          })
-        }
-      } catch (e) {
-        // ignore
-      }
-    },
-    [],
-    0
-  )
-
   // Ensure the mask is applied to destination as soon as it appears (t=0)
   tl.call(
     () => {
@@ -621,7 +598,25 @@ export function slideScaleEnter({ next }) {
     [],
     'descale'
   )
-  // Apply destination theme only during descale (keep 'menu' theme until then)
+  // Pre-compute destination theme key early so color tween can start during lift.
+  tl.call(
+    () => {
+      try {
+        if (
+          window.__theme &&
+          typeof window.__theme.setDestination === 'function'
+        ) {
+          window.__theme.setDestination(next && next.container)
+        }
+      } catch (err) {
+        // ignore
+      }
+    },
+    [],
+    'lift'
+  )
+
+  // Apply destination theme during descale so the last color change is synchronous with descale.
   tl.call(
     () => {
       try {
@@ -644,12 +639,6 @@ export function slideScaleEnter({ next }) {
         }
         if (
           window.__theme &&
-          typeof window.__theme.setDestination === 'function'
-        ) {
-          window.__theme.setDestination(next && next.container)
-        }
-        if (
-          window.__theme &&
           typeof window.__theme.applyDestination === 'function'
         ) {
           window.__theme.applyDestination(false)
@@ -661,7 +650,7 @@ export function slideScaleEnter({ next }) {
     [],
     'descale'
   )
-  // Animate menu icon back to closed state while destination page descales
+  // Animate menu icon geometry back to closed state while destination page descales
   const menuIconElement = document.querySelector('.menu-icon')
   const menuIconBar1 = document.querySelector(
     '.menu-icon_bar.is-1, .menu-icon_bar .is-1'
@@ -685,7 +674,6 @@ export function slideScaleEnter({ next }) {
     tl.to(
       menuIconBar1,
       {
-        backgroundColor: 'var(--primary)',
         rotation: 0,
         yPercent: 0,
         top: '42%',
@@ -699,7 +687,6 @@ export function slideScaleEnter({ next }) {
     tl.to(
       menuIconBar2,
       {
-        backgroundColor: 'var(--primary)',
         rotation: 0,
         yPercent: 0,
         bottom: '42%',

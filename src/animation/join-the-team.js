@@ -372,8 +372,6 @@ function initEquitySlider(section) {
   if (!section) return
   const column = section.querySelector('.equity-slider_slide_column')
   if (!column) return
-  const stage =
-    section.closest('.equity-stage') || section.querySelector('.equity-stage')
 
   gsap.set(column, { yPercent: 0 })
 
@@ -455,12 +453,18 @@ function initEquitySlider(section) {
     tl.to(labels, { yPercent: -100, duration: 0.8 }, 0)
   }
 
+  const equityStage =
+    section.closest('.equity-stage') ||
+    section.querySelector('.equity-stage') ||
+    section
+
   ScrollTrigger.create({
-    trigger: stage || section,
-    start: () => `top ${Math.round(window.innerHeight * 0.1)}px`,
+    trigger: equityStage,
+    animation: tl,
+    start: 'center 50%',
+    end: 'center 50%',
     invalidateOnRefresh: true,
-    once: true,
-    onEnter: () => tl.play(),
+    toggleActions: 'play none none reverse',
   })
 }
 

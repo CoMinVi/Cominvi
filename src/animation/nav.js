@@ -670,6 +670,27 @@ export function initializeMenuClick(options = {}, root = document) {
     } catch (err) {
       // ignore
     }
+    // If a menu timeline is in-flight, toggle direction instead of killing/rebuilding.
+    // This follows GSAP reversible timeline best-practice for rapid open/close taps.
+    try {
+      if (
+        currentMenuTl &&
+        typeof currentMenuTl.isActive === 'function' &&
+        currentMenuTl.isActive()
+      ) {
+        if (
+          typeof currentMenuTl.reversed === 'function' &&
+          currentMenuTl.reversed()
+        ) {
+          currentMenuTl.play()
+        } else {
+          currentMenuTl.reverse()
+        }
+        return
+      }
+    } catch (e) {
+      // ignore and fallback to standard flow
+    }
     // Kill any ongoing timeline/tweens to make animation re-entrant
     try {
       if (currentMenuTl) {
@@ -702,17 +723,12 @@ export function initializeMenuClick(options = {}, root = document) {
       // ignore
     }
 
-    // Apply theme instantly based on intended state to avoid flickers
+    // Apply theme instantly only on opening; closing is animated in timeline.
     try {
       if (intendedOpen) {
         if (window.__theme && typeof window.__theme.menuOpen === 'function') {
           window.__theme.menuOpen()
         }
-      } else if (
-        window.__theme &&
-        typeof window.__theme.menuCloseSamePage === 'function'
-      ) {
-        window.__theme.menuCloseSamePage()
       }
     } catch (e) {
       // ignore
@@ -943,6 +959,85 @@ export function initializeMenuClick(options = {}, root = document) {
         }
         currentMenuTl = null
       },
+      onReverseComplete: () => {
+        // Important when user reverses an in-flight toggle:
+        // keep DOM/state flags coherent at timeline start.
+        try {
+          if (!wasOpen) {
+            // We were opening and reversed back to closed.
+            isOpen = false
+            document.documentElement.setAttribute('data-menu-open', 'false')
+            if (brandLink) brandLink.setAttribute('pt-inner', '')
+            unlockPageWrapFixed()
+            try {
+              if (
+                window.__theme &&
+                typeof window.__theme.setIconThemeSuppressed === 'function'
+              ) {
+                window.__theme.setIconThemeSuppressed(false)
+              }
+            } catch (e) {
+              // ignore
+            }
+            try {
+              if (
+                window.__theme &&
+                typeof window.__theme.menuCloseSamePage === 'function'
+              ) {
+                window.__theme.menuCloseSamePage()
+              }
+            } catch (e) {
+              // ignore
+            }
+            try {
+              if (menuIconElement && menuIconElement.dataset)
+                delete menuIconElement.dataset.bgLocked
+            } catch (e) {
+              // ignore
+            }
+            try {
+              const targetKey =
+                (window.__theme && window.__theme.storedKey) || 'white'
+              const theme =
+                window.__theme && window.__theme.getThemeFor
+                  ? window.__theme.getThemeFor(targetKey)
+                  : {}
+              if (menuIconElement) {
+                gsap.set(menuIconElement, {
+                  backgroundColor: theme.menuIconBg,
+                  borderColor: theme.menuIconBorder,
+                  overwrite: 'auto',
+                })
+              }
+              if (menuIconBars && menuIconBars.length) {
+                gsap.set(menuIconBars, {
+                  backgroundColor: theme.menuIconBarsBg,
+                  overwrite: 'auto',
+                })
+              }
+            } catch (e) {
+              // ignore
+            }
+          } else {
+            // We were closing and reversed back to opened.
+            isOpen = true
+            document.documentElement.setAttribute('data-menu-open', 'true')
+            if (brandLink) brandLink.removeAttribute('pt-inner')
+            lockPageWrapAsFixed()
+            try {
+              if (menuIconElement && menuIconElement.dataset) {
+                menuIconElement.dataset.bgLocked = 'open'
+              }
+              applyMenuThemeToIconInline()
+            } catch (e) {
+              // ignore
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+        currentMenuTl = null
+      },
     })
     // Also handle interruption (e.g., rapid re-click) cleanly
     try {
@@ -969,13 +1064,15 @@ export function initializeMenuClick(options = {}, root = document) {
         0
       )
       try {
-        menuIconElement.dataset.bgLocked = 'open'
-        applyMenuThemeToIconInline()
+        if (!wasOpen) {
+          menuIconElement.dataset.bgLocked = 'open'
+          applyMenuThemeToIconInline()
+        }
       } catch (e) {
         // ignore
       }
       // Ensure the bars land on the menu theme without intermediate colors
-      if (menuIconBars && menuIconBars.length) {
+      if (!wasOpen && menuIconBars && menuIconBars.length) {
         const menuTheme = getMenuTheme()
         tl.set(
           menuIconBars,
@@ -1037,11 +1134,13 @@ export function initializeMenuClick(options = {}, root = document) {
             ? window.__theme.getThemeFor(targetKey)
             : {}
         if (menuIconElement) {
-          tl.set(
+          tl.to(
             menuIconElement,
             {
               backgroundColor: theme.menuIconBg,
               borderColor: theme.menuIconBorder,
+              duration: animationDuration,
+              ease: easeCurve,
               overwrite: 'auto',
             },
             0
@@ -1052,6 +1151,8 @@ export function initializeMenuClick(options = {}, root = document) {
             menuIconBars,
             {
               backgroundColor: theme.menuIconBarsBg,
+              duration: animationDuration,
+              ease: easeCurve,
               overwrite: 'auto',
             },
             0
@@ -1537,6 +1638,64 @@ export function addMenuLinksCloseToTimeline(tl, label = 'lift') {
 export function initializeThemeController() {
   if (!ENABLE_NAV_THEME_SWITCHER) {
     const fallbackThemes = (themeBase && themeBase.themes) || {}
+    const tr = (themeBase && themeBase.transition) || { duration: 0.5 }
+    const normalizeThemeKey = (key) => {
+      const raw = String(key || 'white').toLowerCase()
+      return fallbackThemes[raw] ? raw : 'white'
+    }
+    const resolveThemeKeyFromRoot = (root = document) => {
+      try {
+        const scope = root && root.querySelector ? root : document
+        const firstSection = scope.querySelector('[bg]')
+        if (!firstSection) return 'white'
+        return normalizeThemeKey(firstSection.getAttribute('bg') || 'white')
+      } catch (e) {
+        return 'white'
+      }
+    }
+    const applyMenuIconTheme = (key, instant = false) => {
+      try {
+        const theme = fallbackThemes[key] || fallbackThemes.white || {}
+        const icon = document.querySelector('.menu-icon')
+        const bars = document.querySelectorAll('.menu-icon_bar')
+        if (icon) {
+          if (instant) {
+            gsap.set(icon, {
+              borderColor: theme.menuIconBorder,
+              backgroundColor: theme.menuIconBg,
+              overwrite: 'auto',
+            })
+          } else {
+            gsap.to(icon, {
+              borderColor: theme.menuIconBorder,
+              backgroundColor: theme.menuIconBg,
+              ...tr,
+              overwrite: 'auto',
+            })
+          }
+        }
+        if (bars && bars.length) {
+          if (instant) {
+            gsap.set(bars, {
+              backgroundColor: theme.menuIconBarsBg,
+              overwrite: 'auto',
+            })
+          } else {
+            gsap.to(bars, {
+              backgroundColor: theme.menuIconBarsBg,
+              ...tr,
+              overwrite: 'auto',
+            })
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    let currentKey = resolveThemeKeyFromRoot(document)
+    let activeKey = currentKey
+    let destinationKey = currentKey
+    let storedKey = currentKey
     try {
       const scroller = document.querySelector('.page-wrap')
       if (
@@ -1563,26 +1722,61 @@ export function initializeThemeController() {
 
     window.__theme = {
       get currentKey() {
-        return 'white'
+        return currentKey
       },
       get activeKey() {
-        return 'white'
+        return activeKey
       },
       get destinationKey() {
-        return 'white'
+        return destinationKey
       },
       get storedKey() {
-        return 'white'
+        return storedKey
       },
       getThemeFor: (key) => fallbackThemes[key] || fallbackThemes.white || {},
       setIconThemeSuppressed: () => {},
-      setDestination: () => 'white',
-      apply: () => {},
-      applyDestination: () => {},
-      compute: () => 'white',
-      menuOpen: () => {},
-      menuCloseSamePage: () => {},
-      bindScroll: () => {},
+      setDestination: (rootContainer = document) => {
+        destinationKey = resolveThemeKeyFromRoot(rootContainer)
+        return destinationKey
+      },
+      apply: (key, instant = false) => {
+        const resolved = normalizeThemeKey(key)
+        currentKey = resolved
+        activeKey = resolved
+        storedKey = resolved
+        applyMenuIconTheme(resolved, !!instant)
+      },
+      applyDestination: (instant = false) => {
+        currentKey = normalizeThemeKey(destinationKey)
+        activeKey = currentKey
+        storedKey = currentKey
+        applyMenuIconTheme(currentKey, !!instant)
+      },
+      compute: () => resolveThemeKeyFromRoot(document),
+      menuOpen: () => {
+        currentKey = 'menu'
+        activeKey = 'menu'
+        applyMenuIconTheme('menu', true)
+      },
+      menuCloseSamePage: () => {
+        const resolved = resolveThemeKeyFromRoot(document)
+        currentKey = resolved
+        activeKey = resolved
+        storedKey = resolved
+        applyMenuIconTheme(resolved, false)
+      },
+      bindScroll: (root = document) => {
+        const resolved = resolveThemeKeyFromRoot(root)
+        currentKey = resolved
+        activeKey = resolved
+        storedKey = resolved
+        applyMenuIconTheme(resolved, true)
+      },
+    }
+    try {
+      window.__theme.bindScroll(document)
+    } catch (e) {
+      // ignore
     }
     return
   }

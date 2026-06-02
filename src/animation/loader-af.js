@@ -432,16 +432,40 @@ function createActiveFrameSequenceController(backgroundInner) {
   let rafToken = 0
   let resizeEndTimer = 0
   let hasRenderedAfFrame = false
+  let scrollHysteresisFrame = null
+  const SCROLL_FRAME_HYSTERESIS = 0.2
+
+  const resolveScrollFrameFromProgress = (progress) => {
+    if (!totalFrames) return 0
+    const p = Math.max(0, Math.min(Number(progress) || 0, 1))
+    const end = Math.max(0, totalFrames - 1)
+    const raw = introEndIndex + p * (end - introEndIndex)
+
+    if (scrollHysteresisFrame == null) {
+      scrollHysteresisFrame = Math.floor(raw + 1e-6)
+      return scrollHysteresisFrame
+    }
+
+    let next = scrollHysteresisFrame
+
+    // Schmitt trigger on frame boundaries to avoid slow-scroll N<->N-1 jitter.
+    if (raw >= scrollHysteresisFrame + 1 + SCROLL_FRAME_HYSTERESIS) {
+      next = Math.floor(raw - SCROLL_FRAME_HYSTERESIS + 1e-6)
+    } else if (raw < scrollHysteresisFrame - SCROLL_FRAME_HYSTERESIS) {
+      next = Math.floor(raw + SCROLL_FRAME_HYSTERESIS + 1e-6)
+    }
+
+    next = Math.max(introEndIndex, Math.min(end, next))
+    scrollHysteresisFrame = next
+    return next
+  }
 
   const syncRequestedFrameFromScroll = () => {
     try {
       const st = window.__homeSequenceScrollTrigger
       if (!st || !totalFrames) return
       const progress = Math.max(0, Math.min(Number(st.progress) || 0, 1))
-      const end = Math.max(0, totalFrames - 1)
-      requestedFrame = Math.round(
-        introEndIndex + progress * (end - introEndIndex)
-      )
+      requestedFrame = resolveScrollFrameFromProgress(progress)
     } catch (e) {
       // ignore
     }
@@ -517,14 +541,13 @@ function createActiveFrameSequenceController(backgroundInner) {
     if (!totalFrames) return
     const p = Math.max(0, Math.min(progress, 1))
     const frame = Math.round(p * introEndIndex)
+    scrollHysteresisFrame = null
     requestFrame(frame)
   }
 
   const setScrollProgress = (progress) => {
     if (!totalFrames) return
-    const p = Math.max(0, Math.min(progress, 1))
-    const end = Math.max(0, totalFrames - 1)
-    const frame = Math.round(introEndIndex + p * (end - introEndIndex))
+    const frame = resolveScrollFrameFromProgress(progress)
     requestFrame(frame)
   }
 
@@ -672,6 +695,16 @@ function beginScrollDrivenSequence(sequenceController) {
 function initScrollDrivenSequence(sequenceController) {
   const scroller = getHomeSequenceScroller()
   const trigger = scroller === window ? document.documentElement : scroller
+  const hasLenisDriver =
+    !!window.lenis &&
+    typeof window.lenis.on === 'function' &&
+    typeof window.lenis.off === 'function'
+
+  const applyLenisProgress = (rawScroll) => {
+    const distance = window.innerHeight * (SCROLL_RANGE_VH / 100)
+    const progress = Math.max(0, Math.min((rawScroll || 0) / distance, 1))
+    sequenceController.setScrollProgress(progress)
+  }
 
   window.__homeSequenceScrollTrigger = ScrollTrigger.create({
     trigger,
@@ -680,10 +713,19 @@ function initScrollDrivenSequence(sequenceController) {
     end: () => `+=${SCROLL_RANGE_VH}vh`,
     scrub: 0.15,
     onUpdate: (self) => {
+      if (hasLenisDriver) return
       sequenceController.setScrollProgress(self.progress)
     },
     onRefresh: (self) => {
-      sequenceController.setScrollProgress(self.progress)
+      if (hasLenisDriver) {
+        const raw =
+          window.lenis && typeof window.lenis.scroll === 'number'
+            ? window.lenis.scroll
+            : 0
+        applyLenisProgress(raw)
+      } else {
+        sequenceController.setScrollProgress(self.progress)
+      }
       afResizeLog('scrolltrigger:onRefresh', { progress: self.progress })
       if (typeof sequenceController.repaint === 'function') {
         sequenceController.repaint('scrolltrigger-onRefresh')
@@ -695,20 +737,20 @@ function initScrollDrivenSequence(sequenceController) {
     bindHomeSequenceRefreshRepaint(sequenceController.repaint)
   }
 
-  try {
-    if (window.lenis && typeof window.lenis.on === 'function') {
-      const onLenisScroll = (event) => {
-        const distance = window.innerHeight * (SCROLL_RANGE_VH / 100)
-        const raw = event && typeof event.scroll === 'number' ? event.scroll : 0
-        const progress = Math.max(0, Math.min(raw / distance, 1))
-        sequenceController.setScrollProgress(progress)
-      }
-      window.__homeSequenceLenis = window.lenis
-      window.__homeSequenceLenisHandler = onLenisScroll
-      window.lenis.on('scroll', onLenisScroll)
+  if (hasLenisDriver) {
+    // Keep Lenis as the only progress driver when available; ScrollTrigger stays
+    // for lifecycle/refresh. This preserves the expected 100vh mapping and avoids
+    // dual-driver frame oscillation.
+    const onLenisScroll = (event) => {
+      const raw = event && typeof event.scroll === 'number' ? event.scroll : 0
+      applyLenisProgress(raw)
     }
-  } catch (e) {
-    // ignore
+    window.__homeSequenceLenis = window.lenis
+    window.__homeSequenceLenisHandler = onLenisScroll
+    window.lenis.on('scroll', onLenisScroll)
+  } else {
+    window.__homeSequenceLenis = null
+    window.__homeSequenceLenisHandler = null
   }
 }
 
@@ -816,8 +858,43 @@ export function initLoader() {
     const updateLoaderIconMask = isWhiteLoader
       ? setupLoaderIconVideoMask(logoSquare, logoIcon)
       : () => {}
+    let outlineEl = null
+    let syncOutlineSize = null
+    let handleResize = null
+    try {
+      outlineEl = document.createElement('div')
+      outlineEl.className = 'loader-logo_outline'
+      document.body.appendChild(outlineEl)
+      gsap.set(outlineEl, {
+        position: 'fixed',
+        pointerEvents: 'none',
+        zIndex: 2147483647,
+        autoAlpha: 0,
+        mixBlendMode: 'normal',
+      })
+      if (isWhiteLoader) {
+        gsap.set(outlineEl, { outlineColor: 'var(--white)' })
+      }
+      syncOutlineSize = () => {
+        const rect = logoWrap.getBoundingClientRect()
+        gsap.set(outlineEl, {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        })
+      }
+      syncOutlineSize()
+      gsap.ticker.add(syncOutlineSize)
+      handleResize = () => syncOutlineSize()
+      window.addEventListener('resize', handleResize)
+    } catch (e) {
+      outlineEl = null
+      syncOutlineSize = null
+      handleResize = null
+    }
 
-    const tl = gsap.timeline({ paused: true, defaults: { ease: loaderEase } })
+    const tl = gsap.timeline({ defaults: { ease: loaderEase } })
     tl.to(
       logoSquare,
       {
@@ -838,6 +915,9 @@ export function initLoader() {
       0
     )
     tl.to(textBox, { opacity: 1, duration: 0.3 }, '>')
+    if (outlineEl) {
+      tl.set(outlineEl, { autoAlpha: 1 }, '>')
+    }
     tl.to(logoWrap, { width: logoTargetWidthPx, duration: 0.8 }, '<')
     tl.from(
       textPaths,
@@ -853,8 +933,19 @@ export function initLoader() {
         deferScrollSequence: true,
       })
     })
-    tl.to(loader, { autoAlpha: 0, duration: 0.35 })
+    if (outlineEl) {
+      tl.to([loader, outlineEl], { autoAlpha: 0, duration: 0.35 })
+    } else {
+      tl.to(loader, { autoAlpha: 0, duration: 0.35 })
+    }
     tl.add(() => {
+      try {
+        if (syncOutlineSize) gsap.ticker.remove(syncOutlineSize)
+        if (handleResize) window.removeEventListener('resize', handleResize)
+        if (outlineEl) outlineEl.remove()
+      } catch (e) {
+        // ignore
+      }
       try {
         loader.remove()
       } catch (e) {
@@ -874,16 +965,7 @@ export function initLoader() {
       updateLoaderIconMask()
     })
 
-    let started = false
-    const startTimeline = () => {
-      if (started) return
-      started = true
-      sequenceController.setFrame(0)
-      tl.play(0)
-    }
-
-    sequenceController.ready.then(startTimeline).catch(startTimeline)
-    window.setTimeout(startTimeline, 1500)
+    sequenceController.setFrame(0)
 
     return tl
   } catch (err) {

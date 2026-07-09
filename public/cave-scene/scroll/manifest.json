@@ -27,6 +27,7 @@
         "webm": "/cave-scene/intro.webm"
       },
       "scroll": {
+        "frameCount": 150,
         "basePath": "/cave-scene/scroll/desktop",
         "batches": [
           { "id": "batch-0", "startIndex": 0, "count": 30 },
@@ -38,21 +39,22 @@
       }
     },
     "mobile": {
-      "width": 1280,
-      "height": 720,
+      "width": 440,
+      "height": 960,
       "maxWidth": 991,
       "intro": {
         "mp4": "/cave-scene/intro-mobile.mp4",
         "webm": "/cave-scene/intro-mobile.webm"
       },
       "scroll": {
+        "frameCount": 132,
         "basePath": "/cave-scene/scroll/mobile",
         "batches": [
           { "id": "batch-0", "startIndex": 0, "count": 30 },
           { "id": "batch-1", "startIndex": 30, "count": 30 },
           { "id": "batch-2", "startIndex": 60, "count": 30 },
           { "id": "batch-3", "startIndex": 90, "count": 30 },
-          { "id": "batch-4", "startIndex": 120, "count": 30 }
+          { "id": "batch-4", "startIndex": 120, "count": 12 }
         ]
       }
     }

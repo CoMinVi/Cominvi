@@ -39,12 +39,12 @@ Scripts fin de page : `hero-critical.js` (head), `main.js` (module Netlify).
 - `loader-af.js` : séquence `.af` (`cave-scene-full-sequence.af`), intro puis scroll.
 - `hero-media.js` : `suppressHomeHeroVideo()` masque la vidéo Webflow sur home (`data-cominvi-home-af-only`).
 - Constantes legacy AF : `INTRO_FRAME_COUNT = 126`, `SCROLL_RANGE_VH = 100`.
-- **Intro MP4** : source **108 frames @ 30 fps** → encodage cible **~86 frames @ 24 fps** (3,6 s). Scroll : **150 frames** WebP.
+- **Intro MP4** : source **108 frames @ 30 fps** → encodage cible **~86 frames @ 24 fps** (3,6 s). Scroll desktop : **150 frames**. Scroll mobile : **132 frames** (normal).
 
 ## Jonction intro → scroll
 
-- Dernière frame intro MP4 (frame 107) ≈ `frame_00000.webp` (première frame scroll).
-- Intro : 108 frames, 30 fps, 3,6 s — voir `manifest.json`.
+- Dernière frame intro MP4 ≈ `frame_00000.webp` (première frame scroll).
+- Intro encodée : 24 fps, 3,6 s (~86 frames) — source 108 @ 30 fps. Voir `manifest.json`.
 - Le poster actuel (`frame_00001.avif`) sera remplacé par `poster/frame_00000.avif` en phase ultérieure.
 
 ## Modifications Webflow attendues

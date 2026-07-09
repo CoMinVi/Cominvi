@@ -26,76 +26,6 @@ function getHomeSequenceScroller() {
   }
 }
 
-const SVG_NS = 'http://www.w3.org/2000/svg'
-
-function parseSvgViewBox(svgEl, fallback = '0 0 32 33') {
-  const raw =
-    svgEl?.getAttribute('viewBox') || svgEl?.getAttribute('viewbox') || fallback
-  const parts = raw
-    .trim()
-    .split(/[\s,]+/)
-    .map(Number)
-  if (parts.length !== 4 || parts.some((value) => !Number.isFinite(value))) {
-    return { x: 0, y: 0, width: 32, height: 33 }
-  }
-  return { x: parts[0], y: parts[1], width: parts[2], height: parts[3] }
-}
-
-function buildIconCutoutMaskUrl(pathD, viewBox) {
-  const svg = [
-    `<svg xmlns='${SVG_NS}' viewBox='${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}'>`,
-    `<path fill='black' fill-rule='evenodd' clip-rule='evenodd' d='${pathD}'/>`,
-    '</svg>',
-  ].join('')
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
-}
-
-function setupLoaderIconVideoMask(logoSquare, logoIcon) {
-  const iconPath = logoIcon?.querySelector('path')
-  const pathD = iconPath?.getAttribute('d')
-  if (!logoSquare || !logoIcon || !pathD) {
-    return () => {}
-  }
-
-  const viewBox = parseSvgViewBox(logoIcon)
-  const cutoutUrl = buildIconCutoutMaskUrl(pathD, viewBox)
-  const solidMask = 'linear-gradient(#fff, #fff)'
-
-  const updateMaskGeometry = () => {
-    const squareRect = logoSquare.getBoundingClientRect()
-    const iconRect = logoIcon.getBoundingClientRect()
-    if (
-      !squareRect.width ||
-      !squareRect.height ||
-      !iconRect.width ||
-      !iconRect.height
-    ) {
-      return
-    }
-
-    const iconLeft = iconRect.left - squareRect.left
-    const iconTop = iconRect.top - squareRect.top
-    const maskLayers = `${solidMask}, ${cutoutUrl}`
-    const maskSize = `100% 100%, ${iconRect.width}px ${iconRect.height}px`
-    const maskPosition = `0 0, ${iconLeft}px ${iconTop}px`
-
-    logoSquare.style.setProperty('-webkit-mask-image', maskLayers)
-    logoSquare.style.setProperty('mask-image', maskLayers)
-    logoSquare.style.setProperty('-webkit-mask-size', maskSize)
-    logoSquare.style.setProperty('mask-size', maskSize)
-    logoSquare.style.setProperty('-webkit-mask-position', maskPosition)
-    logoSquare.style.setProperty('mask-position', maskPosition)
-    logoSquare.style.setProperty('-webkit-mask-repeat', 'no-repeat')
-    logoSquare.style.setProperty('mask-repeat', 'no-repeat')
-    logoSquare.style.setProperty('-webkit-mask-composite', 'destination-out')
-    logoSquare.style.setProperty('mask-composite', 'subtract')
-  }
-
-  updateMaskGeometry()
-
-  return updateMaskGeometry
-}
-
 function cleanupHomeSequenceBindings() {
   if (window.__homeSequenceScrollTrigger) {
     window.__homeSequenceScrollTrigger.kill()
@@ -811,6 +741,7 @@ export function initLoader() {
     })
 
     const loader = document.querySelector('.loader')
+    const loaderInner = document.querySelector('.loader_inner')
     const logoWrap = loader?.querySelector('.loader-logo_wrap')
     const logoInner = loader?.querySelector('.logo-inner')
     const iconBox = loader?.querySelector('.is-logo-icon')
@@ -822,6 +753,7 @@ export function initLoader() {
 
     if (
       !loader ||
+      !loaderInner ||
       !logoWrap ||
       !logoInner ||
       !iconBox ||
@@ -855,9 +787,13 @@ export function initLoader() {
     const textPaths = Array.from(logoText.querySelectorAll('path'))
     const isWhiteLoader =
       loader.getAttribute('data-wf--loader--variant') === 'is-white'
-    const loaderBackground = isWhiteLoader ? 'var(--primary)' : 'var(--accent)'
 
-    gsap.set(loader, { backgroundColor: loaderBackground })
+    const computePxFromEm = (el, emValue) => {
+      const fontSizePx = parseFloat(getComputedStyle(el).fontSize) || 16
+      return emValue * fontSizePx
+    }
+    const widthAfterPx = computePxFromEm(logoWrap, 7.46)
+
     gsap.set(textBox, { opacity: 0 })
     gsap.set(logoWrap, { backgroundColor: 'transparent' })
     gsap.set(logoSquare, { width: '0%', height: '0%' })
@@ -868,10 +804,8 @@ export function initLoader() {
       rotation: 70,
       transformOrigin: '50% 50%',
     })
+    gsap.set(backgroundInner, { transformOrigin: '50% 50%', scale: 1 })
 
-    const updateLoaderIconMask = isWhiteLoader
-      ? setupLoaderIconVideoMask(logoSquare, logoIcon)
-      : () => {}
     let outlineEl = null
     let syncOutlineSize = null
     let handleResize = null
@@ -908,7 +842,34 @@ export function initLoader() {
       handleResize = null
     }
 
+    const cleanupOutlineOverlay = () => {
+      try {
+        if (syncOutlineSize) gsap.ticker.remove(syncOutlineSize)
+        if (handleResize) window.removeEventListener('resize', handleResize)
+        if (outlineEl) outlineEl.remove()
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const finishLoader = () => {
+      cleanupOutlineOverlay()
+      try {
+        loader.remove()
+      } catch (e) {
+        // ignore
+      }
+      try {
+        window.__loaderDone = true
+        document.dispatchEvent(new CustomEvent('loader:done'))
+      } catch (e) {
+        // ignore
+      }
+      beginScrollDrivenSequence(sequenceController)
+    }
+
     const tl = gsap.timeline({ paused: true, defaults: { ease: loaderEase } })
+
     tl.to(
       logoSquare,
       {
@@ -928,10 +889,11 @@ export function initLoader() {
       },
       0
     )
-    tl.to(textBox, { opacity: 1, duration: 0.3 }, '>')
+    tl.set(logoWrap, { backgroundColor: 'var(--primary)' }, '>')
     if (outlineEl) {
       tl.set(outlineEl, { autoAlpha: 1 }, '>')
     }
+    tl.to(textBox, { opacity: 1, duration: 0.3 }, '<')
     tl.to(logoWrap, { width: logoTargetWidthPx, duration: 0.8 }, '<')
     tl.from(
       textPaths,
@@ -942,42 +904,217 @@ export function initLoader() {
       },
       '<'
     )
-    tl.add(() => {
-      startHeroAfterLogo(loaderEase, sequenceController, {
-        deferScrollSequence: true,
-      })
-    })
-    tl.set(loader, { backgroundColor: 'transparent' })
-    if (outlineEl) {
-      tl.to([loader, outlineEl], { autoAlpha: 0, duration: 0.35 })
+
+    tl.set(logoWrap, { justifyContent: 'flex-end' })
+    tl.to(logoWrap, { width: widthAfterPx, duration: 0.3 })
+
+    const isTabletOrMobile =
+      (window.matchMedia && window.matchMedia('(max-width: 991px)').matches) ||
+      window.innerWidth <= 991
+
+    const hasCssSupports = !!(window.CSS && CSS.supports)
+    const supportsTouchCallout =
+      hasCssSupports && CSS.supports('-webkit-touch-callout', 'none')
+    const isMacPlatform =
+      typeof navigator !== 'undefined' &&
+      typeof navigator.platform === 'string' &&
+      navigator.platform.startsWith('Mac')
+    const hasNavigator = typeof navigator !== 'undefined'
+    const ua =
+      hasNavigator && typeof navigator.userAgent === 'string'
+        ? navigator.userAgent
+        : ''
+    const vendor =
+      hasNavigator && typeof navigator.vendor === 'string'
+        ? navigator.vendor
+        : ''
+    const isSafariUA =
+      /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|Brave/i.test(ua)
+    const isSafariVendor = /Apple/i.test(vendor)
+    const isSafariMac =
+      (!!supportsTouchCallout && !!isMacPlatform) ||
+      (isMacPlatform && (isSafariUA || isSafariVendor))
+
+    if (isTabletOrMobile || isSafariMac) {
+      tl.add(cleanupOutlineOverlay)
+      tl.add(() => {
+        startHeroAfterLogo(loaderEase, sequenceController, {
+          deferScrollSequence: true,
+        })
+      }, '>')
+      tl.to(
+        backgroundInner,
+        {
+          scale: 1.2,
+          transformOrigin: '50% 50%',
+          duration: 1.2,
+          ease: loaderEase,
+          force3D: true,
+          overwrite: 'auto',
+          onComplete: () => {
+            try {
+              initHeroBackgroundParallax(document)
+            } catch (e) {
+              // ignore
+            }
+          },
+        },
+        '<'
+      )
+      tl.to(loader, { opacity: 0, duration: 0.5, ease: loaderEase }, '<')
+      tl.add(finishLoader)
     } else {
-      tl.to(loader, { autoAlpha: 0, duration: 0.35 })
+      let holeRectRef = null
+      tl.add(() => {
+        const textRect = textBox.getBoundingClientRect()
+        const logoRect = logoText.getBoundingClientRect()
+        const csText = getComputedStyle(textBox)
+        const marginLeftPx = parseFloat(csText.marginLeft || '0') || 0
+
+        document.body.appendChild(textBox)
+        iconBox.remove()
+        logoWrap.remove()
+        cleanupOutlineOverlay()
+
+        Object.assign(textBox.style, {
+          position: 'fixed',
+          left: `${textRect.left - marginLeftPx}px`,
+          top: `${textRect.top}px`,
+          width: `${textRect.width}px`,
+          height: `${textRect.height}px`,
+          overflow: 'visible',
+          zIndex: '1001',
+        })
+
+        Object.assign(logoText.style, {
+          position: 'fixed',
+          left: `${logoRect.left}px`,
+          top: `${logoRect.top}px`,
+          width: `${logoRect.width}px`,
+          height: `${logoRect.height}px`,
+          pointerEvents: 'none',
+          zIndex: '1002',
+          willChange: 'opacity',
+          backfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+        })
+
+        const NS = 'http://www.w3.org/2000/svg'
+        const svg = document.createElementNS(NS, 'svg')
+        const defs = document.createElementNS(NS, 'defs')
+        const svgMask = document.createElementNS(NS, 'mask')
+        const whiteRect = document.createElementNS(NS, 'rect')
+        const holeRect = document.createElementNS(NS, 'rect')
+
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+
+        svg.setAttribute('width', '0')
+        svg.setAttribute('height', '0')
+        svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`)
+        svg.setAttribute('preserveAspectRatio', 'none')
+        Object.assign(svg.style, {
+          position: 'absolute',
+          width: '0',
+          height: '0',
+        })
+
+        svgMask.setAttribute('id', 'pageRevealMask')
+        svgMask.setAttribute('maskUnits', 'userSpaceOnUse')
+        svgMask.setAttribute('maskContentUnits', 'userSpaceOnUse')
+        svgMask.setAttribute('style', 'mask-type:luminance;')
+
+        whiteRect.setAttribute('x', '0')
+        whiteRect.setAttribute('y', '0')
+        whiteRect.setAttribute('width', String(vw))
+        whiteRect.setAttribute('height', String(vh))
+        whiteRect.setAttribute('fill', 'white')
+
+        const rootFs =
+          parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+        const radiusPx =
+          parseFloat(csText.borderTopLeftRadius || '0') || rootFs * 0.5
+        holeRect.setAttribute('x', String(textRect.left))
+        holeRect.setAttribute('y', String(textRect.top))
+        holeRect.setAttribute('width', String(textRect.width))
+        holeRect.setAttribute('height', String(textRect.height))
+        holeRect.setAttribute('fill', 'black')
+        holeRect.setAttribute('rx', String(radiusPx))
+        holeRect.setAttribute('ry', String(radiusPx))
+
+        svgMask.appendChild(whiteRect)
+        svgMask.appendChild(holeRect)
+        defs.appendChild(svgMask)
+        svg.appendChild(defs)
+        textBox.appendChild(svg)
+
+        loader.style.mask = 'url(#pageRevealMask)'
+        loader.style.webkitMask = 'url(#pageRevealMask)'
+
+        holeRectRef = holeRect
+      })
+
+      tl.to(textBox, {
+        left: () => `-24px`,
+        top: () => `-24px`,
+        width: () => `${window.innerWidth + 48}px`,
+        height: () => `${window.innerHeight + 48}px`,
+        marginLeft: 0,
+        duration: 1.1,
+        ease: loaderEase,
+      })
+      tl.to(
+        textBox,
+        { backgroundColor: 'transparent', duration: 0.55, ease: loaderEase },
+        '<'
+      )
+      tl.add(() => {
+        if (!holeRectRef) return
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        gsap.to(holeRectRef, {
+          attr: { x: -24, y: -24, width: vw + 48, height: vh + 48 },
+          duration: 1.1,
+          ease: loaderEase,
+        })
+      }, '<')
+      tl.add(() => {
+        startHeroAfterLogo(loaderEase, sequenceController, {
+          deferScrollSequence: true,
+        })
+      }, '<')
+      tl.to(
+        backgroundInner,
+        {
+          scale: 1.2,
+          transformOrigin: '50% 50%',
+          duration: 1.2,
+          ease: loaderEase,
+          force3D: true,
+          overwrite: 'auto',
+          onComplete: () => {
+            try {
+              initHeroBackgroundParallax(document)
+            } catch (e) {
+              // ignore
+            }
+          },
+        },
+        '<'
+      )
+      tl.to(logoText, { opacity: 0, duration: 1.1, ease: loaderEase }, '<')
+      tl.add(() => {
+        try {
+          textBox.remove()
+        } catch (e) {
+          // ignore
+        }
+        finishLoader()
+      })
     }
-    tl.add(() => {
-      try {
-        if (syncOutlineSize) gsap.ticker.remove(syncOutlineSize)
-        if (handleResize) window.removeEventListener('resize', handleResize)
-        if (outlineEl) outlineEl.remove()
-      } catch (e) {
-        // ignore
-      }
-      try {
-        loader.remove()
-      } catch (e) {
-        // ignore
-      }
-      try {
-        window.__loaderDone = true
-        document.dispatchEvent(new CustomEvent('loader:done'))
-      } catch (e) {
-        // ignore
-      }
-      beginScrollDrivenSequence(sequenceController)
-    })
 
     tl.eventCallback('onUpdate', () => {
       sequenceController.setIntroProgress(tl.progress())
-      updateLoaderIconMask()
     })
 
     let started = false

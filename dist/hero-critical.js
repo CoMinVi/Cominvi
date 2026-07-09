@@ -11,12 +11,6 @@
   const style = document.createElement('style')
   style.setAttribute('data-cominvi-hero-critical', '')
   style.textContent = `
-.loader {
-  background-color: var(--accent) !important;
-}
-.loader[data-wf--loader--variant='is-white'] {
-  background-color: var(--primary) !important;
-}
 .hero-background {
   z-index: 0;
   display: flex;

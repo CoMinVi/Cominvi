@@ -393,15 +393,6 @@
   -webkit-backface-visibility: visible;
 }
 
-/* Loader overlay: solid backdrop until JS reveal (home uses is-white variant) */
-.loader {
-  background-color: var(--accent) !important;
-}
-
-.loader[data-wf--loader--variant='is-white'] {
-  background-color: var(--primary) !important;
-}
-
 /* Loader outline overlay: always on top and non-interactive */
 .loader-logo_outline {
   position: fixed;
@@ -414,20 +405,6 @@
   /* draw inside */
   pointer-events: none;
   mix-blend-mode: normal;
-}
-
-/* Loader is-white: icon path cuts through logo-square to reveal hero video */
-.loader[data-wf--loader--variant='is-white'] .logo-icon path {
-  opacity: 0;
-}
-
-.loader[data-wf--loader--variant='is-white'] .is-logo-text {
-  border-color: var(--white);
-  background-color: transparent;
-}
-
-.loader[data-wf--loader--variant='is-white'] .logo-square {
-  background-color: var(--white);
 }
 
 .machines-grid_name-inner .body-xl > span {

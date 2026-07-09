@@ -1,10 +1,14 @@
 {
   "version": 1,
   "intro": {
-    "frameCount": null,
-    "fps": null,
-    "durationSec": null,
-    "detectFromVideo": true
+    "frameCount": 86,
+    "fps": 24,
+    "durationSec": 3.6,
+    "detectFromVideo": false,
+    "source": {
+      "frameCount": 108,
+      "fps": 30
+    }
   },
   "scroll": {
     "frameCount": 150,

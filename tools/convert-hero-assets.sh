@@ -12,13 +12,14 @@
 #     --out            ./public/cave-scene
 #
 # Scroll : 150 frames nommées frame_00000.* … frame_00149.*
-# Intro  : le nombre de frames est détecté automatiquement via ffprobe (pas besoin de le connaître à l'avance).
+# Intro  : resample 30 fps → 24 fps (ex. 108 frames @ 30 fps → ~86 frames @ 24 fps, durée 3,6 s conservée).
+#          Le filtre ffmpeg `fps=24` gère la conversion ; vérifiez avec probe-mp4-frames.sh après encodage.
 #
 # Jonction : la dernière frame de l'intro MP4 doit correspondre visuellement à frame_00000.webp.
 
 set -euo pipefail
 
-INTRO_FPS=24
+INTRO_FPS=30
 SCROLL_FRAMES=150
 BATCH_SIZE=30
 DESKTOP_W=1920
@@ -41,7 +42,7 @@ usage() {
   echo ""
   echo "Options :"
   echo "  --intro-frames N   Forcer la troncature à N frames (optionnel)"
-  echo "  --intro-fps N      FPS cible pour l'encodage intro (défaut : 24)"
+  echo "  --intro-fps N      FPS cible pour l'encodage intro (défaut : 30)"
   echo "  --update-manifest  Écrire frameCount/fps/durationSec dans manifest.json"
   exit 1
 }

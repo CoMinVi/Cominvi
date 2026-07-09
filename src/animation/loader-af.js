@@ -186,6 +186,17 @@ function createSequenceCanvas(backgroundInner) {
 
   const canvas = document.createElement('canvas')
   canvas.setAttribute('data-loader-sequence-canvas', 'true')
+  Object.assign(canvas.style, {
+    position: 'absolute',
+    inset: '0',
+    width: '100%',
+    height: '100%',
+    display: 'block',
+    pointerEvents: 'none',
+    zIndex: '3',
+    opacity: '0',
+    visibility: 'hidden',
+  })
   mediaHost.appendChild(canvas)
   return canvas
 }
@@ -390,6 +401,8 @@ function createActiveFrameSequenceController(backgroundInner) {
     }
     drawCoverImage(frameSnapshot, frameSnapshotW, frameSnapshotH)
     syncDisplayImgFromSnapshot(reason)
+    canvas.style.opacity = '1'
+    canvas.style.visibility = 'visible'
     afResizeLog('paintCachedSnapshot:ok', { reason })
     return true
   }
@@ -400,6 +413,8 @@ function createActiveFrameSequenceController(backgroundInner) {
     drawCoverImage(frame, srcW, srcH)
     cacheFrameSnapshot(frame, srcW, srcH)
     hideDisplayImg(reason)
+    canvas.style.opacity = '1'
+    canvas.style.visibility = 'visible'
     afResizeLog('drawCover', { reason, frame: { w: srcW, h: srcH } })
   }
 
@@ -576,7 +591,6 @@ function createActiveFrameSequenceController(backgroundInner) {
     totalFrames = Math.max(1, activeFrame.manifest.totalFrames || 1)
     introEndIndex = Math.min(INTRO_FRAME_COUNT - 1, totalFrames - 1)
     fitCanvas()
-    requestFrame(0)
     afResizeLog('sequence:ready', { totalFrames, introEndIndex })
   })
 
@@ -839,9 +853,11 @@ export function initLoader() {
     const loaderEase = CustomEase.create('loaderEase', easeCurve)
     const logoTargetWidthPx = logoInner.getBoundingClientRect().width || 0
     const textPaths = Array.from(logoText.querySelectorAll('path'))
+    const isWhiteLoader =
+      loader.getAttribute('data-wf--loader--variant') === 'is-white'
+    const loaderBackground = isWhiteLoader ? 'var(--primary)' : 'var(--accent)'
 
-    gsap.set(loader, { backgroundColor: 'transparent' })
-    gsap.set('.loader_mask', { backgroundColor: 'transparent' })
+    gsap.set(loader, { backgroundColor: loaderBackground })
     gsap.set(textBox, { opacity: 0 })
     gsap.set(logoWrap, { backgroundColor: 'transparent' })
     gsap.set(logoSquare, { width: '0%', height: '0%' })
@@ -853,8 +869,6 @@ export function initLoader() {
       transformOrigin: '50% 50%',
     })
 
-    const isWhiteLoader =
-      loader.getAttribute('data-wf--loader--variant') === 'is-white'
     const updateLoaderIconMask = isWhiteLoader
       ? setupLoaderIconVideoMask(logoSquare, logoIcon)
       : () => {}
@@ -894,7 +908,7 @@ export function initLoader() {
       handleResize = null
     }
 
-    const tl = gsap.timeline({ defaults: { ease: loaderEase } })
+    const tl = gsap.timeline({ paused: true, defaults: { ease: loaderEase } })
     tl.to(
       logoSquare,
       {
@@ -933,6 +947,7 @@ export function initLoader() {
         deferScrollSequence: true,
       })
     })
+    tl.set(loader, { backgroundColor: 'transparent' })
     if (outlineEl) {
       tl.to([loader, outlineEl], { autoAlpha: 0, duration: 0.35 })
     } else {
@@ -965,7 +980,16 @@ export function initLoader() {
       updateLoaderIconMask()
     })
 
-    sequenceController.setFrame(0)
+    let started = false
+    const startTimeline = () => {
+      if (started) return
+      started = true
+      sequenceController.setFrame(0)
+      tl.play(0)
+    }
+
+    sequenceController.ready.then(startTimeline).catch(startTimeline)
+    window.setTimeout(startTimeline, 1500)
 
     return tl
   } catch (err) {

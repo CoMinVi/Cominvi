@@ -1,4 +1,4 @@
-import { disableHeroBackgroundOverlay } from './animation/hero-sequence-controller.js'
+import { bindHeroBackgroundOverlayGuard } from './animation/hero-sequence-controller.js'
 import {
   initLoader as initHomeLoader,
   prefetchHomeSequenceBinary,
@@ -38,7 +38,7 @@ if (isHomeEntryUrl()) {
   if (typeof document !== 'undefined') {
     const hideHeroOverlay = () => {
       try {
-        disableHeroBackgroundOverlay(document)
+        bindHeroBackgroundOverlayGuard(document)
       } catch (e) {
         // ignore
       }

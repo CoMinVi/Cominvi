@@ -28,20 +28,22 @@
   overflow: hidden;
 }
 .hero-background > .background-overlay {
+  display: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
   background-image: none !important;
+  z-index: -1 !important;
 }
-.hero-background .background-inner {
+.hero-background > .background-inner {
   display: flex;
   justify-content: center;
   align-items: center;
   width: 120%;
   height: 120%;
   flex: 0 0 auto;
-  position: relative;
-  z-index: 2;
+  position: relative !important;
+  z-index: 2 !important;
 }
 .hero-background .is-video {
   width: 100%;
@@ -197,11 +199,14 @@
     document.querySelectorAll(WEBFLOW_VIDEO_SELECTOR).forEach(lockHeroVideo)
     const overlay = document.querySelector('.hero-background > .background-overlay')
     if (overlay) {
+      overlay.setAttribute('data-cominvi-hero-overlay-disabled', 'true')
       try {
+        overlay.style.setProperty('display', 'none', 'important')
         overlay.style.setProperty('opacity', '0', 'important')
         overlay.style.setProperty('visibility', 'hidden', 'important')
         overlay.style.setProperty('pointer-events', 'none', 'important')
         overlay.style.setProperty('background-image', 'none', 'important')
+        overlay.style.setProperty('z-index', '-1', 'important')
       } catch (e) {
         // ignore
       }

@@ -13,7 +13,7 @@ import {
 } from './hero-manifest.js'
 import {
   createHeroSequenceController,
-  disableHeroBackgroundOverlay,
+  bindHeroBackgroundOverlayGuard,
 } from './hero-sequence-controller.js'
 import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
@@ -258,7 +258,7 @@ export function initLoader() {
     const textBox = loader?.querySelector('.is-logo-text')
     const logoText = loader?.querySelector('.is-logo-text .logo-text')
     const backgroundInner = getBackgroundInner(document)
-    disableHeroBackgroundOverlay(document)
+    bindHeroBackgroundOverlayGuard(document)
 
     if (
       !loader ||

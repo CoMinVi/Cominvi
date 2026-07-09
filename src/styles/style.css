@@ -263,16 +263,18 @@
 /* Webflow overlay is a static AVIF above the hero — hide it for MP4/WebP sequence. */
 .hero-background > .background-overlay,
 [data-barba-namespace='home'] .hero-background > .background-overlay {
+  display: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
   background-image: none !important;
+  z-index: -1 !important;
 }
 
 [data-barba-namespace='home'] .hero-background .background-inner,
 .hero-background > .background-inner {
-  position: relative;
-  z-index: 2;
+  position: relative !important;
+  z-index: 2 !important;
 }
 
 /* Home hero uses MP4/WebP sequence — never show/play the legacy background video. */

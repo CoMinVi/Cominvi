@@ -8,22 +8,76 @@ import {
 } from './hero-manifest.js'
 import { createHeroScrollSequence } from './hero-scroll-sequence.js'
 
+export const HERO_OVERLAY_DISABLED_ATTR = 'data-cominvi-hero-overlay-disabled'
+
+let heroOverlayGuardObserver = null
+
 export function disableHeroBackgroundOverlay(scope = document) {
   const root = scope && scope.querySelector ? scope : document
   const overlay = root.querySelector('.hero-background > .background-overlay')
-  if (!overlay?.style) return
+  if (!overlay?.style) return false
+
+  overlay.setAttribute(HERO_OVERLAY_DISABLED_ATTR, 'true')
 
   try {
+    overlay.style.setProperty('display', 'none', 'important')
     overlay.style.setProperty('opacity', '0', 'important')
     overlay.style.setProperty('visibility', 'hidden', 'important')
     overlay.style.setProperty('pointer-events', 'none', 'important')
     overlay.style.setProperty('background-image', 'none', 'important')
+    overlay.style.setProperty('z-index', '-1', 'important')
   } catch (e) {
+    overlay.style.display = 'none'
     overlay.style.opacity = '0'
     overlay.style.visibility = 'hidden'
     overlay.style.pointerEvents = 'none'
     overlay.style.backgroundImage = 'none'
+    overlay.style.zIndex = '-1'
   }
+
+  const inner = root.querySelector('.hero-background > .background-inner')
+  if (inner?.style) {
+    try {
+      inner.style.setProperty('position', 'relative', 'important')
+      inner.style.setProperty('z-index', '2', 'important')
+    } catch (e) {
+      inner.style.position = 'relative'
+      inner.style.zIndex = '2'
+    }
+  }
+
+  return true
+}
+
+export function bindHeroBackgroundOverlayGuard(scope = document) {
+  const root = scope && scope.querySelector ? scope : document
+
+  const apply = () => {
+    disableHeroBackgroundOverlay(root)
+  }
+
+  apply()
+
+  if (heroOverlayGuardObserver) return apply
+
+  try {
+    heroOverlayGuardObserver = new MutationObserver(() => {
+      apply()
+    })
+    heroOverlayGuardObserver.observe(
+      root.documentElement || document.documentElement,
+      {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+      }
+    )
+  } catch (e) {
+    // ignore
+  }
+
+  return apply
 }
 
 function hideHeroPoster(backgroundInner) {

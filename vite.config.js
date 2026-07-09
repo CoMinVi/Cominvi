@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import eslintPlugin from 'vite-plugin-eslint'
 
-const productionAssetBase = 'https://precious-hotteok-8da21f.netlify.app/'
+const productionAssetBase = 'https://cominvi.netlify.app/'
 
 // vite.config.js
 export default defineConfig(({ command }) => ({

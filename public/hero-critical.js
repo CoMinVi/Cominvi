@@ -308,7 +308,7 @@
     const path = (location.pathname || '/').replace(/\/$/, '') || '/'
     if (path !== '/' && !path.endsWith('/index.html')) return
 
-    const ORIGIN = 'https://precious-hotteok-8da21f.netlify.app'
+    const ORIGIN = 'https://cominvi.netlify.app'
     const AF_URL = ORIGIN + '/cave-scene/cave-scene-full-sequence.af'
     const POSTER_URL = ORIGIN + '/cave-scene/frame_00001.avif'
     const head = document.head || document.getElementsByTagName('head')[0]

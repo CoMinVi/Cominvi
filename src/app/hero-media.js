@@ -8,7 +8,7 @@ const HERO_VIDEO_LISTENERS_ATTR = 'data-cominvi-hero-video-listeners'
 const HERO_VIDEO_PLAY_UNLOCKED_ATTR = 'data-cominvi-hero-play-unlocked'
 export const HOME_AF_ONLY_ATTR = 'data-cominvi-home-af-only'
 export const HOME_AF_PLACEHOLDER_URL =
-  'https://precious-hotteok-8da21f.netlify.app/cave-scene/frame_00001.avif'
+  'https://cominvi.netlify.app/cave-scene/frame_00001.avif'
 
 function getHeroVideosInScope(root = document) {
   const scope = root && root.querySelector ? root : document

@@ -12,7 +12,7 @@ import { initHeroBackgroundParallax } from './parallax.js'
 const INTRO_FRAME_COUNT = 126
 const SCROLL_RANGE_VH = 100
 export const HOME_AF_SEQUENCE_URL =
-  'https://precious-hotteok-8da21f.netlify.app/cave-scene/cave-scene-full-sequence.af'
+  'https://cominvi.netlify.app/cave-scene/cave-scene-full-sequence.af'
 const CAVE_AF_URL = HOME_AF_SEQUENCE_URL
 const HERO_POSTER_IMG_SELECTOR = 'img[data-cominvi-hero-poster-img="true"]'
 

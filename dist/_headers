@@ -9,5 +9,8 @@
 /home-background.mp4
   Access-Control-Allow-Origin: *
 
+/cave-scene/*
+  Access-Control-Allow-Origin: *
+
 /processes.mp4
   Access-Control-Allow-Origin: *

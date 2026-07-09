@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-INTRO_FPS=30
+INTRO_FPS=24
 SCROLL_FRAMES=150
 BATCH_SIZE=30
 DESKTOP_W=1920
@@ -42,7 +42,7 @@ usage() {
   echo ""
   echo "Options :"
   echo "  --intro-frames N   Forcer la troncature à N frames (optionnel)"
-  echo "  --intro-fps N      FPS cible pour l'encodage intro (défaut : 30)"
+  echo "  --intro-fps N      FPS cible pour l'encodage intro (défaut : 24)"
   echo "  --update-manifest  Écrire frameCount/fps/durationSec dans manifest.json"
   exit 1
 }

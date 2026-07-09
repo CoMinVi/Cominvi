@@ -4,17 +4,21 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 import { afResizeLog, isAfResizeDebugEnabled } from '../app/af-resize-debug.js'
 import { prepareHeroMedia, suppressHomeHeroVideo } from '../app/hero-media.js'
-import { ActiveFrame } from './active-frame-player.js'
 import { initContactHero } from './contact-hero.js'
+import {
+  HOME_HERO_MANIFEST_URL,
+  loadHeroManifest,
+  pickHeroVariant,
+  resolveHeroAssetUrl,
+} from './hero-manifest.js'
+import { createHeroSequenceController } from './hero-sequence-controller.js'
 import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
-const INTRO_FRAME_COUNT = 126
 const SCROLL_RANGE_VH = 100
 export const HOME_AF_SEQUENCE_URL =
   'https://cominvi.netlify.app/cave-scene/cave-scene-full-sequence.af'
-const CAVE_AF_URL = HOME_AF_SEQUENCE_URL
-const HERO_POSTER_IMG_SELECTOR = 'img[data-cominvi-hero-poster-img="true"]'
+export { HOME_HERO_MANIFEST_URL }
 
 function getHomeSequenceScroller() {
   try {
@@ -91,508 +95,6 @@ function getBackgroundInner(scope = document) {
   return root.querySelector('.hero-background .background-inner')
 }
 
-function createSequenceCanvas(backgroundInner) {
-  if (!backgroundInner) return null
-
-  const mediaHost =
-    backgroundInner.querySelector('.background_video') || backgroundInner
-
-  if (getComputedStyle(mediaHost).position === 'static') {
-    mediaHost.style.position = 'relative'
-  }
-  mediaHost.style.overflow = 'hidden'
-
-  const misplaced = backgroundInner.querySelector(
-    '[data-loader-sequence-canvas="true"]'
-  )
-  if (misplaced && misplaced.parentElement !== mediaHost) {
-    mediaHost.appendChild(misplaced)
-  }
-
-  const existing = mediaHost.querySelector(
-    '[data-loader-sequence-canvas="true"]'
-  )
-  if (existing) return existing
-
-  const canvas = document.createElement('canvas')
-  canvas.setAttribute('data-loader-sequence-canvas', 'true')
-  Object.assign(canvas.style, {
-    position: 'absolute',
-    inset: '0',
-    width: '100%',
-    height: '100%',
-    display: 'block',
-    pointerEvents: 'none',
-    zIndex: '3',
-    opacity: '0',
-    visibility: 'hidden',
-  })
-  mediaHost.appendChild(canvas)
-  return canvas
-}
-
-function hideHeroPosterPlaceholder(backgroundInner) {
-  if (!backgroundInner || !backgroundInner.querySelector) return
-
-  const wrapper = backgroundInner.querySelector('.background_video')
-  if (!wrapper) return
-
-  const posterImg = wrapper.querySelector(HERO_POSTER_IMG_SELECTOR)
-  if (posterImg && posterImg.style) {
-    posterImg.style.opacity = '0'
-    posterImg.style.visibility = 'hidden'
-    posterImg.style.pointerEvents = 'none'
-  }
-
-  const video = wrapper.querySelector('video')
-  if (video && video.style) {
-    try {
-      video.style.setProperty('background-image', 'none', 'important')
-    } catch (e) {
-      video.style.backgroundImage = 'none'
-    }
-  }
-}
-
-function createNoopSequenceController() {
-  return {
-    ready: Promise.resolve(),
-    setIntroProgress: () => {},
-    setScrollProgress: () => {},
-    setFrame: () => {},
-    repaint: () => {},
-    destroy: () => {},
-  }
-}
-
-function createActiveFrameSequenceController(backgroundInner) {
-  const hasWebCodecs =
-    typeof window !== 'undefined' &&
-    'VideoDecoder' in window &&
-    'EncodedVideoChunk' in window
-
-  if (!hasWebCodecs) return createNoopSequenceController()
-
-  const canvas = createSequenceCanvas(backgroundInner)
-  if (!canvas) return createNoopSequenceController()
-
-  const mediaHost = canvas.parentElement || backgroundInner
-
-  const ctx =
-    canvas.getContext('2d', { alpha: false, willReadFrequently: true }) ||
-    canvas.getContext('2d')
-  if (!ctx) return createNoopSequenceController()
-
-  const fitCanvas = () => {
-    const rect = mediaHost.getBoundingClientRect()
-    if (rect.width < 2 || rect.height < 2) {
-      afResizeLog('fitCanvas:skip-tiny-host', {
-        host: { w: rect.width, h: rect.height },
-      })
-      return false
-    }
-
-    const dpr = Math.max(1, window.devicePixelRatio || 1)
-    const width = Math.max(1, Math.round(rect.width * dpr))
-    const height = Math.max(1, Math.round(rect.height * dpr))
-    const resized = canvas.width !== width || canvas.height !== height
-    if (resized) {
-      canvas.width = width
-      canvas.height = height
-      afResizeLog('fitCanvas:resize-buffer', {
-        buffer: { w: width, h: height },
-        host: { w: rect.width, h: rect.height },
-      })
-    }
-    return resized
-  }
-
-  let displayImg = null
-  let displayImgUrl = null
-
-  const ensureDisplayImg = () => {
-    if (displayImg) return displayImg
-
-    displayImg = document.createElement('img')
-    displayImg.setAttribute('data-cominvi-af-display', 'true')
-    displayImg.setAttribute('alt', '')
-    displayImg.decoding = 'async'
-    Object.assign(displayImg.style, {
-      position: 'absolute',
-      inset: '0',
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover',
-      objectPosition: 'center center',
-      margin: '0',
-      display: 'block',
-      pointerEvents: 'none',
-      zIndex: '4',
-      backfaceVisibility: 'visible',
-      opacity: '0',
-      visibility: 'hidden',
-    })
-    mediaHost.appendChild(displayImg)
-    afResizeLog('displayImg:created')
-    return displayImg
-  }
-
-  const syncDisplayImgFromSnapshot = (reason = 'unknown') => {
-    if (!frameSnapshot || !frameSnapshotW || !frameSnapshotH) {
-      afResizeLog('displayImg:skip-no-snapshot', { reason })
-      return false
-    }
-
-    ensureDisplayImg()
-    try {
-      if (displayImgUrl) {
-        URL.revokeObjectURL(displayImgUrl)
-        displayImgUrl = null
-      }
-
-      frameSnapshot.toBlob(
-        (blob) => {
-          if (!blob || !displayImg) return
-          displayImgUrl = URL.createObjectURL(blob)
-          displayImg.src = displayImgUrl
-          displayImg.style.opacity = '1'
-          displayImg.style.visibility = 'visible'
-          afResizeLog('displayImg:synced', { reason, blobSize: blob.size })
-        },
-        'image/jpeg',
-        0.92
-      )
-      return true
-    } catch (e) {
-      afResizeLog('displayImg:error', { reason, message: e?.message })
-      return false
-    }
-  }
-
-  const hideDisplayImg = (reason = 'unknown') => {
-    if (!displayImg) return
-    displayImg.style.opacity = '0'
-    displayImg.style.visibility = 'hidden'
-    afResizeLog('displayImg:hidden', { reason })
-  }
-
-  const nudgeSurfaceComposite = () => {
-    try {
-      canvas.style.transform = 'translateZ(0)'
-      void canvas.offsetHeight
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  const drawCoverImage = (source, srcW, srcH) => {
-    fitCanvas()
-    const destW = canvas.width
-    const destH = canvas.height
-    const scale = Math.max(destW / srcW, destH / srcH)
-    const drawW = srcW * scale
-    const drawH = srcH * scale
-    const offsetX = (destW - drawW) * 0.5
-    const offsetY = (destH - drawH) * 0.5
-
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.clearRect(0, 0, destW, destH)
-    ctx.drawImage(source, 0, 0, srcW, srcH, offsetX, offsetY, drawW, drawH)
-  }
-
-  let frameSnapshot = null
-  let frameSnapshotCtx = null
-  let frameSnapshotW = 0
-  let frameSnapshotH = 0
-
-  const cacheFrameSnapshot = (frame, srcW, srcH) => {
-    if (!frameSnapshot) {
-      frameSnapshot = document.createElement('canvas')
-      frameSnapshotCtx = frameSnapshot.getContext('2d', { alpha: false })
-    }
-    if (!frameSnapshotCtx) return
-
-    if (frameSnapshot.width !== srcW || frameSnapshot.height !== srcH) {
-      frameSnapshot.width = srcW
-      frameSnapshot.height = srcH
-    }
-
-    frameSnapshotCtx.setTransform(1, 0, 0, 1, 0, 0)
-    frameSnapshotCtx.clearRect(0, 0, srcW, srcH)
-    frameSnapshotCtx.drawImage(frame, 0, 0, srcW, srcH)
-    frameSnapshotW = srcW
-    frameSnapshotH = srcH
-  }
-
-  const paintCachedSnapshot = (reason = 'unknown') => {
-    if (!frameSnapshot || !frameSnapshotW || !frameSnapshotH) {
-      afResizeLog('paintCachedSnapshot:miss', { reason })
-      return false
-    }
-    drawCoverImage(frameSnapshot, frameSnapshotW, frameSnapshotH)
-    syncDisplayImgFromSnapshot(reason)
-    canvas.style.opacity = '1'
-    canvas.style.visibility = 'visible'
-    afResizeLog('paintCachedSnapshot:ok', { reason })
-    return true
-  }
-
-  const drawCover = (frame, reason = 'decode') => {
-    const srcW = frame.displayWidth || frame.codedWidth
-    const srcH = frame.displayHeight || frame.codedHeight
-    drawCoverImage(frame, srcW, srcH)
-    cacheFrameSnapshot(frame, srcW, srcH)
-    hideDisplayImg(reason)
-    canvas.style.opacity = '1'
-    canvas.style.visibility = 'visible'
-    afResizeLog('drawCover', { reason, frame: { w: srcW, h: srcH } })
-  }
-
-  const clearBackgroundFallback = () => {
-    try {
-      hideHeroPosterPlaceholder(backgroundInner)
-
-      const heroBackground =
-        (backgroundInner.closest &&
-          backgroundInner.closest('.hero-background')) ||
-        document
-      const overlay =
-        (heroBackground.querySelector &&
-          heroBackground.querySelector('.background-overlay')) ||
-        document.querySelector('.background-overlay')
-      if (overlay) {
-        overlay.style.opacity = '0'
-        overlay.style.visibility = 'hidden'
-        overlay.style.pointerEvents = 'none'
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  let activeFrame = null
-  let totalFrames = 0
-  let introEndIndex = 0
-  let requestedFrame = 0
-  let rafToken = 0
-  let resizeEndTimer = 0
-  let hasRenderedAfFrame = false
-  let scrollHysteresisFrame = null
-  const SCROLL_FRAME_HYSTERESIS = 0.2
-
-  const resolveScrollFrameFromProgress = (progress) => {
-    if (!totalFrames) return 0
-    const p = Math.max(0, Math.min(Number(progress) || 0, 1))
-    const end = Math.max(0, totalFrames - 1)
-    const raw = introEndIndex + p * (end - introEndIndex)
-
-    if (scrollHysteresisFrame == null) {
-      scrollHysteresisFrame = Math.floor(raw + 1e-6)
-      return scrollHysteresisFrame
-    }
-
-    let next = scrollHysteresisFrame
-
-    // Schmitt trigger on frame boundaries to avoid slow-scroll N<->N-1 jitter.
-    if (raw >= scrollHysteresisFrame + 1 + SCROLL_FRAME_HYSTERESIS) {
-      next = Math.floor(raw - SCROLL_FRAME_HYSTERESIS + 1e-6)
-    } else if (raw < scrollHysteresisFrame - SCROLL_FRAME_HYSTERESIS) {
-      next = Math.floor(raw + SCROLL_FRAME_HYSTERESIS + 1e-6)
-    }
-
-    next = Math.max(introEndIndex, Math.min(end, next))
-    scrollHysteresisFrame = next
-    return next
-  }
-
-  const syncRequestedFrameFromScroll = () => {
-    try {
-      const st = window.__homeSequenceScrollTrigger
-      if (!st || !totalFrames) return
-      const progress = Math.max(0, Math.min(Number(st.progress) || 0, 1))
-      requestedFrame = resolveScrollFrameFromProgress(progress)
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  const flushFrameRequest = () => {
-    rafToken = 0
-    if (!activeFrame || !activeFrame.manifest) return
-    const maxFrame = Math.max(0, totalFrames - 1)
-    const frame = Math.max(0, Math.min(maxFrame, requestedFrame))
-    const currentFrame = activeFrame.frame
-    activeFrame.setFrame(frame)
-    exposeDebugState()
-    if (currentFrame === frame && activeFrame.frame === frame) {
-      if (paintCachedSnapshot('flush-same-frame')) {
-        nudgeSurfaceComposite()
-      }
-    }
-  }
-
-  const repaintVisibleFrame = (reason = 'unknown') => {
-    syncRequestedFrameFromScroll()
-    if (hasRenderedAfFrame) {
-      hideHeroPosterPlaceholder(backgroundInner)
-    }
-
-    afResizeLog('repaint:start', {
-      reason,
-      requestedFrame,
-      hasRenderedAfFrame,
-      hasSnapshot: !!(frameSnapshot && frameSnapshotW && frameSnapshotH),
-    })
-
-    if (hasRenderedAfFrame && paintCachedSnapshot(reason)) {
-      nudgeSurfaceComposite()
-      afResizeLog('repaint:snapshot-only', { reason, requestedFrame })
-      return true
-    }
-
-    if (activeFrame && activeFrame.manifest) {
-      activeFrame.redrawFrame(requestedFrame)
-      afResizeLog('repaint:redrawFrame', { reason, requestedFrame })
-      return true
-    }
-
-    flushFrameRequest()
-    afResizeLog('repaint:flush', { reason, requestedFrame })
-    return false
-  }
-
-  const handleLayoutChange = (reason = 'layout') => {
-    repaintVisibleFrame(reason)
-  }
-
-  const requestFrame = (frame) => {
-    requestedFrame = Math.round(frame)
-    if (rafToken) return
-    rafToken = window.requestAnimationFrame(flushFrameRequest)
-  }
-
-  const exposeDebugState = () => {
-    if (!isAfResizeDebugEnabled()) return
-    if (!window.__homeSequenceController) return
-    window.__homeSequenceController.__debugRequestedFrame = requestedFrame
-    window.__homeSequenceController.__debugHasSnapshot = !!(
-      frameSnapshot &&
-      frameSnapshotW &&
-      frameSnapshotH
-    )
-  }
-
-  const setIntroProgress = (progress) => {
-    if (!totalFrames) return
-    const p = Math.max(0, Math.min(progress, 1))
-    const frame = Math.round(p * introEndIndex)
-    scrollHysteresisFrame = null
-    requestFrame(frame)
-  }
-
-  const setScrollProgress = (progress) => {
-    if (!totalFrames) return
-    const frame = resolveScrollFrameFromProgress(progress)
-    requestFrame(frame)
-  }
-
-  const afUrl = CAVE_AF_URL
-  const hardwareAcceleration = /\bAndroid\b/i.test(navigator.userAgent || '')
-    ? 'prefer-software'
-    : 'prefer-hardware'
-
-  activeFrame = new ActiveFrame(afUrl, {
-    hardwareAcceleration,
-    process: (frame) => {
-      drawCover(frame, 'decode')
-      nudgeSurfaceComposite()
-      exposeDebugState()
-      if (!hasRenderedAfFrame) {
-        hasRenderedAfFrame = true
-        clearBackgroundFallback()
-        afResizeLog('first-frame-rendered')
-      }
-    },
-  })
-
-  window.__homeSequenceActiveFrame = activeFrame
-
-  const ready = activeFrame.loading.then(() => {
-    totalFrames = Math.max(1, activeFrame.manifest.totalFrames || 1)
-    introEndIndex = Math.min(INTRO_FRAME_COUNT - 1, totalFrames - 1)
-    fitCanvas()
-    afResizeLog('sequence:ready', { totalFrames, introEndIndex })
-  })
-
-  const onResize = () => {
-    afResizeLog('window:resize')
-    handleLayoutChange('window-resize')
-
-    if (resizeEndTimer) {
-      window.clearTimeout(resizeEndTimer)
-    }
-
-    resizeEndTimer = window.setTimeout(() => {
-      resizeEndTimer = 0
-      afResizeLog('window:resize-settled')
-      handleLayoutChange('window-resize-settled')
-    }, 200)
-  }
-
-  let layoutObserver = null
-  try {
-    layoutObserver = new ResizeObserver(() => {
-      afResizeLog('resize-observer')
-      handleLayoutChange('resize-observer')
-    })
-    layoutObserver.observe(mediaHost)
-    layoutObserver.observe(backgroundInner)
-  } catch (e) {
-    // ignore
-  }
-
-  window.addEventListener('resize', onResize)
-  window.__homeSequenceResizeCleanup = () => {
-    window.removeEventListener('resize', onResize)
-    if (layoutObserver) {
-      layoutObserver.disconnect()
-      layoutObserver = null
-    }
-    if (resizeEndTimer) {
-      window.clearTimeout(resizeEndTimer)
-      resizeEndTimer = 0
-    }
-  }
-
-  return {
-    ready,
-    setIntroProgress,
-    setScrollProgress,
-    setFrame: requestFrame,
-    repaint: repaintVisibleFrame,
-    destroy: () => {
-      if (rafToken) {
-        window.cancelAnimationFrame(rafToken)
-        rafToken = 0
-      }
-      if (resizeEndTimer) {
-        window.clearTimeout(resizeEndTimer)
-        resizeEndTimer = 0
-      }
-      if (displayImgUrl) {
-        URL.revokeObjectURL(displayImgUrl)
-        displayImgUrl = null
-      }
-      try {
-        if (activeFrame) activeFrame.destroy()
-      } catch (e) {
-        // ignore
-      }
-      activeFrame = null
-    },
-  }
-}
-
 function bindHomeSequenceRefreshRepaint(repaintFn) {
   if (
     window.__homeSequenceRefreshRepaintCleanup &&
@@ -621,6 +123,9 @@ function beginScrollDrivenSequence(sequenceController) {
 
   if (typeof sequenceController.setIntroProgress === 'function') {
     sequenceController.setIntroProgress(1)
+  }
+  if (typeof sequenceController.setScrollProgress === 'function') {
+    sequenceController.setScrollProgress(0)
   }
   if (typeof sequenceController.repaint === 'function') {
     sequenceController.repaint('intro-handoff')
@@ -776,7 +281,7 @@ export function initLoader() {
       sequenceController = existingController
     } else {
       cleanupHomeSequenceBindings()
-      sequenceController = createActiveFrameSequenceController(backgroundInner)
+      sequenceController = createHeroSequenceController(backgroundInner)
       sequenceController.__hostEl = backgroundInner
       window.__homeSequenceController = sequenceController
     }
@@ -1121,7 +626,7 @@ export function initLoader() {
     const startTimeline = () => {
       if (started) return
       started = true
-      sequenceController.setFrame(0)
+      sequenceController.setIntroProgress(0)
       tl.play(0)
     }
 
@@ -1136,14 +641,46 @@ export function initLoader() {
 
 export function prefetchHomeSequenceBinary() {
   try {
-    if (
-      typeof window === 'undefined' ||
-      !('VideoDecoder' in window) ||
-      !('EncodedVideoChunk' in window)
-    ) {
-      return
+    if (typeof document === 'undefined') return
+
+    const head = document.head
+    if (!head) return
+
+    const preloadAsset = (href, as, attr) => {
+      if (!href || head.querySelector(`link[${attr}="true"]`)) return
+      const link = document.createElement('link')
+      link.rel = 'preload'
+      link.as = as
+      link.href = href
+      link.setAttribute(attr, 'true')
+      if (as === 'fetch' || as === 'video') {
+        link.crossOrigin = 'anonymous'
+      }
+      head.appendChild(link)
     }
-    new ActiveFrame(CAVE_AF_URL, { process: () => {} })
+
+    loadHeroManifest()
+      .then((manifest) => {
+        const variant = pickHeroVariant(manifest)
+        if (!variant?.intro?.mp4) return
+        preloadAsset(
+          resolveHeroAssetUrl(variant.intro.mp4),
+          'video',
+          'data-cominvi-hero-intro-preload'
+        )
+      })
+      .catch(() => {})
+
+    preloadAsset(
+      resolveHeroAssetUrl(HOME_HERO_MANIFEST_URL),
+      'fetch',
+      'data-cominvi-hero-manifest-preload'
+    )
+    preloadAsset(
+      resolveHeroAssetUrl('/cave-scene/poster/frame_00000.webp'),
+      'image',
+      'data-cominvi-hero-poster-preload'
+    )
   } catch (e) {
     // ignore
   }
@@ -1186,7 +723,7 @@ function getOrCreateHomeSequenceController(backgroundInner) {
     sequenceController.__hostEl !== backgroundInner ||
     typeof sequenceController.setFrame !== 'function'
   ) {
-    sequenceController = createActiveFrameSequenceController(backgroundInner)
+    sequenceController = createHeroSequenceController(backgroundInner)
     sequenceController.__hostEl = backgroundInner
     window.__homeSequenceController = sequenceController
   }
@@ -1300,7 +837,7 @@ export function startHomeSequenceAfterTransition(scope = document, opts = {}) {
       if (started || !window.__homeSequenceTransitionStarted) return
       started = true
 
-      sequenceController.setFrame(0)
+      sequenceController.setIntroProgress(0)
       if (typeof sequenceController.repaint === 'function') {
         sequenceController.repaint('transition-start')
       }

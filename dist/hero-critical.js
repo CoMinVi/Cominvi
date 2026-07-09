@@ -304,13 +304,14 @@
     console.info(PREFIX, 'early logger — logs uniquement si une taille change')
   })()
 
-  ;(function preloadHomeAfAssetsEarly() {
+  ;(function preloadHomeHeroAssetsEarly() {
     const path = (location.pathname || '/').replace(/\/$/, '') || '/'
     if (path !== '/' && !path.endsWith('/index.html')) return
 
     const ORIGIN = 'https://cominvi.netlify.app'
-    const AF_URL = ORIGIN + '/cave-scene/cave-scene-full-sequence.af'
-    const POSTER_URL = ORIGIN + '/cave-scene/frame_00001.avif'
+    const MANIFEST_URL = ORIGIN + '/cave-scene/scroll/manifest.json'
+    const INTRO_URL = ORIGIN + '/cave-scene/intro.mp4'
+    const POSTER_URL = ORIGIN + '/cave-scene/poster/frame_00000.webp'
     const head = document.head || document.getElementsByTagName('head')[0]
     if (!head) return
 
@@ -323,15 +324,26 @@
       head.appendChild(preconnect)
     }
 
-    if (!head.querySelector('link[data-cominvi-af-preload]')) {
-      const preloadAf = document.createElement('link')
-      preloadAf.rel = 'preload'
-      preloadAf.as = 'fetch'
-      preloadAf.href = AF_URL
-      preloadAf.crossOrigin = 'anonymous'
-      preloadAf.setAttribute('fetchpriority', 'high')
-      preloadAf.setAttribute('data-cominvi-af-preload', 'true')
-      head.appendChild(preloadAf)
+    if (!head.querySelector('link[data-cominvi-hero-manifest-preload]')) {
+      const preloadManifest = document.createElement('link')
+      preloadManifest.rel = 'preload'
+      preloadManifest.as = 'fetch'
+      preloadManifest.href = MANIFEST_URL
+      preloadManifest.crossOrigin = 'anonymous'
+      preloadManifest.setAttribute('fetchpriority', 'high')
+      preloadManifest.setAttribute('data-cominvi-hero-manifest-preload', 'true')
+      head.appendChild(preloadManifest)
+    }
+
+    if (!head.querySelector('link[data-cominvi-hero-intro-preload]')) {
+      const preloadIntro = document.createElement('link')
+      preloadIntro.rel = 'preload'
+      preloadIntro.as = 'video'
+      preloadIntro.href = INTRO_URL
+      preloadIntro.crossOrigin = 'anonymous'
+      preloadIntro.setAttribute('fetchpriority', 'high')
+      preloadIntro.setAttribute('data-cominvi-hero-intro-preload', 'true')
+      head.appendChild(preloadIntro)
     }
 
     if (!head.querySelector('link[data-cominvi-af-poster-preload]')) {

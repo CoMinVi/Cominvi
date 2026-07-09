@@ -1,0 +1,73 @@
+---
+description: Structure Webflow hero home + constantes migration MP4/WebP
+alwaysApply: false
+---
+
+# Hero home — structure Webflow (référence)
+
+Source de vérité HTML locale : `index.html` (copie export Webflow).
+
+## Arborescence DOM (home)
+
+```
+body[data-barba="wrapper"]
+├── .loader[data-wf--loader--variant="is-white"]
+│   └── .loader_inner
+│       ├── .loader_mask
+│       └── .loader-logo_wrap
+│           └── .logo-inner
+│               ├── .is-logo-icon (.logo-icon SVG + .logo-square)
+│               └── .is-logo-text (.logo-text SVG)
+├── nav, .page-info, etc.
+└── .page-wrap[data-barba="container"][data-barba-namespace="home"]
+    └── .section_hero
+        └── .hero-background
+            ├── .background-overlay
+            └── .background-inner
+                └── .is-video.w-embed
+                    └── .background_video.w-background-video
+                        └── video#hero-bg-video
+                            poster: cominvi.netlify.app/cave-scene/frame_00001.avif
+                            source data-src: home-background.mp4
+                            source data-src: home-background.webm
+```
+
+Scripts fin de page : `hero-critical.js` (head), `main.js` (module Netlify).
+
+## Comportement JS actuel (avant migration)
+
+- `loader-af.js` : séquence `.af` (`cave-scene-full-sequence.af`), 126 frames intro puis scroll.
+- `hero-media.js` : `suppressHomeHeroVideo()` masque la vidéo Webflow sur home (`data-cominvi-home-af-only`).
+- Constantes : `INTRO_FRAME_COUNT = 126`, `SCROLL_RANGE_VH = 100`, scroll frames master 126→295 (170 frames WebP).
+
+## Jonction intro → scroll
+
+- Dernière frame intro MP4 = frame master **125** (index 0-based).
+- Première frame scroll WebP = `frame_00000.webp` = frame master **126**.
+- Le poster actuel (`frame_00001.avif`) sera remplacé par `poster/frame_00000.avif` en phase ultérieure.
+
+## Modifications Webflow attendues
+
+**Phase 0** : aucune modification Webflow requise (assets servis depuis `public/cave-scene/` via CDN). Script de conversion : `tools/convert-hero-assets.sh`.
+
+**Phases suivantes** (à faire dans Webflow si besoin) :
+- Mettre à jour `poster` / `data-poster-url` de `#hero-bg-video` vers `cave-scene/poster/frame_00000.avif`.
+- Les `<source data-src>` peuvent rester en place ; le JS remplacera la logique AF.
+
+## Arborescence CDN cible (`public/cave-scene/`)
+
+```
+cave-scene/
+  intro.mp4
+  intro.webm          (optionnel)
+  intro-mobile.mp4
+  intro-mobile.webm   (optionnel)
+  poster/
+    frame_00000.avif
+  scroll/
+    manifest.json
+    desktop/
+      batch-0/ … batch-5/   (frame_00000.webp … frame_00169.webp)
+    mobile/
+      batch-0/ … batch-5/
+```

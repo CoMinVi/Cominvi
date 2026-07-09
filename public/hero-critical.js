@@ -27,6 +27,12 @@
   align-items: center;
   overflow: hidden;
 }
+.hero-background > .background-overlay {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  background-image: none !important;
+}
 .hero-background .background-inner {
   display: flex;
   justify-content: center;
@@ -34,6 +40,8 @@
   width: 120%;
   height: 120%;
   flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
 }
 .hero-background .is-video {
   width: 100%;
@@ -187,6 +195,17 @@
 
   function scanHeroVideos() {
     document.querySelectorAll(WEBFLOW_VIDEO_SELECTOR).forEach(lockHeroVideo)
+    const overlay = document.querySelector('.hero-background > .background-overlay')
+    if (overlay) {
+      try {
+        overlay.style.setProperty('opacity', '0', 'important')
+        overlay.style.setProperty('visibility', 'hidden', 'important')
+        overlay.style.setProperty('pointer-events', 'none', 'important')
+        overlay.style.setProperty('background-image', 'none', 'important')
+      } catch (e) {
+        // ignore
+      }
+    }
   }
 
   scanHeroVideos()
@@ -355,7 +374,7 @@
     if (!head.querySelector('link[data-cominvi-hero-intro-preload]')) {
       const preloadIntro = document.createElement('link')
       preloadIntro.rel = 'preload'
-      preloadIntro.as = 'video'
+      preloadIntro.as = 'fetch'
       preloadIntro.href = INTRO_URL
       preloadIntro.crossOrigin = 'anonymous'
       preloadIntro.setAttribute('fetchpriority', 'high')

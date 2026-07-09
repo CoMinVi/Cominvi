@@ -260,9 +260,30 @@
   z-index: 2 !important;
 }
 
-/* Home hero uses ActiveFrame only — never show/play the background video. */
-[data-barba-namespace='home'] .hero-background .background_video > video,
-[data-barba-namespace='home'] .hero-background .w-background-video > video,
+/* Webflow overlay is a static AVIF above the hero — hide it for MP4/WebP sequence. */
+.hero-background > .background-overlay,
+[data-barba-namespace='home'] .hero-background > .background-overlay {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  background-image: none !important;
+}
+
+[data-barba-namespace='home'] .hero-background .background-inner,
+.hero-background > .background-inner {
+  position: relative;
+  z-index: 2;
+}
+
+/* Home hero uses MP4/WebP sequence — never show/play the legacy background video. */
+[data-barba-namespace='home']
+  .hero-background
+  .background_video
+  > video:not([data-cominvi-hero-intro-video='true']),
+[data-barba-namespace='home']
+  .hero-background
+  .w-background-video
+  > video:not([data-cominvi-hero-intro-video='true']),
 .hero-background .background_video > video[data-cominvi-home-af-only='true'] {
   display: none !important;
   visibility: hidden !important;

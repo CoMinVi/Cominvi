@@ -79,6 +79,49 @@ export function createHeroIntroVideo({ host, src, durationSec = 3.6 }) {
 
   window.setTimeout(markReady, 1500)
 
+  let paintToken = 0
+
+  const paintScrubbedFrame = (targetTime) => {
+    try {
+      if (Math.abs(video.currentTime - targetTime) > 0.001) {
+        video.currentTime = targetTime
+      }
+    } catch (e) {
+      // ignore seek failures before metadata
+    }
+
+    const token = ++paintToken
+    const repaint = () => {
+      if (token !== paintToken) return
+      try {
+        if (video.paused) {
+          const playPromise = video.play()
+          if (playPromise && typeof playPromise.then === 'function') {
+            playPromise
+              .then(() => {
+                if (token !== paintToken) return
+                video.pause()
+              })
+              .catch(() => {})
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      try {
+        video.requestVideoFrameCallback(repaint)
+        return
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    window.requestAnimationFrame(repaint)
+  }
+
   const pauseAtProgress = (progress) => {
     const p = Math.max(0, Math.min(Number(progress) || 0, 1))
     const targetTime = p * resolvedDuration
@@ -89,13 +132,7 @@ export function createHeroIntroVideo({ host, src, durationSec = 3.6 }) {
       // ignore
     }
 
-    try {
-      if (Math.abs(video.currentTime - targetTime) > 0.001) {
-        video.currentTime = targetTime
-      }
-    } catch (e) {
-      // ignore seek failures before metadata
-    }
+    paintScrubbedFrame(targetTime)
   }
 
   return {

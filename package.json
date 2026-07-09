@@ -17,6 +17,7 @@
     "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-sort-imports-es6-autofix": "^0.6.0",
     "jquery": "^3.6.0",
+    "playwright": "^1.61.1",
     "prettier": "^2.5.1",
     "rimraf": "^3.0.2",
     "vite": "^2.7.2",

@@ -11,7 +11,10 @@ import {
   pickHeroVariant,
   resolveHeroAssetUrl,
 } from './hero-manifest.js'
-import { createHeroSequenceController } from './hero-sequence-controller.js'
+import {
+  createHeroSequenceController,
+  disableHeroBackgroundOverlay,
+} from './hero-sequence-controller.js'
 import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
@@ -255,6 +258,7 @@ export function initLoader() {
     const textBox = loader?.querySelector('.is-logo-text')
     const logoText = loader?.querySelector('.is-logo-text .logo-text')
     const backgroundInner = getBackgroundInner(document)
+    disableHeroBackgroundOverlay(document)
 
     if (
       !loader ||
@@ -665,7 +669,7 @@ export function prefetchHomeSequenceBinary() {
         if (!variant?.intro?.mp4) return
         preloadAsset(
           resolveHeroAssetUrl(variant.intro.mp4),
-          'video',
+          'fetch',
           'data-cominvi-hero-intro-preload'
         )
       })

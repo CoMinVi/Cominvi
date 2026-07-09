@@ -8,6 +8,24 @@ import {
 } from './hero-manifest.js'
 import { createHeroScrollSequence } from './hero-scroll-sequence.js'
 
+export function disableHeroBackgroundOverlay(scope = document) {
+  const root = scope && scope.querySelector ? scope : document
+  const overlay = root.querySelector('.hero-background > .background-overlay')
+  if (!overlay?.style) return
+
+  try {
+    overlay.style.setProperty('opacity', '0', 'important')
+    overlay.style.setProperty('visibility', 'hidden', 'important')
+    overlay.style.setProperty('pointer-events', 'none', 'important')
+    overlay.style.setProperty('background-image', 'none', 'important')
+  } catch (e) {
+    overlay.style.opacity = '0'
+    overlay.style.visibility = 'hidden'
+    overlay.style.pointerEvents = 'none'
+    overlay.style.backgroundImage = 'none'
+  }
+}
+
 function hideHeroPoster(backgroundInner) {
   if (!backgroundInner?.querySelector) return
 
@@ -48,6 +66,10 @@ function createNoopSequenceController() {
 
 export function createHeroSequenceController(backgroundInner) {
   if (!backgroundInner) return createNoopSequenceController()
+
+  disableHeroBackgroundOverlay(
+    backgroundInner.closest('.hero-background') || document
+  )
 
   const mediaHost =
     backgroundInner.querySelector('.background_video') || backgroundInner

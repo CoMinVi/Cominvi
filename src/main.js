@@ -1,3 +1,4 @@
+import { disableHeroBackgroundOverlay } from './animation/hero-sequence-controller.js'
 import {
   initLoader as initHomeLoader,
   prefetchHomeSequenceBinary,
@@ -34,6 +35,22 @@ startHeroSizeDebug()
 
 if (isHomeEntryUrl()) {
   prefetchHomeSequenceBinary()
+  if (typeof document !== 'undefined') {
+    const hideHeroOverlay = () => {
+      try {
+        disableHeroBackgroundOverlay(document)
+      } catch (e) {
+        // ignore
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', hideHeroOverlay, {
+        once: true,
+      })
+    } else {
+      hideHeroOverlay()
+    }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -125,14 +125,15 @@ function bindHomeSequenceRefreshRepaint(repaintFn) {
 function beginScrollDrivenSequence(sequenceController) {
   if (window.__homeSequenceScrollTrigger) return
 
-  if (typeof sequenceController.setIntroProgress === 'function') {
-    sequenceController.setIntroProgress(1)
-  }
-  if (typeof sequenceController.setScrollProgress === 'function') {
-    sequenceController.setScrollProgress(0)
-  }
-  if (typeof sequenceController.repaint === 'function') {
-    sequenceController.repaint('intro-handoff')
+  if (typeof sequenceController.finishIntroHandoff === 'function') {
+    sequenceController.finishIntroHandoff()
+  } else {
+    if (typeof sequenceController.setScrollProgress === 'function') {
+      sequenceController.setScrollProgress(0)
+    }
+    if (typeof sequenceController.repaint === 'function') {
+      sequenceController.repaint('intro-handoff')
+    }
   }
 
   requestAnimationFrame(() => {
@@ -445,6 +446,25 @@ export function initLoader() {
       (!!supportsTouchCallout && !!isMacPlatform) ||
       (isMacPlatform && (isSafariUA || isSafariVendor))
 
+    const heroScaleTween = {
+      scale: 1.2,
+      transformOrigin: '50% 50%',
+      duration: HERO_INTRO_SCALE_DURATION,
+      ease: loaderEase,
+      force3D: true,
+      overwrite: 'auto',
+      onStart: () => {
+        sequenceController.startIntroPlayback?.(HERO_INTRO_SCALE_DURATION)
+      },
+      onComplete: () => {
+        try {
+          initHeroBackgroundParallax(document)
+        } catch (e) {
+          // ignore
+        }
+      },
+    }
+
     if (isTabletOrMobile || isSafariMac) {
       tl.add(cleanupOutlineOverlay)
       tl.add(() => {
@@ -453,25 +473,7 @@ export function initLoader() {
         })
       }, '>')
       tl.addLabel('heroIntro', '<')
-      tl.to(
-        backgroundInner,
-        {
-          scale: 1.2,
-          transformOrigin: '50% 50%',
-          duration: HERO_INTRO_SCALE_DURATION,
-          ease: loaderEase,
-          force3D: true,
-          overwrite: 'auto',
-          onComplete: () => {
-            try {
-              initHeroBackgroundParallax(document)
-            } catch (e) {
-              // ignore
-            }
-          },
-        },
-        '<'
-      )
+      tl.to(backgroundInner, heroScaleTween, '<')
       tl.to(loader, { opacity: 0, duration: 0.5, ease: loaderEase }, '<')
       tl.add(finishLoader)
     } else {
@@ -595,25 +597,7 @@ export function initLoader() {
         })
       }, '<')
       tl.addLabel('heroIntro', '<')
-      tl.to(
-        backgroundInner,
-        {
-          scale: 1.2,
-          transformOrigin: '50% 50%',
-          duration: HERO_INTRO_SCALE_DURATION,
-          ease: loaderEase,
-          force3D: true,
-          overwrite: 'auto',
-          onComplete: () => {
-            try {
-              initHeroBackgroundParallax(document)
-            } catch (e) {
-              // ignore
-            }
-          },
-        },
-        '<'
-      )
+      tl.to(backgroundInner, heroScaleTween, '<')
       tl.to(logoText, { opacity: 0, duration: 1.1, ease: loaderEase }, '<')
       tl.add(() => {
         try {
@@ -624,23 +608,6 @@ export function initLoader() {
         finishLoader()
       })
     }
-
-    const syncIntroWithHeroScale = () => {
-      const introStart = tl.labels.heroIntro
-      if (typeof introStart !== 'number') return
-
-      const elapsed = tl.time() - introStart
-      if (elapsed <= 0) {
-        sequenceController.setIntroProgress(0)
-        return
-      }
-
-      sequenceController.setIntroProgress(
-        Math.min(1, elapsed / HERO_INTRO_SCALE_DURATION)
-      )
-    }
-
-    tl.eventCallback('onUpdate', syncIntroWithHeroScale)
 
     let started = false
     const startTimeline = () => {
@@ -863,8 +830,8 @@ export function startHomeSequenceAfterTransition(scope = document, opts = {}) {
       }
 
       const tl = gsap.timeline({
-        onUpdate: () => {
-          sequenceController.setIntroProgress(tl.progress())
+        onStart: () => {
+          sequenceController.startIntroPlayback?.(1.6)
         },
       })
       window.__homeSequenceTransitionTimeline = tl

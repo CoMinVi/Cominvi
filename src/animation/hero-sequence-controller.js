@@ -111,6 +111,8 @@ function createNoopSequenceController() {
   return {
     ready: Promise.resolve(),
     setIntroProgress: () => {},
+    startIntroPlayback: () => {},
+    finishIntroHandoff: () => {},
     setScrollProgress: () => {},
     setFrame: () => {},
     repaint: () => false,
@@ -208,6 +210,33 @@ export function createHeroSequenceController(backgroundInner) {
       } else {
         intro.hide()
       }
+    },
+    startIntroPlayback(scaleDurationSec = 1.2) {
+      if (!intro) return
+      mode = 'intro'
+      scroll?.hide()
+      hidePosterOnce()
+
+      const duration = intro.duration || 3.6
+      const scaleDuration = Math.max(0.1, Number(scaleDurationSec) || 1.2)
+      const playbackRate = duration / scaleDuration
+
+      intro.startPlayback({ playbackRate, fromTime: 0 })
+      afResizeLog('hero-intro:playback-start', {
+        duration,
+        scaleDuration,
+        playbackRate,
+      })
+    },
+    finishIntroHandoff() {
+      intro?.stopPlayback?.()
+      intro?.hide()
+      mode = 'scroll'
+      hidePosterOnce()
+      scroll?.setProgress(0)
+      scroll?.show()
+      scroll?.repaint?.('intro-handoff')
+      afResizeLog('hero-intro:handoff')
     },
     setScrollProgress(progress) {
       if (!scroll) return

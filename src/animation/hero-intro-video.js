@@ -5,6 +5,8 @@ export function createHeroIntroVideo({ host, src, durationSec = 3.6 }) {
     return {
       ready: Promise.resolve(),
       setProgress: () => {},
+      startPlayback: () => {},
+      stopPlayback: () => {},
       show: () => {},
       hide: () => {},
       destroy: () => {},
@@ -42,6 +44,7 @@ export function createHeroIntroVideo({ host, src, durationSec = 3.6 }) {
   }
 
   let resolvedDuration = Math.max(0.1, Number(durationSec) || 3.6)
+  let isPlayingIntro = false
   let readyResolve = () => {}
   const ready = new Promise((resolve) => {
     readyResolve = resolve
@@ -79,69 +82,8 @@ export function createHeroIntroVideo({ host, src, durationSec = 3.6 }) {
 
   window.setTimeout(markReady, 1500)
 
-  let paintToken = 0
-
-  const paintScrubbedFrame = (targetTime) => {
-    try {
-      if (Math.abs(video.currentTime - targetTime) > 0.001) {
-        video.currentTime = targetTime
-      }
-    } catch (e) {
-      // ignore seek failures before metadata
-    }
-
-    const token = ++paintToken
-    const repaint = () => {
-      if (token !== paintToken) return
-      try {
-        if (video.paused) {
-          const playPromise = video.play()
-          if (playPromise && typeof playPromise.then === 'function') {
-            playPromise
-              .then(() => {
-                if (token !== paintToken) return
-                video.pause()
-              })
-              .catch(() => {})
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    if (typeof video.requestVideoFrameCallback === 'function') {
-      try {
-        video.requestVideoFrameCallback(repaint)
-        return
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    window.requestAnimationFrame(repaint)
-  }
-
-  const pauseAtProgress = (progress) => {
-    const p = Math.max(0, Math.min(Number(progress) || 0, 1))
-    const targetTime = p * resolvedDuration
-
-    try {
-      video.pause()
-    } catch (e) {
-      // ignore
-    }
-
-    paintScrubbedFrame(targetTime)
-  }
-
-  return {
-    ready,
-    get duration() {
-      return resolvedDuration
-    },
-    setProgress: pauseAtProgress,
-    show() {
+  const applyVisibility = (visible) => {
+    if (visible) {
       try {
         video.style.setProperty('display', 'block', 'important')
         video.style.setProperty('opacity', '1', 'important')
@@ -151,27 +93,84 @@ export function createHeroIntroVideo({ host, src, durationSec = 3.6 }) {
         video.style.opacity = '1'
         video.style.visibility = 'visible'
       }
-    },
-    hide() {
-      try {
-        video.style.setProperty('opacity', '0', 'important')
-        video.style.setProperty('visibility', 'hidden', 'important')
-      } catch (e) {
-        video.style.opacity = '0'
-        video.style.visibility = 'hidden'
+      return
+    }
+
+    try {
+      video.style.setProperty('opacity', '0', 'important')
+      video.style.setProperty('visibility', 'hidden', 'important')
+    } catch (e) {
+      video.style.opacity = '0'
+      video.style.visibility = 'hidden'
+    }
+  }
+
+  const seekToProgress = (progress) => {
+    const p = Math.max(0, Math.min(Number(progress) || 0, 1))
+    const targetTime = p * resolvedDuration
+
+    try {
+      video.pause()
+    } catch (e) {
+      // ignore
+    }
+
+    try {
+      if (Math.abs(video.currentTime - targetTime) > 0.001) {
+        video.currentTime = targetTime
       }
+    } catch (e) {
+      // ignore seek failures before metadata
+    }
+  }
+
+  return {
+    ready,
+    get duration() {
+      return resolvedDuration
+    },
+    setProgress(progress) {
+      if (isPlayingIntro) return
+      seekToProgress(progress)
+    },
+    startPlayback({ playbackRate = 1, fromTime = 0 } = {}) {
+      isPlayingIntro = true
+      applyVisibility(true)
+
+      try {
+        video.pause()
+        video.playbackRate = Math.max(
+          0.25,
+          Math.min(Number(playbackRate) || 1, 16)
+        )
+        if (Number.isFinite(fromTime) && fromTime >= 0) {
+          video.currentTime = fromTime
+        }
+        const playPromise = video.play()
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {
+            isPlayingIntro = false
+          })
+        }
+      } catch (e) {
+        isPlayingIntro = false
+      }
+    },
+    stopPlayback() {
+      isPlayingIntro = false
       try {
         video.pause()
       } catch (e) {
         // ignore
       }
+    },
+    show: () => applyVisibility(true),
+    hide() {
+      this.stopPlayback()
+      applyVisibility(false)
     },
     destroy() {
-      try {
-        video.pause()
-      } catch (e) {
-        // ignore
-      }
+      this.stopPlayback()
       try {
         video.removeAttribute('src')
         video.remove()

@@ -1,8 +1,6 @@
 import { afResizeLog } from '../app/af-resize-debug.js'
 import { getScrollFrameCount, getScrollFrameUrl } from './hero-manifest.js'
 
-const SCROLL_FRAME_HYSTERESIS = 0.2
-
 function createImageLoader() {
   const cache = new Map()
   const inflight = new Map()
@@ -100,7 +98,7 @@ export function createHeroScrollSequence({
   const frameCount = Math.max(1, getScrollFrameCount(variant, manifest))
   const images = createImageLoader()
   let requestedFrame = 0
-  let hysteresisFrame = null
+  let paintedFrame = -1
   let rafToken = 0
 
   const fitCanvas = () => {
@@ -162,8 +160,8 @@ export function createHeroScrollSequence({
   }
 
   const preloadAround = (index) => {
-    const ahead = 12
-    const behind = 4
+    const ahead = 24
+    const behind = 6
     const start = Math.max(0, index - behind)
     const end = Math.min(frameCount - 1, index + ahead)
     for (let i = start; i <= end; i += 1) {
@@ -188,6 +186,7 @@ export function createHeroScrollSequence({
     const painted = drawCoverImage(img, img.naturalWidth, img.naturalHeight)
     if (!painted) return false
 
+    paintedFrame = index
     canvas.style.opacity = '1'
     canvas.style.visibility = 'visible'
     afResizeLog('hero-scroll:paint', { reason, index })
@@ -201,32 +200,35 @@ export function createHeroScrollSequence({
     paintFrame(frame, 'flush')
   }
 
-  const requestFrame = (frame) => {
-    requestedFrame = Math.round(frame)
+  const schedulePaint = () => {
     if (rafToken) return
     rafToken = window.requestAnimationFrame(flushFrame)
+  }
+
+  const requestFrame = (frame) => {
+    const next = Math.max(0, Math.min(frameCount - 1, Math.round(frame)))
+    if (next === requestedFrame && next === paintedFrame) return
+
+    requestedFrame = next
+    preloadAround(next)
+
+    const url = getFrameUrl(next)
+    if (images.has(url)) {
+      if (rafToken) {
+        window.cancelAnimationFrame(rafToken)
+        rafToken = 0
+      }
+      paintFrame(next, 'sync')
+      return
+    }
+
+    schedulePaint()
   }
 
   const resolveFrameFromProgress = (progress) => {
     const p = Math.max(0, Math.min(Number(progress) || 0, 1))
     const end = Math.max(0, frameCount - 1)
-    const raw = p * end
-
-    if (hysteresisFrame == null) {
-      hysteresisFrame = Math.round(raw)
-      return hysteresisFrame
-    }
-
-    let next = hysteresisFrame
-    if (raw >= hysteresisFrame + 1 + SCROLL_FRAME_HYSTERESIS) {
-      next = Math.floor(raw - SCROLL_FRAME_HYSTERESIS + 1e-6)
-    } else if (raw < hysteresisFrame - SCROLL_FRAME_HYSTERESIS) {
-      next = Math.floor(raw + SCROLL_FRAME_HYSTERESIS + 1e-6)
-    }
-
-    next = Math.max(0, Math.min(end, next))
-    hysteresisFrame = next
-    return next
+    return Math.round(p * end)
   }
 
   const ready = preloadInitialBatches()
@@ -235,11 +237,9 @@ export function createHeroScrollSequence({
     ready,
     frameCount,
     setProgress(progress) {
-      const frame = resolveFrameFromProgress(progress)
-      requestFrame(frame)
+      requestFrame(resolveFrameFromProgress(progress))
     },
     setFrame(frame) {
-      hysteresisFrame = null
       requestFrame(frame)
     },
     show() {

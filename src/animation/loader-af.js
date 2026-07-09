@@ -19,6 +19,7 @@ import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
 const SCROLL_RANGE_VH = 100
+const HERO_INTRO_SCALE_DURATION = 1.2
 export const HOME_AF_SEQUENCE_URL =
   'https://cominvi.netlify.app/cave-scene/cave-scene-full-sequence.af'
 export { HOME_HERO_MANIFEST_URL }
@@ -451,12 +452,13 @@ export function initLoader() {
           deferScrollSequence: true,
         })
       }, '>')
+      tl.addLabel('heroIntro', '<')
       tl.to(
         backgroundInner,
         {
           scale: 1.2,
           transformOrigin: '50% 50%',
-          duration: 1.2,
+          duration: HERO_INTRO_SCALE_DURATION,
           ease: loaderEase,
           force3D: true,
           overwrite: 'auto',
@@ -592,12 +594,13 @@ export function initLoader() {
           deferScrollSequence: true,
         })
       }, '<')
+      tl.addLabel('heroIntro', '<')
       tl.to(
         backgroundInner,
         {
           scale: 1.2,
           transformOrigin: '50% 50%',
-          duration: 1.2,
+          duration: HERO_INTRO_SCALE_DURATION,
           ease: loaderEase,
           force3D: true,
           overwrite: 'auto',
@@ -622,9 +625,22 @@ export function initLoader() {
       })
     }
 
-    tl.eventCallback('onUpdate', () => {
-      sequenceController.setIntroProgress(tl.progress())
-    })
+    const syncIntroWithHeroScale = () => {
+      const introStart = tl.labels.heroIntro
+      if (typeof introStart !== 'number') return
+
+      const elapsed = tl.time() - introStart
+      if (elapsed <= 0) {
+        sequenceController.setIntroProgress(0)
+        return
+      }
+
+      sequenceController.setIntroProgress(
+        Math.min(1, elapsed / HERO_INTRO_SCALE_DURATION)
+      )
+    }
+
+    tl.eventCallback('onUpdate', syncIntroWithHeroScale)
 
     let started = false
     const startTimeline = () => {

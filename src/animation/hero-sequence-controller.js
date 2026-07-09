@@ -198,11 +198,16 @@ export function createHeroSequenceController(backgroundInner) {
     ready,
     setIntroProgress(progress) {
       if (!intro) return
+      const p = Math.max(0, Math.min(Number(progress) || 0, 1))
       mode = 'intro'
       scroll?.hide()
-      intro.setProgress(progress)
-      intro.show()
-      if (progress > 0) hidePosterOnce()
+      intro.setProgress(p)
+      if (p > 0) {
+        intro.show()
+        hidePosterOnce()
+      } else {
+        intro.hide()
+      }
     },
     setScrollProgress(progress) {
       if (!scroll) return

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Phase 0 — conversion des assets hero (intro MP4 + scroll WebP par batches)
 #
-# Prérequis : ffmpeg (optionnel : libaom-av1 pour poster AVIF)
+# Prérequis : ffmpeg, ffprobe (optionnel : jq pour mettre à jour le manifest)
 #
 # Usage :
 #   ./tools/convert-hero-assets.sh \
@@ -11,17 +11,15 @@
 #     --scroll-mobile  ./source/scroll-mobile/ \
 #     --out            ./public/cave-scene
 #
-# Les dossiers scroll-* doivent contenir 170 images nommées frame_00000.* … frame_00169.*
-# (master frames 126→295). Si vous avez déjà des WebP, le script les recopie/renomme.
+# Scroll : 150 frames nommées frame_00000.* … frame_00149.*
+# Intro  : le nombre de frames est détecté automatiquement via ffprobe (pas besoin de le connaître à l'avance).
 #
-# Jonction : la dernière frame de l'intro (master 125) doit correspondre visuellement
-# à frame_00000.webp (master 126).
+# Jonction : la dernière frame de l'intro MP4 doit correspondre visuellement à frame_00000.webp.
 
 set -euo pipefail
 
-INTRO_FRAMES=126
 INTRO_FPS=24
-SCROLL_FRAMES=170
+SCROLL_FRAMES=150
 BATCH_SIZE=30
 DESKTOP_W=1920
 DESKTOP_H=1080
@@ -35,9 +33,16 @@ SCROLL_MOBILE=""
 OUT_DIR="./public/cave-scene"
 SKIP_WEBM=0
 WEBP_QUALITY=85
+INTRO_FRAMES=""
+UPDATE_MANIFEST=0
 
 usage() {
-  sed -n '2,18p' "$0"
+  sed -n '2,20p' "$0"
+  echo ""
+  echo "Options :"
+  echo "  --intro-frames N   Forcer la troncature à N frames (optionnel)"
+  echo "  --intro-fps N      FPS cible pour l'encodage intro (défaut : 24)"
+  echo "  --update-manifest  Écrire frameCount/fps/durationSec dans manifest.json"
   exit 1
 }
 
@@ -50,6 +55,9 @@ while [[ $# -gt 0 ]]; do
     --out) OUT_DIR="$2"; shift 2 ;;
     --skip-webm) SKIP_WEBM=1; shift ;;
     --webp-quality) WEBP_QUALITY="$2"; shift 2 ;;
+    --intro-frames) INTRO_FRAMES="$2"; shift 2 ;;
+    --intro-fps) INTRO_FPS="$2"; shift 2 ;;
+    --update-manifest) UPDATE_MANIFEST=1; shift ;;
     -h|--help) usage ;;
     *) echo "Option inconnue : $1" >&2; usage ;;
   esac
@@ -63,9 +71,31 @@ require_cmd() {
 }
 
 require_cmd ffmpeg
+require_cmd ffprobe
 
 pad_index() {
   printf 'frame_%05d' "$1"
+}
+
+probe_video() {
+  local file="$1"
+
+  local fps_raw duration frame_count fps
+  fps_raw="$(ffprobe -v error -select_streams v:0 -show_entries stream=avg_frame_rate -of csv=p=0 "$file")"
+  if [[ -z "$fps_raw" || "$fps_raw" == "0/0" ]]; then
+    fps_raw="$(ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "$file")"
+  fi
+
+  fps="$(python3 -c "n,d=map(int,'${fps_raw}'.split('/')); print(round(n/d, 3) if d else 24)" 2>/dev/null || echo "24")"
+
+  duration="$(ffprobe -v error -select_streams v:0 -show_entries stream=duration -of csv=p=0 "$file")"
+  frame_count="$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "$file")"
+
+  if [[ -z "$frame_count" || "$frame_count" == "N/A" ]]; then
+    frame_count="$(python3 -c "import math; print(max(1, round(float('${duration}') * float('${fps}'))))" 2>/dev/null || echo "unknown")"
+  fi
+
+  echo "${frame_count}|${fps}|${duration}"
 }
 
 convert_intro_mp4() {
@@ -74,12 +104,20 @@ convert_intro_mp4() {
   local width="$3"
   local height="$4"
 
-  echo "→ Intro MP4 : $output (${width}x${height}, ${INTRO_FPS} fps, ${INTRO_FRAMES} frames)"
+  local frames_label="auto"
+  [[ -n "$INTRO_FRAMES" ]] && frames_label="$INTRO_FRAMES"
+
+  echo "→ Intro MP4 : $output (${width}x${height}, ${INTRO_FPS} fps, frames=${frames_label})"
+
+  local extra_args=()
+  if [[ -n "$INTRO_FRAMES" ]]; then
+    extra_args=(-frames:v "$INTRO_FRAMES")
+  fi
 
   ffmpeg -y -hide_banner -loglevel error -i "$input" \
     -an \
     -vf "scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1,fps=${INTRO_FPS}" \
-    -frames:v "$INTRO_FRAMES" \
+    "${extra_args[@]}" \
     -c:v libx264 \
     -profile:v high \
     -level:v 4.1 \
@@ -99,10 +137,15 @@ convert_intro_webm() {
 
   echo "→ Intro WebM : $output"
 
+  local extra_args=()
+  if [[ -n "$INTRO_FRAMES" ]]; then
+    extra_args=(-frames:v "$INTRO_FRAMES")
+  fi
+
   ffmpeg -y -hide_banner -loglevel error -i "$input" \
     -an \
     -vf "scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1,fps=${INTRO_FPS}" \
-    -frames:v "$INTRO_FRAMES" \
+    "${extra_args[@]}" \
     -c:v libvpx-vp9 \
     -b:v 0 \
     -crf 32 \
@@ -111,6 +154,41 @@ convert_intro_webm() {
     -cpu-used 2 \
     -pix_fmt yuv420p \
     "$output"
+}
+
+report_intro_probe() {
+  local file="$1"
+  local label="$2"
+  local probe
+  probe="$(probe_video "$file")"
+  local frames fps duration
+  IFS='|' read -r frames fps duration <<< "$probe"
+
+  echo ""
+  echo "── Métadonnées intro ($label) ──"
+  echo "   Fichier  : $file"
+  echo "   Frames   : $frames"
+  echo "   FPS      : $fps"
+  echo "   Durée    : ${duration}s"
+  echo "   → Vérifiez que la dernière frame correspond à scroll/frame_00000.webp"
+
+  if [[ $UPDATE_MANIFEST -eq 1 && "$label" == "desktop" && -f "${OUT_DIR}/scroll/manifest.json" ]]; then
+    if command -v jq >/dev/null 2>&1; then
+      local tmp
+      tmp="$(mktemp)"
+      jq \
+        --argjson fc "${frames}" \
+        --argjson fps "${fps}" \
+        --argjson dur "${duration}" \
+        '.intro.frameCount = $fc | .intro.fps = $fps | .intro.durationSec = $dur | .intro.detectFromVideo = false' \
+        "${OUT_DIR}/scroll/manifest.json" > "$tmp"
+      mv "$tmp" "${OUT_DIR}/scroll/manifest.json"
+      echo "   Manifest mis à jour (intro.*)"
+    else
+      echo "   jq absent — mettez à jour manifest.json manuellement :" >&2
+      echo "   frameCount=$frames, fps=$fps, durationSec=$duration" >&2
+    fi
+  fi
 }
 
 ensure_webp_frame() {
@@ -147,7 +225,7 @@ pack_scroll_batches() {
   local dest_root="$2"
   local variant="$3"
 
-  echo "→ Scroll WebP ($variant) depuis $src_dir"
+  echo "→ Scroll WebP ($variant) : ${SCROLL_FRAMES} frames depuis $src_dir"
 
   local batch_index=0
   local frame_index=0
@@ -204,6 +282,7 @@ mkdir -p "$OUT_DIR"
 if [[ -n "$INTRO_DESKTOP" ]]; then
   [[ -f "$INTRO_DESKTOP" ]] || { echo "Fichier introuvable : $INTRO_DESKTOP" >&2; exit 1; }
   convert_intro_mp4 "$INTRO_DESKTOP" "${OUT_DIR}/intro.mp4" "$DESKTOP_W" "$DESKTOP_H"
+  report_intro_probe "${OUT_DIR}/intro.mp4" "desktop"
   if [[ $SKIP_WEBM -eq 0 ]]; then
     convert_intro_webm "$INTRO_DESKTOP" "${OUT_DIR}/intro.webm" "$DESKTOP_W" "$DESKTOP_H"
   fi
@@ -212,6 +291,7 @@ fi
 if [[ -n "$INTRO_MOBILE" ]]; then
   [[ -f "$INTRO_MOBILE" ]] || { echo "Fichier introuvable : $INTRO_MOBILE" >&2; exit 1; }
   convert_intro_mp4 "$INTRO_MOBILE" "${OUT_DIR}/intro-mobile.mp4" "$MOBILE_W" "$MOBILE_H"
+  report_intro_probe "${OUT_DIR}/intro-mobile.mp4" "mobile"
   if [[ $SKIP_WEBM -eq 0 ]]; then
     convert_intro_webm "$INTRO_MOBILE" "${OUT_DIR}/intro-mobile.webm" "$MOBILE_W" "$MOBILE_H"
   fi
@@ -232,7 +312,6 @@ if [[ -n "$SCROLL_DESKTOP" ]]; then
 fi
 
 echo ""
-echo "Terminé. Vérifiez :"
-echo "  - ${OUT_DIR}/intro.mp4 (5,25 s, ${INTRO_FRAMES} frames @ ${INTRO_FPS} fps)"
-echo "  - ${OUT_DIR}/scroll/manifest.json (déjà versionné dans le repo)"
-echo "  - Jonction : dernière frame intro ≈ ${OUT_DIR}/scroll/*/batch-0/frame_00000.webp"
+echo "Terminé."
+echo "  Scroll : ${SCROLL_FRAMES} frames (frame_00000 … $(pad_index $((SCROLL_FRAMES - 1))))"
+echo "  Intro  : nombre de frames affiché ci-dessus (ou relancez avec --update-manifest)"

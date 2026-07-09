@@ -36,14 +36,15 @@ Scripts fin de page : `hero-critical.js` (head), `main.js` (module Netlify).
 
 ## Comportement JS actuel (avant migration)
 
-- `loader-af.js` : séquence `.af` (`cave-scene-full-sequence.af`), 126 frames intro puis scroll.
+- `loader-af.js` : séquence `.af` (`cave-scene-full-sequence.af`), intro puis scroll.
 - `hero-media.js` : `suppressHomeHeroVideo()` masque la vidéo Webflow sur home (`data-cominvi-home-af-only`).
-- Constantes : `INTRO_FRAME_COUNT = 126`, `SCROLL_RANGE_VH = 100`, scroll frames master 126→295 (170 frames WebP).
+- Constantes legacy AF : `INTRO_FRAME_COUNT = 126`, `SCROLL_RANGE_VH = 100`.
+- **Nouveaux assets** : intro MP4 (frame count détecté à l'exécution), scroll **150 frames** WebP (`frame_00000` … `frame_00149`).
 
 ## Jonction intro → scroll
 
-- Dernière frame intro MP4 = frame master **125** (index 0-based).
-- Première frame scroll WebP = `frame_00000.webp` = frame master **126**.
+- Dernière frame intro MP4 ≈ `frame_00000.webp` (première frame scroll).
+- Le nombre de frames intro n'est pas fixé à l'avance : lu depuis `video.duration` / ffprobe, stocké dans `manifest.json` après conversion (`--update-manifest`).
 - Le poster actuel (`frame_00001.avif`) sera remplacé par `poster/frame_00000.avif` en phase ultérieure.
 
 ## Modifications Webflow attendues
@@ -67,7 +68,7 @@ cave-scene/
   scroll/
     manifest.json
     desktop/
-      batch-0/ … batch-5/   (frame_00000.webp … frame_00169.webp)
+      batch-0/ … batch-4/   (frame_00000.webp … frame_00149.webp, 5×30)
     mobile/
-      batch-0/ … batch-5/
+      batch-0/ … batch-4/
 ```

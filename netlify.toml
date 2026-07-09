@@ -1,0 +1,4 @@
+# Branche release : assets Vite pre-compiles (pas de package.json ici)
+[build]
+  command = ""
+  publish = "."

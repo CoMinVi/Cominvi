@@ -1,0 +1,216 @@
+{
+  "src/main.js": {
+    "file": "main.js",
+    "src": "src/main.js",
+    "isEntry": true,
+    "dynamicImports": [
+      "src/animation/service-icons.js",
+      "src/animation/button-hover.js",
+      "src/animation/service-cards.js",
+      "src/animation/text-reveal.js",
+      "src/animation/minerals.js",
+      "src/animation/minerals-canvas-local-debug.js",
+      "src/animation/safety-sticky.js",
+      "src/animation/scroll-list.js",
+      "src/animation/process-progression.js",
+      "src/animation/testimonials.js",
+      "src/animation/text-display-reveal.js",
+      "src/animation/cylinder.js",
+      "src/animation/process-images.js",
+      "src/animation/map.js",
+      "src/animation/contact.js",
+      "src/animation/technology.js",
+      "src/animation/workshops.js",
+      "src/animation/about-us.js",
+      "src/animation/about-scroll.js",
+      "src/animation/blog.js",
+      "src/animation/blog-article.js",
+      "src/animation/join-the-team.js"
+    ]
+  },
+  "src/animation/cylinder.js": {
+    "file": "assets/cylinder.js",
+    "src": "src/animation/cylinder.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/contact.js": {
+    "file": "assets/contact.js",
+    "src": "src/animation/contact.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "__commonjsHelpers.js"
+    ],
+    "css": [
+      "assets/contact.css"
+    ]
+  },
+  "__commonjsHelpers.js": {
+    "file": "assets/_commonjsHelpers.js"
+  },
+  "src/animation/service-icons.js": {
+    "file": "assets/service-icons.js",
+    "src": "src/animation/service-icons.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "__commonjsHelpers.js"
+    ]
+  },
+  "src/animation/button-hover.js": {
+    "file": "assets/button-hover.js",
+    "src": "src/animation/button-hover.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/service-cards.js": {
+    "file": "assets/service-cards.js",
+    "src": "src/animation/service-cards.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js",
+      "_index.js"
+    ]
+  },
+  "_index.js": {
+    "file": "assets/index.js"
+  },
+  "src/animation/text-reveal.js": {
+    "file": "assets/text-reveal.js",
+    "src": "src/animation/text-reveal.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js",
+      "_index.js"
+    ]
+  },
+  "src/animation/minerals.js": {
+    "file": "assets/minerals.js",
+    "src": "src/animation/minerals.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/minerals-canvas-local-debug.js": {
+    "file": "assets/minerals-canvas-local-debug.js",
+    "src": "src/animation/minerals-canvas-local-debug.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/safety-sticky.js": {
+    "file": "assets/safety-sticky.js",
+    "src": "src/animation/safety-sticky.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/scroll-list.js": {
+    "file": "assets/scroll-list.js",
+    "src": "src/animation/scroll-list.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/process-progression.js": {
+    "file": "assets/process-progression.js",
+    "src": "src/animation/process-progression.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/testimonials.js": {
+    "file": "assets/testimonials.js",
+    "src": "src/animation/testimonials.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/text-display-reveal.js": {
+    "file": "assets/text-display-reveal.js",
+    "src": "src/animation/text-display-reveal.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/process-images.js": {
+    "file": "assets/process-images.js",
+    "src": "src/animation/process-images.js",
+    "isDynamicEntry": true
+  },
+  "src/animation/map.js": {
+    "file": "assets/map.js",
+    "src": "src/animation/map.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/technology.js": {
+    "file": "assets/technology.js",
+    "src": "src/animation/technology.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js",
+      "src/animation/workshops.js"
+    ]
+  },
+  "src/animation/workshops.js": {
+    "file": "assets/workshops.js",
+    "src": "src/animation/workshops.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/about-us.js": {
+    "file": "assets/about-us.js",
+    "src": "src/animation/about-us.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index.js",
+      "src/animation/workshops.js",
+      "src/main.js"
+    ]
+  },
+  "src/animation/about-scroll.js": {
+    "file": "assets/about-scroll.js",
+    "src": "src/animation/about-scroll.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js",
+      "_index.js"
+    ]
+  },
+  "src/animation/blog.js": {
+    "file": "assets/blog.js",
+    "src": "src/animation/blog.js",
+    "isDynamicEntry": true
+  },
+  "src/animation/blog-article.js": {
+    "file": "assets/blog-article.js",
+    "src": "src/animation/blog-article.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/join-the-team.js": {
+    "file": "assets/join-the-team.js",
+    "src": "src/animation/join-the-team.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  }
+}

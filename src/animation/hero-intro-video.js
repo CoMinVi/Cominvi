@@ -105,12 +105,24 @@ export function createHeroIntroVideo({ host, src, durationSec = 3.6 }) {
     },
     setProgress: pauseAtProgress,
     show() {
-      video.style.opacity = '1'
-      video.style.visibility = 'visible'
+      try {
+        video.style.setProperty('display', 'block', 'important')
+        video.style.setProperty('opacity', '1', 'important')
+        video.style.setProperty('visibility', 'visible', 'important')
+        video.style.setProperty('z-index', '3', 'important')
+      } catch (e) {
+        video.style.opacity = '1'
+        video.style.visibility = 'visible'
+      }
     },
     hide() {
-      video.style.opacity = '0'
-      video.style.visibility = 'hidden'
+      try {
+        video.style.setProperty('opacity', '0', 'important')
+        video.style.setProperty('visibility', 'hidden', 'important')
+      } catch (e) {
+        video.style.opacity = '0'
+        video.style.visibility = 'hidden'
+      }
       try {
         video.pause()
       } catch (e) {

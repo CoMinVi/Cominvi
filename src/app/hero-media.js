@@ -1,6 +1,8 @@
 import { logHeroSizeSnapshot } from './hero-size-debug.js'
 
-const HERO_VIDEO_SELECTOR = '.hero-background .background_video video'
+export const HERO_INTRO_VIDEO_ATTR = 'data-cominvi-hero-intro-video'
+const HERO_VIDEO_SELECTOR =
+  '.hero-background .background_video video:not([data-cominvi-hero-intro-video="true"])'
 const HERO_POSTER_PRELOAD_ATTR = 'data-cominvi-hero-poster-preload'
 const HERO_POSTER_IMG_ATTR = 'data-cominvi-hero-poster-img'
 const HERO_VIDEO_READY_ATTR = 'data-cominvi-hero-video-ready'
@@ -18,6 +20,7 @@ function getHeroVideosInScope(root = document) {
 
 function hideHomeHeroVideoElement(video) {
   if (!video || !video.setAttribute) return
+  if (video.getAttribute(HERO_INTRO_VIDEO_ATTR) === 'true') return
 
   video.setAttribute(HOME_AF_ONLY_ATTR, 'true')
   video.setAttribute(HERO_VIDEO_READY_ATTR, 'false')

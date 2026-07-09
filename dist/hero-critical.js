@@ -7,6 +7,13 @@
 
   const LOCK_ATTR = 'data-cominvi-hero-locked'
   const POSTER_IMG_ATTR = 'data-cominvi-hero-poster-img'
+  const INTRO_VIDEO_ATTR = 'data-cominvi-hero-intro-video'
+  const WEBFLOW_VIDEO_SELECTOR =
+    '.hero-background .background_video > video:not([' +
+    INTRO_VIDEO_ATTR +
+    '="true"]), .hero-background .w-background-video > video:not([' +
+    INTRO_VIDEO_ATTR +
+    '="true"])'
 
   const style = document.createElement('style')
   style.setAttribute('data-cominvi-hero-critical', '')
@@ -40,8 +47,8 @@
   height: 100% !important;
   background-image: none !important;
 }
-.hero-background .background_video > video,
-.hero-background .w-background-video > video {
+.hero-background .background_video > video:not([data-cominvi-hero-intro-video="true"]),
+.hero-background .w-background-video > video:not([data-cominvi-hero-intro-video="true"]) {
   position: absolute !important;
   inset: 0 !important;
   margin: 0 !important;
@@ -53,6 +60,17 @@
   z-index: 1 !important;
   opacity: 0 !important;
   visibility: hidden !important;
+}
+.hero-background .background_video > video[data-cominvi-hero-intro-video="true"] {
+  position: absolute !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: 50% 50% !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
 }
 .hero-background .background_video > img[data-cominvi-hero-poster-img="true"],
 .hero-background .w-background-video > img[data-cominvi-hero-poster-img="true"] {
@@ -113,6 +131,7 @@
 
   function lockHeroVideo(video) {
     if (!video || video.getAttribute(LOCK_ATTR) === 'true') return
+    if (video.getAttribute(INTRO_VIDEO_ATTR) === 'true') return
     video.setAttribute(LOCK_ATTR, 'true')
 
     const homeContainer = video.closest('[data-barba-namespace]')
@@ -167,9 +186,7 @@
   }
 
   function scanHeroVideos() {
-    document
-      .querySelectorAll('.hero-background .background_video video')
-      .forEach(lockHeroVideo)
+    document.querySelectorAll(WEBFLOW_VIDEO_SELECTOR).forEach(lockHeroVideo)
   }
 
   scanHeroVideos()

@@ -16,6 +16,7 @@ function createImageLoader() {
     const promise = new Promise((resolve) => {
       const img = new Image()
       img.decoding = 'async'
+      img.crossOrigin = 'anonymous'
       img.onload = () => {
         cache.set(url, img)
         inflight.delete(url)
@@ -100,7 +101,6 @@ export function createHeroScrollSequence({
   const images = createImageLoader()
   let requestedFrame = 0
   let hysteresisFrame = null
-  let hasRenderedFrame = false
   let rafToken = 0
 
   const fitCanvas = () => {
@@ -190,7 +190,6 @@ export function createHeroScrollSequence({
 
     canvas.style.opacity = '1'
     canvas.style.visibility = 'visible'
-    hasRenderedFrame = true
     afResizeLog('hero-scroll:paint', { reason, index })
     return true
   }
@@ -244,10 +243,8 @@ export function createHeroScrollSequence({
       requestFrame(frame)
     },
     show() {
-      if (hasRenderedFrame) {
-        canvas.style.opacity = '1'
-        canvas.style.visibility = 'visible'
-      }
+      canvas.style.opacity = '1'
+      canvas.style.visibility = 'visible'
     },
     hide() {
       canvas.style.opacity = '0'

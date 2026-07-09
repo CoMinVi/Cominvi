@@ -34,7 +34,7 @@ function getHomeSequenceScroller() {
   }
 }
 
-function cleanupHomeSequenceBindings() {
+function cleanupHomeSequenceBindings({ destroyController = true } = {}) {
   if (window.__homeSequenceScrollTrigger) {
     window.__homeSequenceScrollTrigger.kill()
     window.__homeSequenceScrollTrigger = null
@@ -80,6 +80,8 @@ function cleanupHomeSequenceBindings() {
     }
     window.__homeSequenceResizeCleanup = null
   }
+
+  if (!destroyController) return
 
   if (
     window.__homeSequenceController &&
@@ -673,6 +675,33 @@ export function prefetchHomeSequenceBinary() {
   }
 }
 
+export function suspendHomeSequenceForLeave() {
+  if (
+    window.__homeSequenceTransitionTimeline &&
+    typeof window.__homeSequenceTransitionTimeline.kill === 'function'
+  ) {
+    try {
+      window.__homeSequenceTransitionTimeline.kill()
+    } catch (e) {
+      // ignore
+    }
+    window.__homeSequenceTransitionTimeline = null
+  }
+  window.__homeSequenceTransitionStarted = false
+
+  const controller = window.__homeSequenceController
+  if (typeof controller?.freezeForTransitionLeave === 'function') {
+    try {
+      controller.freezeForTransitionLeave()
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  cleanupHomeSequenceBindings({ destroyController: false })
+  afResizeLog('suspendHomeSequenceForLeave')
+}
+
 export function destroyHomeSequenceForTransition() {
   if (
     window.__homeSequenceTransitionTimeline &&
@@ -686,7 +715,7 @@ export function destroyHomeSequenceForTransition() {
     window.__homeSequenceTransitionTimeline = null
   }
   window.__homeSequenceTransitionStarted = false
-  cleanupHomeSequenceBindings()
+  cleanupHomeSequenceBindings({ destroyController: true })
 }
 
 export function preloadHomeSequenceForTransition(scope = document) {
@@ -817,44 +846,38 @@ export function startHomeSequenceAfterTransition(scope = document, opts = {}) {
     afResizeLog('startHomeSequenceAfterTransition', {
       skipHeroAnimation,
       skipContactHero,
+      skipIntro: true,
     })
 
     let started = false
-    const startPlayback = () => {
+    const startAfterTransition = () => {
       if (started || !window.__homeSequenceTransitionStarted) return
       started = true
 
-      sequenceController.setIntroProgress(0)
-      if (typeof sequenceController.repaint === 'function') {
-        sequenceController.repaint('transition-start')
+      try {
+        window.__loaderDone = true
+        document.dispatchEvent(new CustomEvent('loader:done'))
+      } catch (e) {
+        // ignore
       }
 
-      const tl = gsap.timeline({
-        onStart: () => {
-          sequenceController.startIntroPlayback?.(1.6)
-        },
+      startHeroAfterLogo(loaderEase, sequenceController, {
+        skipHeroAnimation,
+        skipContactHero,
+        scope: root,
+        deferScrollSequence: true,
       })
-      window.__homeSequenceTransitionTimeline = tl
 
-      tl.to({}, { duration: 1.6, ease: loaderEase })
-      tl.add(() => {
-        startHeroAfterLogo(loaderEase, sequenceController, {
-          skipHeroAnimation,
-          skipContactHero,
-          scope: root,
-          deferScrollSequence: true,
-        })
-      })
-      tl.to({}, { duration: 0.35, ease: loaderEase })
-      tl.add(() => {
-        beginScrollDrivenSequence(sequenceController)
-        window.__homeSequenceTransitionStarted = false
-        window.__homeSequenceTransitionTimeline = null
-      })
+      beginScrollDrivenSequence(sequenceController)
+
+      window.__homeSequenceTransitionStarted = false
+      window.__homeSequenceTransitionTimeline = null
     }
 
-    sequenceController.ready.then(startPlayback).catch(startPlayback)
-    window.setTimeout(startPlayback, 1500)
+    sequenceController.ready
+      .then(startAfterTransition)
+      .catch(startAfterTransition)
+    window.setTimeout(startAfterTransition, 1500)
 
     return sequenceController
   } catch (e) {

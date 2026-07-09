@@ -113,6 +113,7 @@ function createNoopSequenceController() {
     setIntroProgress: () => {},
     startIntroPlayback: () => {},
     finishIntroHandoff: () => {},
+    freezeForTransitionLeave: () => {},
     setScrollProgress: () => {},
     setFrame: () => {},
     repaint: () => false,
@@ -237,6 +238,14 @@ export function createHeroSequenceController(backgroundInner) {
       scroll?.show()
       scroll?.repaint?.('intro-handoff')
       afResizeLog('hero-intro:handoff')
+    },
+    freezeForTransitionLeave() {
+      intro?.stopPlayback?.()
+      intro?.hide()
+      hidePosterOnce()
+      scroll?.show()
+      scroll?.repaint?.('transition-leave-freeze')
+      afResizeLog('hero-sequence:freeze-leave')
     },
     setScrollProgress(progress) {
       if (!scroll) return

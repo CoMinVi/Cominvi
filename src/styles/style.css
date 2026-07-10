@@ -8,6 +8,10 @@
   overflow: hidden;
 }
 
+[data-cominvi-home-leave='true'].page-wrap {
+  background-color: transparent !important;
+}
+
 .navbar {
   mix-blend-mode: difference;
 }

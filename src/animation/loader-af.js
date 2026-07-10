@@ -680,6 +680,122 @@ export function prefetchHomeSequenceBinary() {
   }
 }
 
+function killHeroBackgroundParallax() {
+  try {
+    if (window.__heroBgParallax?.scrollTrigger) {
+      window.__heroBgParallax.scrollTrigger.kill()
+    }
+  } catch (e) {
+    // ignore
+  }
+  try {
+    window.__heroBgParallax?.kill?.()
+  } catch (e) {
+    // ignore
+  }
+  window.__heroBgParallax = null
+}
+
+function isHomeContainer(container) {
+  if (!container?.getAttribute) return false
+  const namespace = (container.getAttribute('data-barba-namespace') || '')
+    .trim()
+    .toLowerCase()
+  return namespace === 'home'
+}
+
+export function pinHomeHeroForPtInnerLeave(container) {
+  if (!container || window.__homeHeroPin || !isHomeContainer(container)) {
+    return null
+  }
+
+  const heroBackground = container.querySelector('.hero-background')
+  if (!heroBackground) return null
+
+  killHeroBackgroundParallax()
+
+  const rect = heroBackground.getBoundingClientRect()
+  const placeholder = document.createElement('div')
+  placeholder.setAttribute('data-cominvi-hero-pin-placeholder', 'true')
+  Object.assign(placeholder.style, {
+    width: `${Math.max(0, rect.width)}px`,
+    height: `${Math.max(0, rect.height)}px`,
+    visibility: 'hidden',
+    pointerEvents: 'none',
+  })
+
+  const parent = heroBackground.parentElement
+  if (!parent) return null
+  parent.insertBefore(placeholder, heroBackground)
+
+  const pinWrapper = document.createElement('div')
+  pinWrapper.setAttribute('data-cominvi-hero-pin', 'true')
+  Object.assign(pinWrapper.style, {
+    position: 'fixed',
+    top: `${rect.top}px`,
+    left: `${rect.left}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    zIndex: '2',
+    pointerEvents: 'none',
+    overflow: 'hidden',
+  })
+
+  pinWrapper.appendChild(heroBackground)
+  document.body.appendChild(pinWrapper)
+
+  const originalBackgroundColor = container.style.backgroundColor
+  container.setAttribute('data-cominvi-home-leave', 'true')
+  container.style.backgroundColor = 'transparent'
+
+  window.__homeHeroPin = {
+    pinWrapper,
+    placeholder,
+    heroBackground,
+    container,
+    originalBackgroundColor,
+  }
+
+  afResizeLog('pinHomeHeroForPtInnerLeave', {
+    top: rect.top,
+    left: rect.left,
+    width: rect.width,
+    height: rect.height,
+  })
+
+  return window.__homeHeroPin
+}
+
+export function releaseHomeHeroPin() {
+  const state = window.__homeHeroPin
+  if (!state) return
+
+  try {
+    state.pinWrapper?.remove?.()
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    state.placeholder?.remove?.()
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    if (state.container) {
+      state.container.removeAttribute('data-cominvi-home-leave')
+      state.container.style.backgroundColor =
+        state.originalBackgroundColor || ''
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  window.__homeHeroPin = null
+  afResizeLog('releaseHomeHeroPin')
+}
+
 export function suspendHomeSequenceForLeave() {
   if (
     window.__homeSequenceTransitionTimeline &&
@@ -708,6 +824,7 @@ export function suspendHomeSequenceForLeave() {
 }
 
 export function destroyHomeSequenceForTransition() {
+  releaseHomeHeroPin()
   if (
     window.__homeSequenceTransitionTimeline &&
     typeof window.__homeSequenceTransitionTimeline.kill === 'function'

@@ -814,7 +814,7 @@ export function initializePageTransitionNav() {
   barba.hooks.beforeLeave(({ current, next }) => {
     try {
       if (isHomeNamespace(current && current.container)) {
-        suspendHomeSequenceForLeave(current.container)
+        suspendHomeSequenceForLeave()
       }
       const container = next && next.container
       if (!isHomeNamespace(container)) return

@@ -268,8 +268,9 @@ export function createHeroSequenceController(backgroundInner) {
       intro?.hide()
       hidePosterOnce()
       scroll?.show()
-      scroll?.repaint?.('transition-leave-freeze')
-      afResizeLog('hero-sequence:freeze-leave')
+      afResizeLog('hero-sequence:freeze-leave', {
+        skipRepaint: true,
+      })
     },
     setScrollProgress(progress) {
       if (!scroll) return

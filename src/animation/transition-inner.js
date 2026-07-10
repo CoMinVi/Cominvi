@@ -4,10 +4,7 @@ import { CustomEase } from 'gsap/CustomEase'
 import { suppressHomeHeroVideo } from '../app/hero-media.js'
 import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
-import {
-  pinHomeHeroForPtInnerLeave,
-  showHomeSequenceFirstFrame,
-} from './loader-af.js'
+import { showHomeSequenceFirstFrame } from './loader-af.js'
 import { addMenuLinksCloseToTimeline } from './nav.js'
 import {
   createViewportClipOverlay,
@@ -139,13 +136,6 @@ function formatNamespaceName(ns) {
 export function slideScaleLeave({ current }) {
   const currentPage =
     current.container.querySelector('.page-wrap') || current.container
-
-  try {
-    pinHomeHeroForPtInnerLeave(current.container)
-  } catch (e) {
-    // ignore
-  }
-
   const rect = currentPage.getBoundingClientRect()
   lastTopOffsetPx = Math.max(0, Math.round(rect.top))
   const pageInfo = document.querySelector('.page-info')

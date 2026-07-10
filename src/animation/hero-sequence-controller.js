@@ -260,6 +260,10 @@ export function createHeroSequenceController(backgroundInner) {
       afResizeLog('hero-intro:handoff')
     },
     freezeForTransitionLeave() {
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+        resizeObserver = null
+      }
       intro?.stopPlayback?.()
       intro?.hide()
       hidePosterOnce()

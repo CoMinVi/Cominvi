@@ -13,7 +13,6 @@ import {
 import { reinitializeWebflowAnimations } from '../utils/base.js'
 import {
   destroyHomeSequenceForTransition,
-  releaseHomeHeroPin,
   suspendHomeSequenceForLeave,
   prefetchHomeSequenceBinary,
   showHomeSequenceFirstFrame,
@@ -815,7 +814,7 @@ export function initializePageTransitionNav() {
   barba.hooks.beforeLeave(({ current, next }) => {
     try {
       if (isHomeNamespace(current && current.container)) {
-        suspendHomeSequenceForLeave()
+        suspendHomeSequenceForLeave(current.container)
       }
       const container = next && next.container
       if (!isHomeNamespace(container)) return
@@ -840,7 +839,6 @@ export function initializePageTransitionNav() {
   // Global fallback for nav that bypasses custom transitions
   barba.hooks.after(({ current, next }) => {
     try {
-      releaseHomeHeroPin()
       if (isHomeNamespace(current && current.container)) {
         destroyHomeSequenceForTransition()
       }

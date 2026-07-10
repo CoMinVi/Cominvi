@@ -135,8 +135,17 @@ document.addEventListener('DOMContentLoaded', () => {
       includeParallax: true,
       includeButtonHover: true,
     })
-      .then(() => {
-        // Initialization complete
+      .then(async () => {
+        try {
+          const { refreshSafetySticky } = await import(
+            './animation/safety-sticky.js'
+          )
+          if (typeof refreshSafetySticky === 'function') {
+            refreshSafetySticky(document)
+          }
+        } catch (e) {
+          // ignore
+        }
       })
       .catch(() => {
         // Initialization error

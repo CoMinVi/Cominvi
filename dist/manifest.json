@@ -36,6 +36,14 @@
       "src/main.js"
     ]
   },
+  "src/animation/safety-sticky.js": {
+    "file": "assets/safety-sticky.js",
+    "src": "src/animation/safety-sticky.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
   "src/animation/contact.js": {
     "file": "assets/contact.js",
     "src": "src/animation/contact.js",
@@ -98,14 +106,6 @@
   "src/animation/minerals-canvas-local-debug.js": {
     "file": "assets/minerals-canvas-local-debug.js",
     "src": "src/animation/minerals-canvas-local-debug.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/main.js"
-    ]
-  },
-  "src/animation/safety-sticky.js": {
-    "file": "assets/safety-sticky.js",
-    "src": "src/animation/safety-sticky.js",
     "isDynamicEntry": true,
     "imports": [
       "src/main.js"

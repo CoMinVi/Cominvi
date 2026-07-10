@@ -46,6 +46,38 @@ const isServiceCardHovered = (card) => {
   }
 }
 
+const DESC_TRANSITION =
+  'max-height 0.8s cubic-bezier(0.5, 0, 0, 1), opacity 0.8s cubic-bezier(0.5, 0, 0, 1)'
+
+const setServiceCardDescClosed = (desc, { instant = false } = {}) => {
+  if (!desc) return
+  if (instant) desc.style.transition = 'none'
+  else desc.style.transition = DESC_TRANSITION
+  desc.style.maxHeight = '0'
+  desc.style.opacity = '0'
+  desc.style.overflow = 'hidden'
+  desc.style.pointerEvents = 'none'
+  desc.style.marginTop = '0'
+  if (instant) {
+    void desc.offsetHeight
+    desc.style.transition = DESC_TRANSITION
+  }
+}
+
+const setServiceCardDescOpen = (desc, { instant = false } = {}) => {
+  if (!desc) return
+  if (instant) desc.style.transition = 'none'
+  else desc.style.transition = DESC_TRANSITION
+  desc.style.maxHeight = '24em'
+  desc.style.opacity = '1'
+  desc.style.overflow = 'hidden'
+  desc.style.pointerEvents = ''
+  if (instant) {
+    void desc.offsetHeight
+    desc.style.transition = DESC_TRANSITION
+  }
+}
+
 const measureServiceBodyLOffset = (card, bloc, bodyL) => {
   if (
     card.classList.contains('is-card-reveal-pending') &&
@@ -53,6 +85,11 @@ const measureServiceBodyLOffset = (card, bloc, bodyL) => {
     bodyL.__svcBottomOffsetPx > 0
   ) {
     return bodyL.__svcBottomOffsetPx
+  }
+
+  const desc = card.querySelector('.desc')
+  if (desc && !isServiceCardHovered(card)) {
+    setServiceCardDescClosed(desc, { instant: true })
   }
 
   bodyL.style.transform = ''
@@ -138,6 +175,19 @@ const splitServiceCardBodyS = (small) => {
   }
 }
 
+const ensureServiceCardBodySSplit = (small, { force = false } = {}) => {
+  if (!small) return []
+  if (
+    !force &&
+    small.__lineInners?.length &&
+    small.__splitLines &&
+    small.__lines?.length
+  ) {
+    return small.__lineInners
+  }
+  return splitServiceCardBodyS(small)
+}
+
 const applyServiceCardDesktopClosedState = (
   card,
   bloc,
@@ -145,7 +195,7 @@ const applyServiceCardDesktopClosedState = (
   { instant = false } = {}
 ) => {
   const small = desc.querySelector('.body-s')
-  splitServiceCardBodyS(small)
+  ensureServiceCardBodySSplit(small)
 
   const bodyL = bloc.querySelector('.body-l')
   if (bodyL) {
@@ -168,7 +218,9 @@ const applyServiceCardDesktopClosedState = (
   }
 
   if (!isServiceCardHovered(card)) {
+    setServiceCardDescClosed(desc, { instant })
     hideServiceCardBodySLines(small, { instant })
+    card.classList.remove('is-svc-hover')
     card.style.removeProperty('background-color')
     card.style.backgroundColor = 'var(--white)'
   }
@@ -304,6 +356,11 @@ export function initServiceCards(root = document) {
           card.style.removeProperty('pointer-events')
           card.style.backgroundColor = 'var(--white)'
         }
+
+        card.classList.remove('is-svc-hover')
+        if (!isTabletOrBelowNow()) {
+          setServiceCardDescClosed(desc, { instant: true })
+        }
       } catch (e) {
         // ignore
       }
@@ -350,6 +407,12 @@ export function initServiceCards(root = document) {
         bloc.style.transition = ''
         bloc.style.transform = ''
         bloc.style.willChange = ''
+        desc.style.maxHeight = ''
+        desc.style.opacity = ''
+        desc.style.overflow = ''
+        desc.style.pointerEvents = ''
+        desc.style.marginTop = ''
+        desc.style.transition = ''
         const bodyL = bloc.querySelector('.body-l')
         if (bodyL) {
           bodyL.style.transition = ''
@@ -404,6 +467,8 @@ export function initServiceCards(root = document) {
         if (isTabletOrBelowNow() || isMenuOpenNow() || card.__svcHoverActive)
           return
         card.__svcHoverActive = true
+        card.classList.add('is-svc-hover')
+        setServiceCardDescOpen(desc)
         moveBodyL(0)
         animateSmallLines('0%')
         card.style.backgroundColor = 'var(--accent)'
@@ -411,12 +476,14 @@ export function initServiceCards(root = document) {
       const onHoverLeave = () => {
         if (isTabletOrBelowNow()) return
         card.__svcHoverActive = false
+        card.classList.remove('is-svc-hover')
         let back = 0
         if (bodyL && typeof bodyL.__svcBottomOffsetPx === 'number') {
           back = bodyL.__svcBottomOffsetPx
         }
         moveBodyL(back)
         animateSmallLines('100%')
+        setServiceCardDescClosed(desc)
         card.style.backgroundColor = 'var(--white)'
       }
 

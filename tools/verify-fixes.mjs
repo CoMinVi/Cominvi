@@ -294,11 +294,32 @@ async function testServiceTitlesOnResize(page, baseUrl) {
       )
     )
 
+  const readDescHeights = () =>
+    page.evaluate(() =>
+      Array.from(document.querySelectorAll('.section_services .service-card')).map(
+        (card) => {
+          const desc = card.querySelector('.desc')
+          const rect = desc?.getBoundingClientRect()
+          const opacity = desc ? parseFloat(getComputedStyle(desc).opacity) : 1
+          return {
+            height: rect ? Math.round(rect.height) : 0,
+            opacity,
+          }
+        }
+      )
+    )
+
   const beforeResize = await readOffsets()
+  const descBeforeResize = await readDescHeights()
   console.log('SERVICE TITLES BEFORE RESIZE:', beforeResize)
+  console.log('SERVICE DESC BEFORE RESIZE:', descBeforeResize)
   assert(
     beforeResize.length > 0 && beforeResize.every((o) => o > 8),
     `Titres pas fermés avant resize (${beforeResize.join(',')})`
+  )
+  assert(
+    descBeforeResize.every((d) => d.height <= 2 && d.opacity < 0.1),
+    `desc visible avant resize: ${JSON.stringify(descBeforeResize)}`
   )
 
   for (const size of [
@@ -312,10 +333,16 @@ async function testServiceTitlesOnResize(page, baseUrl) {
   }
 
   const afterResize = await readOffsets()
+  const descAfterResize = await readDescHeights()
   console.log('SERVICE TITLES AFTER RESIZE:', afterResize)
+  console.log('SERVICE DESC AFTER RESIZE:', descAfterResize)
   assert(
     afterResize.every((o) => o > 8),
     `Titres en position ouverte après resize (${afterResize.join(',')})`
+  )
+  assert(
+    descAfterResize.every((d) => d.height <= 2 && d.opacity < 0.1),
+    `desc visible après resize sans hover: ${JSON.stringify(descAfterResize)}`
   )
 }
 

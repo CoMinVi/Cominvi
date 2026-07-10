@@ -130,10 +130,8 @@ async function testServiceCards(page) {
         title: bodyL?.textContent?.trim().slice(0, 40),
         offset: bodyL?.__svcBottomOffsetPx,
         gapToBottom,
-        cardInnerOpacity: cardInner
-          ? getComputedStyle(cardInner).opacity
-          : null,
-        cardInnerY: cardInner?.style.transform || '',
+        cardOpacity: getComputedStyle(card).opacity,
+        cardTransform: card.style.transform || '',
       }
     })
   })
@@ -155,17 +153,50 @@ async function testCardsReveal(page) {
       document.querySelectorAll('.section_services .service-card') || []
     )
     return {
-      cardInnerOpacities: cards.map(
-        (c) => getComputedStyle(c.querySelector('.card-inner')).opacity
-      ),
+      cardOpacities: cards.map((c) => getComputedStyle(c).opacity),
+      cardTransforms: cards.map((c) => c.style.transform || ''),
       played: !!document.querySelector('.section_services')?.__cardsRevealPlayed,
     }
   })
   console.log('CARDS REVEAL:', JSON.stringify(data, null, 2))
-  data.cardInnerOpacities.forEach((op, i) =>
-    assert(parseFloat(op) >= 0.99, `Card ${i} inner opacity=${op}`)
+  data.cardOpacities.forEach((op, i) =>
+    assert(parseFloat(op) >= 0.99, `Card ${i} opacity=${op}`)
   )
   assert(data.played, 'Reveal animation non jouée')
+  return data
+}
+
+async function testBlogUnderlineHover(page) {
+  const link = page.locator('a.blog-inner_item').first()
+  await link.scrollIntoViewIfNeeded()
+  await link.hover()
+  await page.waitForTimeout(700)
+
+  const data = await page.evaluate(() => {
+    const line = document.querySelector(
+      '.blog-main_item .blog-name > .body-l > .blogline-line'
+    )
+    if (!line) return { error: 'no line' }
+    const after = getComputedStyle(line, '::after')
+    const lineStyle = getComputedStyle(line)
+    return {
+      lineDisplay: lineStyle.display,
+      afterContent: after.content,
+      afterTransform: after.transform,
+      afterWidth: after.width,
+      afterHeight: after.height,
+    }
+  })
+  console.log('BLOG UNDERLINE HOVER:', JSON.stringify(data, null, 2))
+  assert(!data.error, data.error || 'missing blog line')
+  assert(data.lineDisplay === 'block', `blogline-line display=${data.lineDisplay}`)
+  assert(data.afterContent && data.afterContent !== 'none', '::after absent')
+  assert(
+    data.afterTransform &&
+      !data.afterTransform.includes('matrix(0,') &&
+      !data.afterTransform.includes('matrix(0 '),
+    `underline non visible: transform=${data.afterTransform}`
+  )
   return data
 }
 
@@ -300,7 +331,7 @@ async function main() {
     const cardsBefore = await testServiceCards(page)
     const revealBefore = await page.evaluate(() => ({
       opacities: Array.from(
-        document.querySelectorAll('.section_services .service-card .card-inner')
+        document.querySelectorAll('.section_services .service-card')
       ).map((el) => getComputedStyle(el).opacity),
     }))
     console.log('REVEAL BEFORE SCROLL:', JSON.stringify(revealBefore, null, 2))
@@ -330,6 +361,7 @@ async function main() {
     )
     await page.waitForTimeout(1500)
     await testBlogLayout(page)
+    await testBlogUnderlineHover(page)
 
     await testMachinesGrid(page, baseUrl)
 

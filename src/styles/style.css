@@ -504,7 +504,9 @@
 
 .blogline-line {
   position: relative;
+  display: block;
   overflow: visible;
+  max-width: 100%;
 }
 
 .blog-name > .body-l {
@@ -526,7 +528,10 @@
 }
 
 .blog-inner_item.is-green:hover > .blog-name > .body-l > .blogline-line::after,
-.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after {
+.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after,
+.blog-main_item:hover .blog-name > .body-l > .blogline-line::after,
+.blog-main_link:hover .blog-name > .body-l > .blogline-line::after,
+a.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after {
   transform: scaleX(1) !important;
   transform-origin: bottom left;
 }

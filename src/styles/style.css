@@ -8,15 +8,6 @@
   overflow: hidden;
 }
 
-/* Home pt-inner leave: hero-background is pinned fixed; content-wrap scales in the mask. */
-[data-cominvi-home-leave='true'].page-wrap {
-  background-color: transparent !important;
-}
-
-[data-cominvi-home-leave='true'] .section_hero {
-  background-color: transparent !important;
-}
-
 .navbar {
   mix-blend-mode: difference;
 }

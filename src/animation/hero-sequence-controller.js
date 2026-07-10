@@ -260,17 +260,12 @@ export function createHeroSequenceController(backgroundInner) {
       afResizeLog('hero-intro:handoff')
     },
     freezeForTransitionLeave() {
-      if (resizeObserver) {
-        resizeObserver.disconnect()
-        resizeObserver = null
-      }
       intro?.stopPlayback?.()
       intro?.hide()
       hidePosterOnce()
       scroll?.show()
-      afResizeLog('hero-sequence:freeze-leave', {
-        skipRepaint: true,
-      })
+      scroll?.repaint?.('transition-leave-freeze')
+      afResizeLog('hero-sequence:freeze-leave')
     },
     setScrollProgress(progress) {
       if (!scroll) return

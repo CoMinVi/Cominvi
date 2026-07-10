@@ -680,148 +680,6 @@ export function prefetchHomeSequenceBinary() {
   }
 }
 
-function killHeroBackgroundParallax() {
-  try {
-    if (window.__heroBgParallax?.scrollTrigger) {
-      window.__heroBgParallax.scrollTrigger.kill()
-    }
-  } catch (e) {
-    // ignore
-  }
-  try {
-    window.__heroBgParallax?.kill?.()
-  } catch (e) {
-    // ignore
-  }
-  window.__heroBgParallax = null
-}
-
-function captureHomeScrollProgress() {
-  try {
-    const distance = window.innerHeight * (SCROLL_RANGE_VH / 100)
-    if (!Number.isFinite(distance) || distance <= 0) return null
-
-    if (window.lenis && typeof window.lenis.scroll === 'number') {
-      return Math.max(0, Math.min(window.lenis.scroll / distance, 1))
-    }
-
-    const st = window.__homeSequenceScrollTrigger
-    if (st && Number.isFinite(st.progress)) {
-      return Math.max(0, Math.min(st.progress, 1))
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  return null
-}
-
-function detachHomeSequenceRefreshRepaint() {
-  if (
-    window.__homeSequenceRefreshRepaintCleanup &&
-    typeof window.__homeSequenceRefreshRepaintCleanup === 'function'
-  ) {
-    try {
-      window.__homeSequenceRefreshRepaintCleanup()
-    } catch (e) {
-      // ignore
-    }
-    window.__homeSequenceRefreshRepaintCleanup = null
-  }
-}
-
-function isHomeContainer(container) {
-  if (!container?.getAttribute) return false
-  const namespace = (container.getAttribute('data-barba-namespace') || '')
-    .trim()
-    .toLowerCase()
-  return namespace === 'home'
-}
-
-export function pinHomeHeroBackgroundForLeave(container) {
-  if (!container || window.__homeHeroPin || !isHomeContainer(container)) {
-    return null
-  }
-
-  const heroBackground = container.querySelector('.hero-background')
-  if (!heroBackground) return null
-
-  const rect = heroBackground.getBoundingClientRect()
-  const placeholder = document.createElement('div')
-  placeholder.setAttribute('data-cominvi-hero-pin-placeholder', 'true')
-  Object.assign(placeholder.style, {
-    width: `${Math.max(0, rect.width)}px`,
-    height: `${Math.max(0, rect.height)}px`,
-    visibility: 'hidden',
-    pointerEvents: 'none',
-    flexShrink: '0',
-  })
-
-  const parent = heroBackground.parentElement
-  if (!parent) return null
-  parent.insertBefore(placeholder, heroBackground)
-
-  const pinWrapper = document.createElement('div')
-  pinWrapper.setAttribute('data-cominvi-hero-pin', 'true')
-  Object.assign(pinWrapper.style, {
-    position: 'fixed',
-    top: `${rect.top}px`,
-    left: `${rect.left}px`,
-    width: `${rect.width}px`,
-    height: `${rect.height}px`,
-    zIndex: '2',
-    pointerEvents: 'none',
-    overflow: 'hidden',
-  })
-
-  pinWrapper.appendChild(heroBackground)
-  document.body.appendChild(pinWrapper)
-
-  container.setAttribute('data-cominvi-home-leave', 'true')
-
-  window.__homeHeroPin = {
-    pinWrapper,
-    placeholder,
-    heroBackground,
-    container,
-  }
-
-  afResizeLog('pinHomeHeroBackgroundForLeave', {
-    top: rect.top,
-    left: rect.left,
-    width: rect.width,
-    height: rect.height,
-  })
-
-  return window.__homeHeroPin
-}
-
-export function releaseHomeHeroPin() {
-  const state = window.__homeHeroPin
-  if (!state) return
-
-  try {
-    state.pinWrapper?.remove?.()
-  } catch (e) {
-    // ignore
-  }
-
-  try {
-    state.placeholder?.remove?.()
-  } catch (e) {
-    // ignore
-  }
-
-  try {
-    state.container?.removeAttribute?.('data-cominvi-home-leave')
-  } catch (e) {
-    // ignore
-  }
-
-  window.__homeHeroPin = null
-  afResizeLog('releaseHomeHeroPin')
-}
-
 export function suspendHomeSequenceForLeave() {
   if (
     window.__homeSequenceTransitionTimeline &&
@@ -837,25 +695,6 @@ export function suspendHomeSequenceForLeave() {
   window.__homeSequenceTransitionStarted = false
 
   const controller = window.__homeSequenceController
-  const progress = captureHomeScrollProgress()
-
-  // Keep the current parallax offset; only stop further updates.
-  killHeroBackgroundParallax()
-
-  // Prevent ScrollTrigger refresh from repainting mid-freeze.
-  detachHomeSequenceRefreshRepaint()
-
-  if (
-    progress !== null &&
-    typeof controller?.setScrollProgress === 'function'
-  ) {
-    try {
-      controller.setScrollProgress(progress)
-    } catch (e) {
-      // ignore
-    }
-  }
-
   if (typeof controller?.freezeForTransitionLeave === 'function') {
     try {
       controller.freezeForTransitionLeave()
@@ -865,13 +704,10 @@ export function suspendHomeSequenceForLeave() {
   }
 
   cleanupHomeSequenceBindings({ destroyController: false })
-  afResizeLog('suspendHomeSequenceForLeave', {
-    progress,
-  })
+  afResizeLog('suspendHomeSequenceForLeave')
 }
 
 export function destroyHomeSequenceForTransition() {
-  releaseHomeHeroPin()
   if (
     window.__homeSequenceTransitionTimeline &&
     typeof window.__homeSequenceTransitionTimeline.kill === 'function'

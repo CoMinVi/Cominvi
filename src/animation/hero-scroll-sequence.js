@@ -101,13 +101,33 @@ export function createHeroScrollSequence({
   let paintedFrame = -1
   let rafToken = 0
 
-  const fitCanvas = () => {
+  const measureHostSize = () => {
     const rect = mediaHost.getBoundingClientRect()
-    if (rect.width < 2 || rect.height < 2) return false
+    if (rect.width >= 2 && rect.height >= 2) {
+      return { width: rect.width, height: rect.height }
+    }
+
+    const parentRect = backgroundInner.getBoundingClientRect()
+    if (parentRect.width >= 2 && parentRect.height >= 2) {
+      return { width: parentRect.width, height: parentRect.height }
+    }
+
+    const offsetW = mediaHost.offsetWidth || backgroundInner.offsetWidth || 0
+    const offsetH = mediaHost.offsetHeight || backgroundInner.offsetHeight || 0
+    if (offsetW >= 2 && offsetH >= 2) {
+      return { width: offsetW, height: offsetH }
+    }
+
+    return null
+  }
+
+  const fitCanvas = () => {
+    const size = measureHostSize()
+    if (!size) return false
 
     const dpr = Math.max(1, window.devicePixelRatio || 1)
-    const width = Math.max(1, Math.round(rect.width * dpr))
-    const height = Math.max(1, Math.round(rect.height * dpr))
+    const width = Math.max(1, Math.round(size.width * dpr))
+    const height = Math.max(1, Math.round(size.height * dpr))
 
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width
@@ -253,6 +273,56 @@ export function createHeroScrollSequence({
     repaint(reason = 'repaint') {
       fitCanvas()
       return paintFrame(requestedFrame, reason)
+    },
+    ensureFramePainted(frameIndex, reason = 'ensure', maxAttempts = 12) {
+      const index = Math.max(
+        0,
+        Math.min(frameCount - 1, Math.round(frameIndex))
+      )
+      requestedFrame = index
+      preloadAround(index)
+
+      return new Promise((resolve) => {
+        let attempts = 0
+
+        const tryPaint = () => {
+          attempts += 1
+          fitCanvas()
+          if (paintFrame(index, `${reason}-${attempts}`)) {
+            resolve(true)
+            return true
+          }
+          return false
+        }
+
+        if (tryPaint()) return
+
+        const scheduleRetry = () => {
+          if (attempts >= maxAttempts) {
+            resolve(false)
+            return
+          }
+          window.requestAnimationFrame(() => {
+            if (tryPaint()) return
+            scheduleRetry()
+          })
+        }
+
+        const url = getFrameUrl(index)
+        if (!images.has(url)) {
+          preloadFrame(index).then((loaded) => {
+            if (!loaded) {
+              resolve(false)
+              return
+            }
+            if (tryPaint()) return
+            scheduleRetry()
+          })
+          return
+        }
+
+        scheduleRetry()
+      })
     },
     destroy() {
       if (rafToken) {

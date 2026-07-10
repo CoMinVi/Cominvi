@@ -251,13 +251,55 @@ export function createHeroSequenceController(backgroundInner) {
     },
     finishIntroHandoff() {
       intro?.stopPlayback?.()
-      intro?.hide()
       mode = 'scroll'
       hidePosterOnce()
       scroll?.setProgress(0)
-      scroll?.show()
-      scroll?.repaint?.('intro-handoff')
-      afResizeLog('hero-intro:handoff')
+
+      const revealScroll = () => {
+        intro?.hide()
+        scroll?.show()
+        afResizeLog('hero-intro:handoff')
+      }
+
+      if (!scroll) {
+        intro?.hide()
+        afResizeLog('hero-intro:handoff-no-scroll')
+        return Promise.resolve(false)
+      }
+
+      if (scroll.repaint?.('intro-handoff')) {
+        revealScroll()
+        return Promise.resolve(true)
+      }
+
+      // Garder la dernière frame vidéo tant que le canvas n'est pas peint
+      // (layout Safari / suppression du loader).
+      intro?.setProgress?.(1)
+      intro?.show?.()
+
+      if (typeof scroll.ensureFramePainted === 'function') {
+        return scroll.ensureFramePainted(0, 'intro-handoff').then((painted) => {
+          if (!painted) {
+            scroll.repaint?.('intro-handoff-fallback')
+          }
+          revealScroll()
+          return painted
+        })
+      }
+
+      return new Promise((resolve) => {
+        let attempts = 0
+        const retry = () => {
+          attempts += 1
+          if (scroll.repaint?.('intro-handoff') || attempts >= 12) {
+            revealScroll()
+            resolve(attempts < 12)
+            return
+          }
+          window.requestAnimationFrame(retry)
+        }
+        window.requestAnimationFrame(retry)
+      })
     },
     freezeForTransitionLeave() {
       intro?.stopPlayback?.()
@@ -272,7 +314,6 @@ export function createHeroSequenceController(backgroundInner) {
       mode = 'scroll'
       intro?.hide()
       scroll.setProgress(progress)
-      scroll.show()
       hidePosterOnce()
     },
     setFrame(frameIndex) {
@@ -280,7 +321,6 @@ export function createHeroSequenceController(backgroundInner) {
       mode = 'scroll'
       intro?.hide()
       scroll.setFrame(frameIndex)
-      scroll.show()
       hidePosterOnce()
     },
     repaint(reason = 'repaint') {

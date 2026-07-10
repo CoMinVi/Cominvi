@@ -128,25 +128,35 @@ function bindHomeSequenceRefreshRepaint(repaintFn) {
 function beginScrollDrivenSequence(sequenceController) {
   if (window.__homeSequenceScrollTrigger) return
 
-  if (typeof sequenceController.finishIntroHandoff === 'function') {
-    sequenceController.finishIntroHandoff()
-  } else {
-    if (typeof sequenceController.setScrollProgress === 'function') {
-      sequenceController.setScrollProgress(0)
-    }
-    if (typeof sequenceController.repaint === 'function') {
-      sequenceController.repaint('intro-handoff')
-    }
+  const startScrollDriver = () => {
+    window.requestAnimationFrame(() => {
+      initScrollDrivenSequence(sequenceController)
+      try {
+        ScrollTrigger.refresh()
+      } catch (e) {
+        // ignore
+      }
+    })
   }
 
-  requestAnimationFrame(() => {
-    initScrollDrivenSequence(sequenceController)
-    try {
-      ScrollTrigger.refresh()
-    } catch (e) {
-      // ignore
+  if (typeof sequenceController.finishIntroHandoff === 'function') {
+    const handoffResult = sequenceController.finishIntroHandoff()
+    if (handoffResult && typeof handoffResult.then === 'function') {
+      handoffResult.then(startScrollDriver).catch(startScrollDriver)
+      return
     }
-  })
+    startScrollDriver()
+    return
+  }
+
+  if (typeof sequenceController.setScrollProgress === 'function') {
+    sequenceController.setScrollProgress(0)
+  }
+  if (typeof sequenceController.repaint === 'function') {
+    sequenceController.repaint('intro-handoff')
+  }
+
+  startScrollDriver()
 }
 
 function initScrollDrivenSequence(sequenceController) {

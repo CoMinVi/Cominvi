@@ -78,21 +78,40 @@ const setServiceCardDescOpen = (desc, { instant = false } = {}) => {
   }
 }
 
-const measureServiceBodyLOffset = (card, bloc, bodyL) => {
-  if (
-    card.classList.contains('is-card-reveal-pending') &&
-    typeof bodyL.__svcBottomOffsetPx === 'number' &&
-    bodyL.__svcBottomOffsetPx > 0
-  ) {
-    return bodyL.__svcBottomOffsetPx
-  }
-
-  const desc = card.querySelector('.desc')
-  if (desc && !isServiceCardHovered(card)) {
+const prepareServiceDescForMeasure = (desc, small, open) => {
+  if (!desc) return
+  if (open) {
+    setServiceCardDescOpen(desc, { instant: true })
+    const inners = small?.__lineInners || []
+    inners.forEach((el) => {
+      el.style.transitionDelay = '0s'
+      el.style.transform = 'translateY(0%)'
+    })
+  } else {
     setServiceCardDescClosed(desc, { instant: true })
   }
+}
 
-  bodyL.style.transform = ''
+const clearServiceCardBlocTransform = (bloc) => {
+  if (!bloc) return
+  bloc.style.transform = ''
+  const bodyL = bloc.querySelector('.body-l')
+  if (bodyL) bodyL.style.transform = ''
+}
+
+const measureServiceClosedTitleOffset = (card, bloc, bodyL, desc, small) => {
+  if (
+    card.classList.contains('is-card-reveal-pending') &&
+    typeof bloc.__svcClosedOffsetPx === 'number' &&
+    bloc.__svcClosedOffsetPx > 0
+  ) {
+    return bloc.__svcClosedOffsetPx
+  }
+
+  prepareServiceDescForMeasure(desc, small, false)
+  bloc.style.transition = 'none'
+  clearServiceCardBlocTransform(bloc)
+
   const cardRect = card.getBoundingClientRect()
   const bodyLRect = bodyL.getBoundingClientRect()
   const padBottom = parseFloat(getComputedStyle(card).paddingBottom) || 0
@@ -101,43 +120,56 @@ const measureServiceBodyLOffset = (card, bloc, bodyL) => {
     Math.round(cardRect.bottom - padBottom - bodyLRect.bottom)
   )
   const previous =
-    typeof bodyL.__svcBottomOffsetPx === 'number'
-      ? bodyL.__svcBottomOffsetPx
-      : 0
-  const distanceToBottom = measured > 0 ? measured : previous
-  const clamped = clampServiceBodyLOffset(card, bodyL, distanceToBottom)
-  bodyL.__svcBottomOffsetPx = clamped
-  card.style.setProperty('--svc-bodyl-offset', `${clamped}px`)
-  return clamped
+    typeof bloc.__svcClosedOffsetPx === 'number' ? bloc.__svcClosedOffsetPx : 0
+  return measured > 0 ? measured : previous
 }
 
-const clampServiceBodyLOffset = (card, bodyL, offset) => {
+const measureServiceOpenBlocOffset = (card, bloc, desc, small) => {
+  prepareServiceDescForMeasure(desc, small, true)
+  bloc.style.transition = 'none'
+  clearServiceCardBlocTransform(bloc)
+
   const cardRect = card.getBoundingClientRect()
+  const blocRect = bloc.getBoundingClientRect()
   const padBottom = parseFloat(getComputedStyle(card).paddingBottom) || 0
-  const limitBottom = cardRect.bottom - padBottom
-
-  bodyL.style.transition = 'none'
-  bodyL.style.transform = `translateY(${offset}px)`
-  const rect = bodyL.getBoundingClientRect()
-  if (rect.bottom > limitBottom + 1) {
-    offset = Math.max(0, offset - Math.ceil(rect.bottom - limitBottom))
-  }
-  bodyL.style.transform = ''
-  return offset
+  return Math.max(0, Math.round(cardRect.bottom - padBottom - blocRect.bottom))
 }
 
-const setServiceCardBodyLClosed = (bodyL, offset, { instant = false } = {}) => {
-  if (!bodyL) return
+const measureServiceBlocOffsets = (card, bloc, desc, small) => {
+  const bodyL = bloc.querySelector('.body-l')
+  const closedOffset = bodyL
+    ? measureServiceClosedTitleOffset(card, bloc, bodyL, desc, small)
+    : 0
+  const openOffset = measureServiceOpenBlocOffset(card, bloc, desc, small)
+  prepareServiceDescForMeasure(desc, small, false)
+  clearServiceCardBlocTransform(bloc)
+
+  bloc.__svcClosedOffsetPx = closedOffset
+  bloc.__svcOpenOffsetPx = openOffset
+  card.style.setProperty('--svc-bodyl-offset', `${closedOffset}px`)
+
+  if (bodyL) {
+    bodyL.__svcBottomOffsetPx = closedOffset
+    bodyL.__svcOpenOffsetPx = openOffset
+  }
+
+  return { closedOffset, openOffset }
+}
+
+const setServiceCardBlocOffset = (bloc, offset, { instant = false } = {}) => {
+  if (!bloc) return
   const easing = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
+  const bodyL = bloc.querySelector('.body-l')
+  if (bodyL) bodyL.style.transform = ''
   if (instant) {
-    bodyL.style.transition = 'none'
-    bodyL.style.transform = `translateY(${offset}px)`
-    void bodyL.offsetWidth
-    bodyL.style.transition = easing
+    bloc.style.transition = 'none'
+    bloc.style.transform = `translateY(${offset}px)`
+    void bloc.offsetWidth
+    bloc.style.transition = easing
     return
   }
-  bodyL.style.transition = easing
-  bodyL.style.transform = `translateY(${offset}px)`
+  bloc.style.transition = easing
+  bloc.style.transform = `translateY(${offset}px)`
 }
 
 const hideServiceCardBodySLines = (
@@ -223,24 +255,9 @@ const applyServiceCardDesktopClosedState = (
     card.classList.remove('is-svc-hover')
   }
 
-  const bodyL = bloc.querySelector('.body-l')
-  if (bodyL) {
-    const previousOffset =
-      typeof bodyL.__svcBottomOffsetPx === 'number'
-        ? bodyL.__svcBottomOffsetPx
-        : 0
-    const measuredOffset = measureServiceBodyLOffset(card, bloc, bodyL)
-    const distanceToBottom =
-      measuredOffset > 0
-        ? measuredOffset
-        : previousOffset > 0 && !isServiceCardHovered(card)
-        ? previousOffset
-        : measuredOffset
-    bodyL.__svcBottomOffsetPx = distanceToBottom
-    card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
-    if (!isServiceCardHovered(card)) {
-      setServiceCardBodyLClosed(bodyL, distanceToBottom, { instant })
-    }
+  const { closedOffset } = measureServiceBlocOffsets(card, bloc, desc, small)
+  if (!isServiceCardHovered(card)) {
+    setServiceCardBlocOffset(bloc, closedOffset, { instant })
   }
 
   if (!isServiceCardHovered(card)) {
@@ -257,13 +274,11 @@ export function refreshServiceCards(root = document) {
     const desc = card.querySelector('.desc')
     const bloc = card.querySelector('.card-inner') || desc
     if (!desc || !bloc) return
-    const bodyL = bloc.querySelector('.body-l')
     const isPending = card.classList.contains('is-card-reveal-pending')
     if (
       isPending &&
-      bodyL &&
-      typeof bodyL.__svcBottomOffsetPx === 'number' &&
-      bodyL.__svcBottomOffsetPx > 0
+      typeof bloc.__svcClosedOffsetPx === 'number' &&
+      bloc.__svcClosedOffsetPx > 0
     ) {
       return
     }
@@ -328,30 +343,35 @@ export function initServiceCards(root = document) {
       if (!desc || !bloc) return
 
       try {
-        const bodyL = bloc.querySelector('.body-l')
-        if (bodyL) {
-          const previousOffset =
-            typeof bodyL.__svcBottomOffsetPx === 'number'
-              ? bodyL.__svcBottomOffsetPx
-              : 0
-          let back = measureServiceBodyLOffset(card, bloc, bodyL)
-          if (__svcMenuTransitionActive && back === 0 && previousOffset > 0) {
-            back = previousOffset
-            bodyL.__svcBottomOffsetPx = back
-            card.style.setProperty('--svc-bodyl-offset', `${back}px`)
-          }
-          bodyL.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
-          if (menuIsOpen) {
-            bodyL.style.setProperty(
-              'transform',
-              `translateY(${back}px)`,
-              'important'
-            )
-          } else {
-            bodyL.style.removeProperty('transform')
-            bodyL.style.transform = `translateY(${back}px)`
-          }
+        const previousOffset =
+          typeof bloc.__svcClosedOffsetPx === 'number'
+            ? bloc.__svcClosedOffsetPx
+            : 0
+        const small = desc.querySelector('.body-s')
+        let { closedOffset: back } = measureServiceBlocOffsets(
+          card,
+          bloc,
+          desc,
+          small
+        )
+        if (__svcMenuTransitionActive && back === 0 && previousOffset > 0) {
+          back = previousOffset
+          bloc.__svcClosedOffsetPx = back
+          card.style.setProperty('--svc-bodyl-offset', `${back}px`)
         }
+        bloc.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
+        if (menuIsOpen) {
+          bloc.style.setProperty(
+            'transform',
+            `translateY(${back}px)`,
+            'important'
+          )
+        } else {
+          bloc.style.removeProperty('transform')
+          bloc.style.transform = `translateY(${back}px)`
+        }
+        const bodyL = bloc.querySelector('.body-l')
+        if (bodyL) bodyL.style.transform = ''
 
         const smallNodes = Array.from(desc.querySelectorAll('.body-s'))
         smallNodes.forEach((small) => {
@@ -441,6 +461,8 @@ export function initServiceCards(root = document) {
           bodyL.style.transition = ''
           bodyL.style.transform = ''
         }
+        bloc.style.transition = ''
+        bloc.style.transform = ''
         const smallNodes = Array.from(desc.querySelectorAll('.body-s'))
         smallNodes.forEach((small) => {
           try {
@@ -472,7 +494,6 @@ export function initServiceCards(root = document) {
     }
     if (!isTabletOrBelow) {
       const small = desc.querySelector('.body-s')
-      const bodyL = bloc.querySelector('.body-l')
       const STAGGER_S = 0.03
       const animateSmallLines = (to) => {
         if (!small || !small.__lineInners) return
@@ -481,18 +502,20 @@ export function initServiceCards(root = document) {
           el.style.transform = `translateY(${to})`
         })
       }
-      const moveBodyL = (toPx) => {
-        if (!bodyL) return
-        bodyL.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
-        bodyL.style.transform = `translateY(${toPx}px)`
+      const moveBloc = (toPx) => {
+        setServiceCardBlocOffset(bloc, toPx)
       }
       const onHoverEnter = () => {
         if (isTabletOrBelowNow() || isMenuOpenNow() || card.__svcHoverActive)
           return
         card.__svcHoverActive = true
         card.classList.add('is-svc-hover')
+        const openOffset =
+          typeof bloc.__svcOpenOffsetPx === 'number'
+            ? bloc.__svcOpenOffsetPx
+            : measureServiceBlocOffsets(card, bloc, desc, small).openOffset
         setServiceCardDescOpen(desc)
-        moveBodyL(0)
+        moveBloc(openOffset)
         animateSmallLines('0%')
         card.style.backgroundColor = 'var(--accent)'
       }
@@ -502,8 +525,11 @@ export function initServiceCards(root = document) {
         card.classList.remove('is-svc-hover')
         setServiceCardDescClosed(desc)
         hideServiceCardBodySLines(small, { reverse: true })
-        const back = measureServiceBodyLOffset(card, bloc, bodyL)
-        moveBodyL(back)
+        const back =
+          typeof bloc.__svcClosedOffsetPx === 'number'
+            ? bloc.__svcClosedOffsetPx
+            : measureServiceBlocOffsets(card, bloc, desc, small).closedOffset
+        moveBloc(back)
         card.style.backgroundColor = 'var(--white)'
       }
 

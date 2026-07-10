@@ -749,7 +749,7 @@ html[data-menu-open='true'] .service-card {
   background-color: var(--white) !important;
 }
 
-html[data-menu-open='true'] .service-card .body-l {
+html[data-menu-open='true'] .service-card .card-inner {
   transform: translateY(var(--svc-bodyl-offset, 0px)) !important;
 }
 

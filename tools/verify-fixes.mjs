@@ -184,20 +184,18 @@ async function testCardsRevealOnHome(page, baseUrl) {
 
   const titlesBeforeHover = await page.evaluate(() => {
     const card = document.querySelector('.section_services .service-card')
+    const bloc = card?.querySelector('.card-inner')
     const bodyL = card?.querySelector('.body-l')
-    const transform = bodyL?.style.transform || getComputedStyle(bodyL || document.body).transform
+    const transform =
+      bloc?.style.transform ||
+      bodyL?.style.transform ||
+      getComputedStyle(bloc || bodyL || document.body).transform
     return {
       transform,
-      offset: bodyL?.__svcBottomOffsetPx ?? null,
+      offset: bloc?.__svcClosedOffsetPx ?? bodyL?.__svcBottomOffsetPx ?? null,
     }
   })
   console.log('SERVICE TITLE CLOSED:', JSON.stringify(titlesBeforeHover, null, 2))
-  assert(
-    (titlesBeforeHover.offset ?? 0) > 8 ||
-      /translateY\(([-\d.]+)px\)/.test(titlesBeforeHover.transform) &&
-        parseFloat(titlesBeforeHover.transform.match(/translateY\(([-\d.]+)px\)/)[1]) > 8,
-    `Titre pas en position fermée avant scroll (offset=${titlesBeforeHover.offset})`
-  )
 
   await scrollSectionIntoView(page, '.section_services')
 
@@ -252,19 +250,30 @@ async function testCardsRevealOnHome(page, baseUrl) {
   await page.waitForTimeout(500)
   const titlesAfterReveal = await page.evaluate(() => {
     const card = document.querySelector('.section_services .service-card')
+    const bloc = card?.querySelector('.card-inner')
     const bodyL = card?.querySelector('.body-l')
-    const transform = bodyL?.style.transform || getComputedStyle(bodyL || document.body).transform
+    const cardRect = card?.getBoundingClientRect()
+    const bodyLRect = bodyL?.getBoundingClientRect()
+    const padBottom = card ? parseFloat(getComputedStyle(card).paddingBottom) || 0 : 0
+    const titleBottomGap =
+      cardRect && bodyLRect
+        ? Math.round(cardRect.bottom - padBottom - bodyLRect.bottom)
+        : null
+    const transform =
+      bloc?.style.transform || getComputedStyle(bloc || document.body).transform
     const match = transform.match(/translateY\(([-\d.]+)px\)/)
     return {
       transform,
       offsetPx: match ? parseFloat(match[1]) : 0,
-      cachedOffset: bodyL?.__svcBottomOffsetPx ?? null,
+      cachedOffset: bloc?.__svcClosedOffsetPx ?? null,
+      titleBottomGap,
     }
   })
   console.log('SERVICE TITLE AFTER REVEAL:', JSON.stringify(titlesAfterReveal, null, 2))
   assert(
-    titlesAfterReveal.offsetPx > 8,
-    `Titre service card en position ouverte/haute (translateY=${titlesAfterReveal.offsetPx}px)`
+    titlesAfterReveal.titleBottomGap !== null &&
+      titlesAfterReveal.titleBottomGap <= 4,
+    `Titre pas ancré en bas après reveal (gap=${titlesAfterReveal.titleBottomGap}px)`
   )
 
   await scrollSectionIntoView(page, '.section_teams')
@@ -295,15 +304,17 @@ async function testServiceTitlesOnResize(page, baseUrl) {
   await scrollSectionIntoView(page, '.section_services')
   await page.waitForTimeout(2500)
 
-  const readOffsets = () =>
+  const readTitleBottomGaps = () =>
     page.evaluate(() =>
       Array.from(document.querySelectorAll('.section_services .service-card')).map(
         (card) => {
           const bodyL = card.querySelector('.body-l')
-          const match = (bodyL?.style.transform || '').match(
-            /translateY\(([-\d.]+)px\)/
-          )
-          return match ? parseFloat(match[1]) : 0
+          const cardRect = card.getBoundingClientRect()
+          const bodyLRect = bodyL?.getBoundingClientRect()
+          const padBottom = parseFloat(getComputedStyle(card).paddingBottom) || 0
+          return bodyLRect
+            ? Math.round(cardRect.bottom - padBottom - bodyLRect.bottom)
+            : 999
         }
       )
     )
@@ -323,13 +334,13 @@ async function testServiceTitlesOnResize(page, baseUrl) {
       )
     )
 
-  const beforeResize = await readOffsets()
+  const beforeResize = await readTitleBottomGaps()
   const descBeforeResize = await readDescHeights()
   console.log('SERVICE TITLES BEFORE RESIZE:', beforeResize)
   console.log('SERVICE DESC BEFORE RESIZE:', descBeforeResize)
   assert(
-    beforeResize.length > 0 && beforeResize.every((o) => o > 8),
-    `Titres pas fermés avant resize (${beforeResize.join(',')})`
+    beforeResize.length > 0 && beforeResize.every((gap) => gap <= 4),
+    `Titres pas ancrés en bas avant resize (${beforeResize.join(',')})`
   )
   assert(
     descBeforeResize.every((d) => d.height <= 2 && d.opacity < 0.1),
@@ -346,13 +357,13 @@ async function testServiceTitlesOnResize(page, baseUrl) {
     await page.waitForTimeout(400)
   }
 
-  const afterResize = await readOffsets()
+  const afterResize = await readTitleBottomGaps()
   const descAfterResize = await readDescHeights()
   console.log('SERVICE TITLES AFTER RESIZE:', afterResize)
   console.log('SERVICE DESC AFTER RESIZE:', descAfterResize)
   assert(
-    afterResize.every((o) => o > 8),
-    `Titres en position ouverte après resize (${afterResize.join(',')})`
+    afterResize.every((gap) => gap <= 4),
+    `Titres pas ancrés en bas après resize (${afterResize.join(',')})`
   )
   assert(
     descAfterResize.every((d) => d.height <= 2 && d.opacity < 0.1),
@@ -365,6 +376,30 @@ async function testServiceTitlesAfterHoverClose(page, baseUrl) {
   await waitForHomeReady(page)
   await scrollSectionIntoView(page, '.section_services')
   await page.waitForTimeout(2500)
+
+  const readHoverAlignment = () =>
+    page.evaluate(() =>
+      Array.from(document.querySelectorAll('.section_services .service-card')).map(
+        (card) => {
+          const bodyL = card.querySelector('.body-l')
+          const desc = card.querySelector('.desc')
+          const cardRect = card.getBoundingClientRect()
+          const bodyLRect = bodyL?.getBoundingClientRect()
+          const descRect = desc?.getBoundingClientRect()
+          const padBottom = parseFloat(getComputedStyle(card).paddingBottom) || 0
+          const limitBottom = cardRect.bottom - padBottom
+          return {
+            titleGap: bodyLRect
+              ? Math.round(limitBottom - bodyLRect.bottom)
+              : null,
+            descGap: descRect
+              ? Math.round(limitBottom - descRect.bottom)
+              : null,
+            descHeight: descRect ? Math.round(descRect.height) : 0,
+          }
+        }
+      )
+    )
 
   const readTitleOverflow = () =>
     page.evaluate(() =>
@@ -391,6 +426,21 @@ async function testServiceTitlesAfterHoverClose(page, baseUrl) {
     const card = cards.nth(i)
     await card.hover()
     await page.waitForTimeout(900)
+    const duringHover = (await readHoverAlignment())[i]
+    console.log(`SERVICE HOVER ALIGN ${i}:`, JSON.stringify(duringHover))
+    assert(
+      duringHover.descHeight > 8,
+      `desc card ${i} non ouverte au hover (height=${duringHover.descHeight})`
+    )
+    assert(
+      duringHover.descGap !== null && duringHover.descGap <= 4,
+      `desc card ${i} pas ancrée en bas au hover (gap=${duringHover.descGap}px)`
+    )
+    assert(
+      duringHover.titleGap !== null &&
+        duringHover.titleGap > duringHover.descGap,
+      `titre card ${i} pas au-dessus du texte au hover`
+    )
     await page.mouse.move(0, 0)
     await page.waitForTimeout(900)
   }

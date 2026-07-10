@@ -184,15 +184,13 @@ async function testCardsRevealOnHome(page, baseUrl) {
 
   const titlesBeforeHover = await page.evaluate(() => {
     const card = document.querySelector('.section_services .service-card')
-    const bloc = card?.querySelector('.card-inner')
     const bodyL = card?.querySelector('.body-l')
     const transform =
-      bloc?.style.transform ||
-      bodyL?.style.transform ||
-      getComputedStyle(bloc || bodyL || document.body).transform
+      bodyL?.style.transform || getComputedStyle(bodyL || document.body).transform
     return {
       transform,
-      offset: bloc?.__svcClosedOffsetPx ?? bodyL?.__svcBottomOffsetPx ?? null,
+      contentHeight:
+        card?.querySelector('.desc')?.__svcContentHeightPx ?? null,
     }
   })
   console.log('SERVICE TITLE CLOSED:', JSON.stringify(titlesBeforeHover, null, 2))
@@ -250,7 +248,6 @@ async function testCardsRevealOnHome(page, baseUrl) {
   await page.waitForTimeout(500)
   const titlesAfterReveal = await page.evaluate(() => {
     const card = document.querySelector('.section_services .service-card')
-    const bloc = card?.querySelector('.card-inner')
     const bodyL = card?.querySelector('.body-l')
     const cardRect = card?.getBoundingClientRect()
     const bodyLRect = bodyL?.getBoundingClientRect()
@@ -260,12 +257,11 @@ async function testCardsRevealOnHome(page, baseUrl) {
         ? Math.round(cardRect.bottom - padBottom - bodyLRect.bottom)
         : null
     const transform =
-      bloc?.style.transform || getComputedStyle(bloc || document.body).transform
-    const match = transform.match(/translateY\(([-\d.]+)px\)/)
+      bodyL?.style.transform || getComputedStyle(bodyL || document.body).transform
     return {
       transform,
-      offsetPx: match ? parseFloat(match[1]) : 0,
-      cachedOffset: bloc?.__svcClosedOffsetPx ?? null,
+      contentHeight:
+        card?.querySelector('.desc')?.__svcContentHeightPx ?? null,
       titleBottomGap,
     }
   })
@@ -274,6 +270,10 @@ async function testCardsRevealOnHome(page, baseUrl) {
     titlesAfterReveal.titleBottomGap !== null &&
       titlesAfterReveal.titleBottomGap <= 4,
     `Titre pas ancré en bas après reveal (gap=${titlesAfterReveal.titleBottomGap}px)`
+  )
+  assert(
+    (titlesAfterReveal.contentHeight ?? 0) > 8,
+    `Hauteur desc non mesurée après reveal (${titlesAfterReveal.contentHeight})`
   )
 
   await scrollSectionIntoView(page, '.section_teams')

@@ -46,130 +46,112 @@ const isServiceCardHovered = (card) => {
   }
 }
 
-const DESC_TRANSITION =
-  'max-height 0.8s cubic-bezier(0.5, 0, 0, 1), opacity 0.8s cubic-bezier(0.5, 0, 0, 1)'
+const SVC_EASING = 'cubic-bezier(0.5, 0, 0, 1)'
+const SVC_DURATION = '0.8s'
+const SVC_STAGGER_S = 0.03
+const DESC_TRANSITION = `height ${SVC_DURATION} ${SVC_EASING}, opacity ${SVC_DURATION} ${SVC_EASING}`
+const TITLE_TRANSITION = `transform ${SVC_DURATION} ${SVC_EASING}`
 
 const setServiceCardDescClosed = (desc, { instant = false } = {}) => {
   if (!desc) return
   if (instant) desc.style.transition = 'none'
   else desc.style.transition = DESC_TRANSITION
-  desc.style.maxHeight = '0'
+  desc.style.height = '0'
+  desc.style.maxHeight = ''
   desc.style.opacity = '0'
   desc.style.overflow = 'hidden'
   desc.style.pointerEvents = 'none'
-  desc.style.marginTop = '0'
   if (instant) {
     void desc.offsetHeight
     desc.style.transition = DESC_TRANSITION
   }
 }
 
-const setServiceCardDescOpen = (desc, { instant = false } = {}) => {
+const setServiceCardDescOpen = (desc, heightPx, { instant = false } = {}) => {
   if (!desc) return
+  const h = Math.max(0, Math.round(heightPx || 0))
   if (instant) desc.style.transition = 'none'
   else desc.style.transition = DESC_TRANSITION
-  desc.style.maxHeight = '24em'
-  desc.style.opacity = '1'
+  desc.style.height = `${h}px`
+  desc.style.maxHeight = ''
+  desc.style.opacity = h > 0 ? '1' : '0'
   desc.style.overflow = 'hidden'
-  desc.style.pointerEvents = ''
+  desc.style.pointerEvents = h > 0 ? '' : 'none'
   if (instant) {
     void desc.offsetHeight
     desc.style.transition = DESC_TRANSITION
   }
 }
 
-const prepareServiceDescForMeasure = (desc, small, open) => {
-  if (!desc) return
-  if (open) {
-    setServiceCardDescOpen(desc, { instant: true })
-    const inners = small?.__lineInners || []
-    inners.forEach((el) => {
-      el.style.transitionDelay = '0s'
-      el.style.transform = 'translateY(0%)'
-    })
-  } else {
-    setServiceCardDescClosed(desc, { instant: true })
-  }
+const getServiceTitleLiftPx = (desc, bloc) => {
+  const contentH = desc?.__svcContentHeightPx || 0
+  if (!contentH) return 0
+  const gap =
+    parseFloat(getComputedStyle(bloc).rowGap) ||
+    parseFloat(getComputedStyle(bloc).gap) ||
+    0
+  return Math.round(contentH + gap)
 }
 
-const clearServiceCardBlocTransform = (bloc) => {
-  if (!bloc) return
-  bloc.style.transform = ''
-  const bodyL = bloc.querySelector('.body-l')
-  if (bodyL) bodyL.style.transform = ''
-}
-
-const measureServiceClosedTitleOffset = (card, bloc, bodyL, desc, small) => {
-  if (
-    card.classList.contains('is-card-reveal-pending') &&
-    typeof bloc.__svcClosedOffsetPx === 'number' &&
-    bloc.__svcClosedOffsetPx > 0
-  ) {
-    return bloc.__svcClosedOffsetPx
-  }
-
-  prepareServiceDescForMeasure(desc, small, false)
-  bloc.style.transition = 'none'
-  clearServiceCardBlocTransform(bloc)
-
-  const cardRect = card.getBoundingClientRect()
-  const bodyLRect = bodyL.getBoundingClientRect()
-  const padBottom = parseFloat(getComputedStyle(card).paddingBottom) || 0
-  const measured = Math.max(
-    0,
-    Math.round(cardRect.bottom - padBottom - bodyLRect.bottom)
-  )
-  const previous =
-    typeof bloc.__svcClosedOffsetPx === 'number' ? bloc.__svcClosedOffsetPx : 0
-  return measured > 0 ? measured : previous
-}
-
-const measureServiceOpenBlocOffset = (card, bloc, desc, small) => {
-  prepareServiceDescForMeasure(desc, small, true)
-  bloc.style.transition = 'none'
-  clearServiceCardBlocTransform(bloc)
-
-  const cardRect = card.getBoundingClientRect()
-  const blocRect = bloc.getBoundingClientRect()
-  const padBottom = parseFloat(getComputedStyle(card).paddingBottom) || 0
-  return Math.max(0, Math.round(cardRect.bottom - padBottom - blocRect.bottom))
-}
-
-const measureServiceBlocOffsets = (card, bloc, desc, small) => {
-  const bodyL = bloc.querySelector('.body-l')
-  const closedOffset = bodyL
-    ? measureServiceClosedTitleOffset(card, bloc, bodyL, desc, small)
-    : 0
-  const openOffset = measureServiceOpenBlocOffset(card, bloc, desc, small)
-  prepareServiceDescForMeasure(desc, small, false)
-  clearServiceCardBlocTransform(bloc)
-
-  bloc.__svcClosedOffsetPx = closedOffset
-  bloc.__svcOpenOffsetPx = openOffset
-  card.style.setProperty('--svc-bodyl-offset', `${closedOffset}px`)
-
-  if (bodyL) {
-    bodyL.__svcBottomOffsetPx = closedOffset
-    bodyL.__svcOpenOffsetPx = openOffset
-  }
-
-  return { closedOffset, openOffset }
-}
-
-const setServiceCardBlocOffset = (bloc, offset, { instant = false } = {}) => {
-  if (!bloc) return
-  const easing = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
-  const bodyL = bloc.querySelector('.body-l')
-  if (bodyL) bodyL.style.transform = ''
+const setServiceTitleLift = (bodyL, liftPx, { instant = false } = {}) => {
+  if (!bodyL) return
+  const lift = Math.max(0, Math.round(liftPx || 0))
+  if (instant) bodyL.style.transition = 'none'
+  else bodyL.style.transition = TITLE_TRANSITION
+  bodyL.style.transform = lift > 0 ? `translateY(-${lift}px)` : ''
   if (instant) {
-    bloc.style.transition = 'none'
-    bloc.style.transform = `translateY(${offset}px)`
-    void bloc.offsetWidth
-    bloc.style.transition = easing
-    return
+    void bodyL.offsetWidth
+    bodyL.style.transition = TITLE_TRANSITION
   }
-  bloc.style.transition = easing
-  bloc.style.transform = `translateY(${offset}px)`
+}
+
+const measureServiceDescContentHeight = (desc, small) => {
+  if (!desc) return 0
+  const inners = small?.__lineInners || []
+  const savedTransforms = inners.map((el) => el.style.transform)
+  const savedTransition = desc.style.transition
+
+  desc.style.transition = 'none'
+  desc.style.height = 'auto'
+  desc.style.maxHeight = 'none'
+  desc.style.opacity = '1'
+  desc.style.overflow = 'visible'
+  desc.style.visibility = 'hidden'
+  desc.style.pointerEvents = 'none'
+  inners.forEach((el) => {
+    el.style.transitionDelay = '0s'
+    el.style.transform = 'translateY(0%)'
+  })
+
+  const height = Math.round(desc.scrollHeight)
+
+  desc.style.visibility = ''
+  desc.style.height = '0'
+  desc.style.maxHeight = ''
+  desc.style.opacity = '0'
+  desc.style.overflow = 'hidden'
+  desc.style.transition = savedTransition || DESC_TRANSITION
+  inners.forEach((el, i) => {
+    el.style.transform = savedTransforms[i] || 'translateY(100%)'
+  })
+
+  return height
+}
+
+const storeServiceDescContentHeight = (desc, small) => {
+  if (!desc) return 0
+  const height = measureServiceDescContentHeight(desc, small)
+  desc.__svcContentHeightPx = height
+  return height
+}
+
+const revealServiceCardBodySLines = (small) => {
+  if (!small) return
+  const inners = small.__lineInners || []
+  inners.forEach((el, i) => {
+    el.style.transitionDelay = `${i * SVC_STAGGER_S}s`
+    el.style.transform = 'translateY(0%)'
+  })
 }
 
 const hideServiceCardBodySLines = (
@@ -180,10 +162,66 @@ const hideServiceCardBodySLines = (
   const inners = small.__lineInners || []
   const ordered = reverse ? inners.slice().reverse() : inners
   ordered.forEach((el, i) => {
-    el.style.transitionDelay = instant ? '0s' : `${i * 0.03}s`
+    el.style.transitionDelay = instant ? '0s' : `${i * SVC_STAGGER_S}s`
     el.style.removeProperty('transform')
     el.style.transform = 'translateY(100%)'
   })
+}
+
+const openServiceCardDesktop = (
+  card,
+  bloc,
+  desc,
+  bodyL,
+  small,
+  { instant = false } = {}
+) => {
+  const contentH =
+    desc.__svcContentHeightPx || storeServiceDescContentHeight(desc, small)
+  const lift = getServiceTitleLiftPx(desc, bloc)
+  setServiceCardDescOpen(desc, contentH, { instant })
+  setServiceTitleLift(bodyL, lift, { instant })
+  if (instant) hideServiceCardBodySLines(small, { instant: true })
+  else revealServiceCardBodySLines(small)
+}
+
+const closeServiceCardDesktop = (
+  card,
+  bloc,
+  desc,
+  bodyL,
+  small,
+  { instant = false } = {}
+) => {
+  setServiceCardDescClosed(desc, { instant })
+  hideServiceCardBodySLines(small, { instant, reverse: !instant })
+  setServiceTitleLift(bodyL, 0, { instant })
+}
+
+const resetServiceCardDesktopLayout = (card, bloc, desc, bodyL) => {
+  if (!card || !bloc || !desc) return
+  bloc.style.transition = ''
+  bloc.style.transform = ''
+  if (bodyL) {
+    bodyL.style.transition = ''
+    bodyL.style.transform = ''
+    bodyL.style.removeProperty('bottom')
+    bodyL.style.removeProperty('position')
+    bodyL.style.removeProperty('left')
+    bodyL.style.removeProperty('right')
+  }
+  desc.style.height = ''
+  desc.style.maxHeight = ''
+  desc.style.opacity = ''
+  desc.style.overflow = ''
+  desc.style.pointerEvents = ''
+  desc.style.transition = ''
+  desc.style.removeProperty('position')
+  desc.style.removeProperty('bottom')
+  desc.style.removeProperty('left')
+  desc.style.removeProperty('right')
+  bloc.style.removeProperty('position')
+  bloc.style.removeProperty('min-height')
 }
 
 const splitServiceCardBodyS = (small) => {
@@ -218,7 +256,7 @@ const splitServiceCardBodyS = (small) => {
     inners.forEach((el) => {
       el.style.transform = 'translateY(100%)'
       el.style.willChange = 'transform'
-      el.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
+      el.style.transition = `transform ${SVC_DURATION} ${SVC_EASING}`
     })
     small.__lineInners = inners
     return inners
@@ -240,27 +278,15 @@ const ensureServiceCardBodySSplit = (small, { force = false } = {}) => {
   return splitServiceCardBodyS(small)
 }
 
-const applyServiceCardDesktopClosedState = (
-  card,
-  bloc,
-  desc,
-  { instant = false } = {}
-) => {
+const applyServiceCardDesktopClosedState = (card, bloc, desc) => {
   const small = desc.querySelector('.body-s')
+  const bodyL = bloc.querySelector('.body-l')
   ensureServiceCardBodySSplit(small)
+  storeServiceDescContentHeight(desc, small)
 
   if (!isServiceCardHovered(card)) {
-    setServiceCardDescClosed(desc, { instant: true })
-    hideServiceCardBodySLines(small, { instant: true })
     card.classList.remove('is-svc-hover')
-  }
-
-  const { closedOffset } = measureServiceBlocOffsets(card, bloc, desc, small)
-  if (!isServiceCardHovered(card)) {
-    setServiceCardBlocOffset(bloc, closedOffset, { instant })
-  }
-
-  if (!isServiceCardHovered(card)) {
+    closeServiceCardDesktop(card, bloc, desc, bodyL, small, { instant: true })
     card.style.removeProperty('background-color')
     card.style.backgroundColor = 'var(--white)'
   }
@@ -277,12 +303,12 @@ export function refreshServiceCards(root = document) {
     const isPending = card.classList.contains('is-card-reveal-pending')
     if (
       isPending &&
-      typeof bloc.__svcClosedOffsetPx === 'number' &&
-      bloc.__svcClosedOffsetPx > 0
+      typeof desc.__svcContentHeightPx === 'number' &&
+      desc.__svcContentHeightPx > 0
     ) {
       return
     }
-    applyServiceCardDesktopClosedState(card, bloc, desc, { instant: true })
+    applyServiceCardDesktopClosedState(card, bloc, desc)
   })
 }
 
@@ -343,35 +369,18 @@ export function initServiceCards(root = document) {
       if (!desc || !bloc) return
 
       try {
-        const previousOffset =
-          typeof bloc.__svcClosedOffsetPx === 'number'
-            ? bloc.__svcClosedOffsetPx
-            : 0
-        const small = desc.querySelector('.body-s')
-        let { closedOffset: back } = measureServiceBlocOffsets(
-          card,
-          bloc,
-          desc,
-          small
-        )
-        if (__svcMenuTransitionActive && back === 0 && previousOffset > 0) {
-          back = previousOffset
-          bloc.__svcClosedOffsetPx = back
-          card.style.setProperty('--svc-bodyl-offset', `${back}px`)
-        }
-        bloc.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
-        if (menuIsOpen) {
-          bloc.style.setProperty(
-            'transform',
-            `translateY(${back}px)`,
-            'important'
-          )
-        } else {
-          bloc.style.removeProperty('transform')
-          bloc.style.transform = `translateY(${back}px)`
-        }
         const bodyL = bloc.querySelector('.body-l')
-        if (bodyL) bodyL.style.transform = ''
+        const small = desc.querySelector('.body-s')
+        closeServiceCardDesktop(card, bloc, desc, bodyL, small, {
+          instant: true,
+        })
+        if (menuIsOpen) {
+          if (bodyL) {
+            bodyL.style.setProperty('transform', 'translateY(0)', 'important')
+          }
+          desc.style.setProperty('height', '0', 'important')
+          desc.style.setProperty('opacity', '0', 'important')
+        }
 
         const smallNodes = Array.from(desc.querySelectorAll('.body-s'))
         smallNodes.forEach((small) => {
@@ -402,7 +411,9 @@ export function initServiceCards(root = document) {
 
         card.classList.remove('is-svc-hover')
         if (!isTabletOrBelowNow()) {
-          setServiceCardDescClosed(desc, { instant: true })
+          closeServiceCardDesktop(card, bloc, desc, bodyL, small, {
+            instant: true,
+          })
         }
       } catch (e) {
         // ignore
@@ -444,25 +455,14 @@ export function initServiceCards(root = document) {
     // Set initial reveal state (no flicker on arrival)
     try {
       if (!isTabletOrBelow) {
-        applyServiceCardDesktopClosedState(card, bloc, desc, { instant: true })
+        applyServiceCardDesktopClosedState(card, bloc, desc)
       } else {
-        // On tablet/mobile: reset transforms and revert splits
-        bloc.style.transition = ''
-        bloc.style.transform = ''
-        bloc.style.willChange = ''
-        desc.style.maxHeight = ''
-        desc.style.opacity = ''
-        desc.style.overflow = ''
-        desc.style.pointerEvents = ''
-        desc.style.marginTop = ''
-        desc.style.transition = ''
-        const bodyL = bloc.querySelector('.body-l')
-        if (bodyL) {
-          bodyL.style.transition = ''
-          bodyL.style.transform = ''
-        }
-        bloc.style.transition = ''
-        bloc.style.transform = ''
+        resetServiceCardDesktopLayout(
+          card,
+          bloc,
+          desc,
+          bloc.querySelector('.body-l')
+        )
         const smallNodes = Array.from(desc.querySelectorAll('.body-s'))
         smallNodes.forEach((small) => {
           try {
@@ -494,42 +494,20 @@ export function initServiceCards(root = document) {
     }
     if (!isTabletOrBelow) {
       const small = desc.querySelector('.body-s')
-      const STAGGER_S = 0.03
-      const animateSmallLines = (to) => {
-        if (!small || !small.__lineInners) return
-        small.__lineInners.forEach((el, i) => {
-          el.style.transitionDelay = `${i * STAGGER_S}s`
-          el.style.transform = `translateY(${to})`
-        })
-      }
-      const moveBloc = (toPx) => {
-        setServiceCardBlocOffset(bloc, toPx)
-      }
+      const bodyL = bloc.querySelector('.body-l')
       const onHoverEnter = () => {
         if (isTabletOrBelowNow() || isMenuOpenNow() || card.__svcHoverActive)
           return
         card.__svcHoverActive = true
         card.classList.add('is-svc-hover')
-        const openOffset =
-          typeof bloc.__svcOpenOffsetPx === 'number'
-            ? bloc.__svcOpenOffsetPx
-            : measureServiceBlocOffsets(card, bloc, desc, small).openOffset
-        setServiceCardDescOpen(desc)
-        moveBloc(openOffset)
-        animateSmallLines('0%')
+        openServiceCardDesktop(card, bloc, desc, bodyL, small)
         card.style.backgroundColor = 'var(--accent)'
       }
       const onHoverLeave = () => {
         if (isTabletOrBelowNow()) return
         card.__svcHoverActive = false
         card.classList.remove('is-svc-hover')
-        setServiceCardDescClosed(desc)
-        hideServiceCardBodySLines(small, { reverse: true })
-        const back =
-          typeof bloc.__svcClosedOffsetPx === 'number'
-            ? bloc.__svcClosedOffsetPx
-            : measureServiceBlocOffsets(card, bloc, desc, small).closedOffset
-        moveBloc(back)
+        closeServiceCardDesktop(card, bloc, desc, bodyL, small)
         card.style.backgroundColor = 'var(--white)'
       }
 
@@ -696,14 +674,12 @@ export function initServiceCards(root = document) {
         if (!desc || !bloc) return
 
         if (isTabletOrBelowNow()) {
-          bloc.style.transition = ''
-          bloc.style.transform = ''
-          bloc.style.willChange = ''
-          const bodyL = bloc.querySelector('.body-l')
-          if (bodyL) {
-            bodyL.style.transition = ''
-            bodyL.style.transform = ''
-          }
+          resetServiceCardDesktopLayout(
+            card,
+            bloc,
+            desc,
+            bloc.querySelector('.body-l')
+          )
           const smallNodes = Array.from(desc.querySelectorAll('.body-s'))
           smallNodes.forEach((small) => {
             try {
@@ -723,7 +699,7 @@ export function initServiceCards(root = document) {
           return
         }
 
-        applyServiceCardDesktopClosedState(card, bloc, desc, { instant: true })
+        applyServiceCardDesktopClosedState(card, bloc, desc)
       })
 
       const machineCards = scope.querySelectorAll('.machine-card')

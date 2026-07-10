@@ -928,71 +928,38 @@ export function initTechnology(root = document) {
               const startLeft = '50%'
               const startTop = '50%'
               const startWidth = '24em'
-              const emPx =
-                parseFloat(
-                  getComputedStyle(document.documentElement).fontSize
-                ) || 16
-              const bottomGapPx = emPx * 2
               const targetLeft = isTablet() ? '50%' : '80%'
               clonedImg.dataset.gridStartLeft = startLeft
               clonedImg.dataset.gridStartTop = startTop
               clonedImg.dataset.gridStartWidth = startWidth
-              clonedImg.dataset.gridBottomGapPx = String(bottomGapPx)
-
-              const pinImageToBottom = () => {
-                gsap.set(clonedImg, {
-                  position: 'absolute',
-                  left: targetLeft,
-                  top: 'auto',
-                  bottom: bottomGapPx,
-                  width: '60em',
-                  height: 'auto',
-                  margin: 0,
-                  zIndex: 2,
-                  pointerEvents: 'none',
-                  objectFit: 'contain',
-                  xPercent: -50,
-                  yPercent: 0,
-                  x: 0,
-                  y: 0,
-                  clearProps: 'top',
-                })
-              }
 
               gsap.set(clonedImg, {
                 position: 'absolute',
                 left: startLeft,
                 top: startTop,
-                bottom: 'auto',
                 width: startWidth,
                 height: 'auto',
                 margin: 0,
                 zIndex: 2,
                 pointerEvents: 'none',
                 objectFit: 'contain',
-                xPercent: -50,
-                yPercent: -50,
-                x: 0,
-                y: 0,
               })
+
+              const targetTop = isTablet()
+                ? 'calc(35% - 2em)'
+                : 'calc(70% - 2em)'
 
               tl.to(
                 clonedImg,
                 {
                   left: targetLeft,
-                  top: 'auto',
-                  bottom: bottomGapPx,
+                  top: targetTop,
                   width: '60em',
-                  xPercent: -50,
-                  yPercent: 0,
-                  x: 0,
-                  y: 0,
                   duration: 1.2,
                   ease: gsap.parseEase('machinesStep') || 'power2.out',
                 },
                 0
               )
-              tl.add(pinImageToBottom, 1.2)
             }
           }
         } catch (eImgAnim) {

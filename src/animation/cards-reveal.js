@@ -12,31 +12,35 @@ function getRevealCards(section) {
   return Array.from(section.querySelectorAll(CARD_SELECTOR))
 }
 
+function detachSectionListeners(section) {
+  if (section.__cardsRevealScrollListener) {
+    try {
+      window.lenis?.off('scroll', section.__cardsRevealScrollListener)
+    } catch (e) {
+      // ignore
+    }
+    section.__cardsRevealScrollListener = null
+  }
+  if (section.__cardsRevealScrollTrigger) {
+    try {
+      section.__cardsRevealScrollTrigger.kill()
+    } catch (e) {
+      // ignore
+    }
+    section.__cardsRevealScrollTrigger = null
+  }
+}
+
 function destroyCardsReveal(root = document) {
   const scope = root && root.querySelector ? root : document
   scope.querySelectorAll(SECTION_SELECTORS).forEach((section) => {
-    if (section.__cardsRevealScrollTrigger) {
-      try {
-        section.__cardsRevealScrollTrigger.kill()
-      } catch (e) {
-        // ignore
-      }
-      section.__cardsRevealScrollTrigger = null
-    }
-    if (section.__cardsRevealTween) {
-      try {
-        section.__cardsRevealTween.kill()
-      } catch (e) {
-        // ignore
-      }
-      section.__cardsRevealTween = null
-    }
+    detachSectionListeners(section)
     section.__cardsRevealPlayed = false
     getRevealCards(section).forEach((card) => {
       card.__cardsRevealBound = false
       try {
         gsap.killTweensOf(card)
-        gsap.set(card, { clearProps: 'opacity,transform' })
+        gsap.set(card, { clearProps: 'opacity,visibility,transform' })
       } catch (e) {
         // ignore
       }
@@ -44,22 +48,21 @@ function destroyCardsReveal(root = document) {
   })
 }
 
-async function refreshServiceCardsAfterReveal(root) {
-  try {
-    const mod = await import('./service-cards.js')
-    if (typeof mod.refreshServiceCards === 'function') {
-      mod.refreshServiceCards(root)
-    }
-  } catch (e) {
-    // ignore
-  }
-}
-
 function refreshCardsRevealTriggers() {
   try {
     ScrollTrigger.refresh()
   } catch (e) {
     // ignore
+  }
+}
+
+function sectionShouldReveal(section) {
+  try {
+    const rect = section.getBoundingClientRect()
+    const vh = window.innerHeight || 1
+    return rect.top < vh * 0.85 && rect.bottom > 0
+  } catch (e) {
+    return false
   }
 }
 
@@ -73,11 +76,12 @@ export function initCardsViewportReveal(root = document) {
   const scroller = window.__lenisWrapper || undefined
 
   sections.forEach((section) => {
+    section.__cardsRevealPlayed = false
     const cards = getRevealCards(section)
     if (!cards.length) return
 
     gsap.set(cards, {
-      opacity: 0,
+      autoAlpha: 0,
       y: '2em',
       willChange: 'transform, opacity',
     })
@@ -85,56 +89,53 @@ export function initCardsViewportReveal(root = document) {
       card.__cardsRevealBound = true
     })
 
-    const tween = gsap.to(cards, {
-      opacity: 1,
-      y: 0,
-      duration: 0.8,
-      stagger: 0.08,
-      ease: 'power2.out',
-      overwrite: 'auto',
-      paused: true,
-      onComplete: () => {
-        section.__cardsRevealPlayed = true
-        cards.forEach((card) => {
-          try {
-            card.style.willChange = ''
-          } catch (e) {
-            // ignore
-          }
-        })
-        refreshServiceCardsAfterReveal(scope)
-      },
-    })
+    const playReveal = () => {
+      if (section.__cardsRevealPlayed) return
+      section.__cardsRevealPlayed = true
+      detachSectionListeners(section)
 
-    const st = ScrollTrigger.create({
+      gsap.to(cards, {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.8,
+        stagger: 0.08,
+        ease: 'power2.out',
+        overwrite: 'auto',
+        onComplete: () => {
+          cards.forEach((card) => {
+            try {
+              card.style.willChange = ''
+            } catch (e) {
+              // ignore
+            }
+          })
+        },
+      })
+    }
+
+    const maybePlay = () => {
+      if (sectionShouldReveal(section)) playReveal()
+    }
+
+    section.__cardsRevealScrollTrigger = ScrollTrigger.create({
       trigger: section,
       start: 'top 85%',
       once: true,
       scroller,
       invalidateOnRefresh: true,
-      onEnter: () => {
-        if (section.__cardsRevealPlayed) return
-        tween.play(0)
-      },
+      onEnter: playReveal,
     })
 
-    section.__cardsRevealTween = tween
-    section.__cardsRevealScrollTrigger = st
+    const onScroll = () => maybePlay()
+    section.__cardsRevealScrollListener = onScroll
+    try {
+      window.lenis?.on('scroll', onScroll)
+    } catch (e) {
+      // ignore
+    }
 
     requestAnimationFrame(() => {
-      try {
-        const rect = section.getBoundingClientRect()
-        const vh = window.innerHeight || 1
-        if (
-          rect.top < vh * 0.85 &&
-          rect.bottom > 0 &&
-          !section.__cardsRevealPlayed
-        ) {
-          tween.play(0)
-        }
-      } catch (e) {
-        // ignore
-      }
+      requestAnimationFrame(maybePlay)
     })
   })
 

@@ -7,9 +7,9 @@ const ICON_PLACEHOLDER_ATTR = 'data-lottie-placeholder-ready'
 const ICON_WARMUP_ROOT_MARGIN = '900px 0px'
 const ICON_SECTION_WARMUP_ROOT_MARGIN = '1200px 0px'
 const ICON_SECTION_SELECTOR =
-  '.section_about, .section_services, .section_work-team'
+  '.section_about, .section_services, .section_work-team, .section_teams'
 const ICON_SELECTOR =
-  '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie], .stat-card [data-lottie]'
+  '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon'
 
 function getScope(root = document) {
   return root && root.querySelector ? root : document

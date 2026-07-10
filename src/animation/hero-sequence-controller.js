@@ -1,4 +1,5 @@
 import { afResizeLog } from '../app/af-resize-debug.js'
+import { isSafariBrowser } from '../app/safari-detect.js'
 import { createHeroIntroVideo } from './hero-intro-video.js'
 import {
   getIntroDurationSec,
@@ -111,6 +112,7 @@ function createNoopSequenceController() {
   return {
     ready: Promise.resolve(),
     setIntroProgress: () => {},
+    prepareIntroScrub: () => {},
     startIntroPlayback: () => {},
     finishIntroHandoff: () => {},
     freezeForTransitionLeave: () => {},
@@ -212,6 +214,14 @@ export function createHeroSequenceController(backgroundInner) {
         intro.hide()
       }
     },
+    prepareIntroScrub() {
+      if (!intro) return
+      mode = 'intro'
+      scroll?.hide()
+      hidePosterOnce()
+      intro.prepareForScrubPlayback?.()
+      afResizeLog('hero-intro:scrub-prepare')
+    },
     startIntroPlayback(scaleDurationSec = 1.2) {
       if (!intro) return
       mode = 'intro'
@@ -222,11 +232,21 @@ export function createHeroSequenceController(backgroundInner) {
       const scaleDuration = Math.max(0.1, Number(scaleDurationSec) || 1.2)
       const playbackRate = duration / scaleDuration
 
-      intro.startPlayback({ playbackRate, fromTime: 0 })
-      afResizeLog('hero-intro:playback-start', {
-        duration,
-        scaleDuration,
-        playbackRate,
+      if (isSafariBrowser()) {
+        this.prepareIntroScrub()
+        return
+      }
+
+      intro.startPlayback({ playbackRate, fromTime: 0 }).then((started) => {
+        afResizeLog('hero-intro:playback-start', {
+          duration,
+          scaleDuration,
+          playbackRate,
+          started,
+        })
+        if (!started) {
+          this.prepareIntroScrub()
+        }
       })
     },
     finishIntroHandoff() {

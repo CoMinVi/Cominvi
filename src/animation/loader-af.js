@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 import { afResizeLog, isAfResizeDebugEnabled } from '../app/af-resize-debug.js'
 import { prepareHeroMedia, suppressHomeHeroVideo } from '../app/hero-media.js'
+import { isSafariBrowser } from '../app/safari-detect.js'
 import { initContactHero } from './contact-hero.js'
 import {
   HOME_HERO_MANIFEST_URL,
@@ -457,6 +458,10 @@ export function initLoader() {
       overwrite: 'auto',
       onStart: () => {
         sequenceController.startIntroPlayback?.(HERO_INTRO_SCALE_DURATION)
+      },
+      onUpdate: function onHeroScaleUpdate() {
+        if (!isSafariBrowser()) return
+        sequenceController.setIntroProgress?.(this.progress())
       },
       onComplete: () => {
         try {

@@ -13,31 +13,31 @@ function getRevealCards(section) {
   return Array.from(section.querySelectorAll(CARD_SELECTOR))
 }
 
-function detachSectionTriggers(section) {
-  if (section.__cardsRevealScrollTrigger) {
+function detachCardTriggers(card) {
+  if (card.__cardsRevealScrollTrigger) {
     try {
-      section.__cardsRevealScrollTrigger.kill()
+      card.__cardsRevealScrollTrigger.kill()
     } catch (e) {
       // ignore
     }
-    section.__cardsRevealScrollTrigger = null
+    card.__cardsRevealScrollTrigger = null
   }
-  if (section.__cardsRevealTween) {
+  if (card.__cardsRevealTween) {
     try {
-      section.__cardsRevealTween.kill()
+      card.__cardsRevealTween.kill()
     } catch (e) {
       // ignore
     }
-    section.__cardsRevealTween = null
+    card.__cardsRevealTween = null
   }
 }
 
 function destroyCardsReveal(root = document) {
   const scope = root && root.querySelector ? root : document
   scope.querySelectorAll(SECTION_SELECTORS).forEach((section) => {
-    detachSectionTriggers(section)
-    section.__cardsRevealPlayed = false
     getRevealCards(section).forEach((card) => {
+      detachCardTriggers(card)
+      card.__cardsRevealPlayed = false
       card.__cardsRevealBound = false
       card.classList.remove(PENDING_CLASS)
       try {
@@ -94,60 +94,57 @@ function setupCardsReveal(root = document) {
   const scroller = window.__lenisWrapper || undefined
 
   sections.forEach((section) => {
-    section.__cardsRevealPlayed = false
     const cards = getRevealCards(section)
     if (!cards.length) return
 
     cards.forEach((card) => {
+      card.__cardsRevealPlayed = false
       card.classList.add(PENDING_CLASS)
       card.__cardsRevealBound = true
-    })
 
-    const tween = gsap.fromTo(
-      cards,
-      {
-        autoAlpha: 0,
-        y: '2em',
-      },
-      {
-        autoAlpha: 1,
-        y: 0,
-        duration: 0.8,
-        stagger: 0.08,
-        ease: 'power2.out',
-        immediateRender: false,
-        onStart: () => {
-          section.__cardsRevealPlayed = true
-          cards.forEach((card) => {
-            card.classList.remove(PENDING_CLASS)
-          })
+      const tween = gsap.fromTo(
+        card,
+        {
+          autoAlpha: 0,
+          y: '2em',
         },
-        onComplete: () => {
-          cards.forEach((card) => {
+        {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.8,
+          ease: 'power2.out',
+          immediateRender: false,
+          onStart: () => {
+            card.__cardsRevealPlayed = true
+            card.classList.remove(PENDING_CLASS)
+          },
+          onComplete: () => {
             try {
               card.style.willChange = ''
             } catch (e) {
               // ignore
             }
-          })
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              refreshServiceCardsAfterReveal(scope)
-            })
-          })
-        },
-        scrollTrigger: {
-          trigger: section,
-          start: 'top 85%',
-          once: true,
-          scroller,
-          invalidateOnRefresh: true,
-        },
-      }
-    )
+            if (card.classList.contains('service-card')) {
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  refreshServiceCardsAfterReveal(scope)
+                })
+              })
+            }
+          },
+          scrollTrigger: {
+            trigger: card,
+            start: 'top 85%',
+            once: true,
+            scroller,
+            invalidateOnRefresh: true,
+          },
+        }
+      )
 
-    section.__cardsRevealTween = tween
-    section.__cardsRevealScrollTrigger = tween.scrollTrigger
+      card.__cardsRevealTween = tween
+      card.__cardsRevealScrollTrigger = tween.scrollTrigger
+    })
   })
 
   try {

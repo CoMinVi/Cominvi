@@ -76,10 +76,14 @@ async function waitForHomeReady(page) {
 
 async function scrollSectionIntoView(page, selector) {
   await page.evaluate((sel) => {
-    const el = document.querySelector(sel)
-    if (!el || !window.lenis) return
-    window.lenis.scrollTo(el, {
-      offset: -window.innerHeight * 0.3,
+    const section = document.querySelector(sel)
+    if (!section || !window.lenis) return
+    const cardsTarget =
+      section.querySelector(
+        '.is-grid-3, .content, .service-card, .team-card'
+      ) || section
+    window.lenis.scrollTo(cardsTarget, {
+      offset: -window.innerHeight * 0.12,
       duration: 2.5,
       immediate: false,
     })
@@ -106,7 +110,12 @@ async function testCardsRevealOnHome(page, baseUrl) {
       teamPending: teamCards.some((c) =>
         c.classList.contains('is-card-reveal-pending')
       ),
-      played: !!document.querySelector('.section_services')?.__cardsRevealPlayed,
+      servicePlayed: serviceCards.map((c) => !!c.__cardsRevealPlayed),
+      teamPlayed: teamCards.map((c) => !!c.__cardsRevealPlayed),
+      triggerOnCard: [...serviceCards, ...teamCards].map((c) => {
+        const st = c.__cardsRevealScrollTrigger
+        return !!(st && (st.trigger === c || st.vars?.trigger === c))
+      }),
     }
   })
   console.log('HOME CARDS BEFORE SCROLL:', JSON.stringify(before, null, 2))
@@ -125,7 +134,39 @@ async function testCardsRevealOnHome(page, baseUrl) {
   )
   assert(before.servicePending, 'Service cards sans classe pending')
   assert(before.teamPending, 'Team cards sans classe pending')
-  assert(!before.played, 'Reveal services déjà joué avant scroll')
+  assert(
+    before.servicePlayed.every((p) => !p) && before.teamPlayed.every((p) => !p),
+    'Cards déjà révélées avant scroll'
+  )
+  assert(
+    before.triggerOnCard.length > 0 && before.triggerOnCard.every(Boolean),
+    'ScrollTrigger doit être sur chaque card individuellement'
+  )
+
+  await page.evaluate(() => {
+    const section = document.querySelector('.section_services')
+    if (!section || !window.lenis) return
+    window.lenis.scrollTo(section, {
+      offset: -window.innerHeight * 0.55,
+      duration: 1.2,
+      immediate: false,
+    })
+  })
+  await page.waitForTimeout(1400)
+  const partialSection = await page.evaluate(() => {
+    const cards = Array.from(
+      document.querySelectorAll('.section_services .service-card')
+    )
+    return {
+      opacities: cards.map((c) => parseFloat(getComputedStyle(c).opacity)),
+      played: cards.map((c) => !!c.__cardsRevealPlayed),
+    }
+  })
+  console.log('HOME CARDS PARTIAL SECTION:', JSON.stringify(partialSection, null, 2))
+  assert(
+    partialSection.opacities.some((o) => o < 0.1),
+    'Toutes les cards sont visibles alors que seule la section est entrée en vue'
+  )
 
   const titlesBeforeHover = await page.evaluate(() => {
     const card = document.querySelector('.section_services .service-card')
@@ -148,7 +189,7 @@ async function testCardsRevealOnHome(page, baseUrl) {
 
   let sawStagger = false
   let sawMotion = false
-  for (let i = 0; i < 30; i += 1) {
+  for (let i = 0; i < 45; i += 1) {
     await page.waitForTimeout(150)
     const sample = await page.evaluate(() => {
       const cards = Array.from(
@@ -176,11 +217,10 @@ async function testCardsRevealOnHome(page, baseUrl) {
     const cards = Array.from(
       document.querySelectorAll('.section_services .service-card')
     )
-    const section = document.querySelector('.section_services')
     return {
       opacities: cards.map((c) => getComputedStyle(c).opacity),
       transforms: cards.map((c) => c.style.transform || ''),
-      played: !!section?.__cardsRevealPlayed,
+      played: cards.map((c) => !!c.__cardsRevealPlayed),
     }
   })
   console.log('HOME CARDS AFTER SCROLL:', JSON.stringify(after, null, 2))
@@ -192,7 +232,7 @@ async function testCardsRevealOnHome(page, baseUrl) {
       `Card ${i} devrait être visible après reveal (opacity=${op})`
     )
   )
-  assert(after.played, 'Reveal services non marqué comme joué')
+  assert(after.played.every((p) => p), 'Reveal non marqué sur chaque service card')
   assert(sawStagger || sawMotion, 'Aucun stagger ni mouvement détecté pendant le reveal')
 
   await page.waitForTimeout(500)
@@ -222,7 +262,7 @@ async function testCardsRevealOnHome(page, baseUrl) {
       const opacities = cards.map((c) => parseFloat(getComputedStyle(c).opacity))
       return {
         opacities,
-        played: !!document.querySelector('.section_teams')?.__cardsRevealPlayed,
+        played: cards.map((c) => !!c.__cardsRevealPlayed),
         allVisible: opacities.length > 0 && opacities.every((o) => o >= 0.99),
       }
     })
@@ -233,6 +273,50 @@ async function testCardsRevealOnHome(page, baseUrl) {
     }
   }
   assert(teamReady, 'Team cards non révélées après scroll vers section_teams')
+}
+
+async function testServiceTitlesOnResize(page, baseUrl) {
+  await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' })
+  await waitForHomeReady(page)
+  await scrollSectionIntoView(page, '.section_services')
+  await page.waitForTimeout(2500)
+
+  const readOffsets = () =>
+    page.evaluate(() =>
+      Array.from(document.querySelectorAll('.section_services .service-card')).map(
+        (card) => {
+          const bodyL = card.querySelector('.body-l')
+          const match = (bodyL?.style.transform || '').match(
+            /translateY\(([-\d.]+)px\)/
+          )
+          return match ? parseFloat(match[1]) : 0
+        }
+      )
+    )
+
+  const beforeResize = await readOffsets()
+  console.log('SERVICE TITLES BEFORE RESIZE:', beforeResize)
+  assert(
+    beforeResize.length > 0 && beforeResize.every((o) => o > 8),
+    `Titres pas fermés avant resize (${beforeResize.join(',')})`
+  )
+
+  for (const size of [
+    { width: 1200, height: 800 },
+    { width: 1600, height: 1000 },
+    { width: 1024, height: 900 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(size)
+    await page.waitForTimeout(400)
+  }
+
+  const afterResize = await readOffsets()
+  console.log('SERVICE TITLES AFTER RESIZE:', afterResize)
+  assert(
+    afterResize.every((o) => o > 8),
+    `Titres en position ouverte après resize (${afterResize.join(',')})`
+  )
 }
 
 async function testBlogLayout(page, baseUrl) {
@@ -491,6 +575,7 @@ async function main() {
 
   try {
     await testCardsRevealOnHome(page, baseUrl)
+    await testServiceTitlesOnResize(page, baseUrl)
     await testBlogLayout(page, baseUrl)
     await testBlogHoverViaBarba(page, baseUrl)
     await testMachinesGrid(page, baseUrl)

@@ -155,7 +155,9 @@ const applyServiceCardDesktopClosedState = (
         : 0
     const measuredOffset = measureServiceBodyLOffset(card, bloc, bodyL)
     const distanceToBottom =
-      __svcMenuTransitionActive && measuredOffset === 0 && previousOffset > 0
+      measuredOffset > 0
+        ? measuredOffset
+        : previousOffset > 0 && !isServiceCardHovered(card)
         ? previousOffset
         : measuredOffset
     bodyL.__svcBottomOffsetPx = distanceToBottom
@@ -240,55 +242,6 @@ if (!gsap.parseEase('machinesStep')) {
 export function initServiceCards(root = document) {
   const scope = root && root.querySelector ? root : document
   const cards = scope.querySelectorAll('.service-card')
-  const updateServiceCardBaseState = (card) => {
-    const desc = card.querySelector('.desc')
-    const bloc = card.querySelector('.card-inner') || desc
-    if (!desc || !bloc) return
-    const isTablet = isTabletOrBelowNow()
-    try {
-      if (!isTablet) {
-        applyServiceCardDesktopClosedState(card, bloc, desc, {
-          instant: !isServiceCardHovered(card),
-        })
-      } else {
-        // Mobile/tablet: reset transforms
-        bloc.style.transition = ''
-        bloc.style.transform = ''
-        bloc.style.willChange = ''
-        const bodyL = bloc.querySelector('.body-l')
-        if (bodyL) {
-          bodyL.style.transition = ''
-          bodyL.style.transform = ''
-        }
-        const small = desc.querySelector('.body-s')
-        if (small) {
-          // Revert split if present
-          try {
-            if (
-              small.__splitLines &&
-              typeof small.__splitLines.revert === 'function'
-            ) {
-              small.__splitLines.revert()
-              small.__splitLines = null
-              small.__lines = null
-              small.__lineInners = null
-            }
-          } catch (e) {
-            // ignore
-          }
-        }
-      }
-      const existing = card.style.transition?.trim()
-      card.style.transition = existing
-        ? `${existing}, background-color 0.8s cubic-bezier(0.5, 0, 0, 1)`
-        : 'background-color 0.8s cubic-bezier(0.5, 0, 0, 1)'
-      if (!card.style.backgroundColor) {
-        card.style.backgroundColor = 'var(--white)'
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
   const resetServiceCardsHoverState = (targetScope = scope) => {
     const target =
       targetScope && targetScope.querySelector ? targetScope : document
@@ -624,26 +577,15 @@ export function initServiceCards(root = document) {
       if (__svcMenuTransitionActive) return
       const allCards = scope.querySelectorAll('.service-card')
       allCards.forEach((card) => {
-        if (!isServiceCardHovered(card)) {
-          const desc = card.querySelector('.desc')
-          const bloc = card.querySelector('.card-inner') || desc
-          const bodyL = bloc && bloc.querySelector('.body-l')
-          const small = desc && desc.querySelector('.body-s')
-          if (bodyL && bloc) {
-            const offset = measureServiceBodyLOffset(card, bloc, bodyL)
-            setServiceCardBodyLClosed(bodyL, offset, { instant: true })
-          }
-          hideServiceCardBodySLines(small, { instant: true })
-          card.style.backgroundColor = 'var(--white)'
-        }
-      })
-      allCards.forEach((c) => updateServiceCardBaseState(c))
-      // Recompute .body-l bottom offsets and rebuild .body-s splits for desktop
-      allCards.forEach((card) => {
+        if (isServiceCardHovered(card)) return
         const desc = card.querySelector('.desc')
         const bloc = card.querySelector('.card-inner') || desc
         if (!desc || !bloc) return
+
         if (isTabletOrBelowNow()) {
+          bloc.style.transition = ''
+          bloc.style.transform = ''
+          bloc.style.willChange = ''
           const bodyL = bloc.querySelector('.body-l')
           if (bodyL) {
             bodyL.style.transition = ''
@@ -667,61 +609,8 @@ export function initServiceCards(root = document) {
           })
           return
         }
-        const bodyL = bloc.querySelector('.body-l')
-        if (bodyL) {
-          bodyL.style.transform = ''
-          const blocRect = bloc.getBoundingClientRect()
-          const bodyLRect = bodyL.getBoundingClientRect()
-          const offsetWithinBloc = bodyLRect.bottom - blocRect.bottom
-          const distanceToBottom = Math.max(0, Math.round(-offsetWithinBloc))
-          bodyL.__svcBottomOffsetPx = distanceToBottom
-          card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
-          bodyL.style.transition = 'none'
-          bodyL.style.transform = `translateY(${distanceToBottom}px)`
-          void bodyL.offsetWidth
-          bodyL.style.transition = 'transform 0.5s ease'
-        }
-        const smallNodes = Array.from(desc.querySelectorAll('.body-s'))
-        smallNodes.forEach((small) => {
-          try {
-            if (
-              small.__splitLines &&
-              typeof small.__splitLines.revert === 'function'
-            ) {
-              small.__splitLines.revert()
-              small.__splitLines = null
-              small.__lines = null
-            }
-            const split = new SplitType(small, {
-              types: 'lines',
-              tagName: 'span',
-            })
-            small.__splitLines = split
-            small.__lines = split.lines || []
-            const inners = []
-            small.__lines.forEach((line) => {
-              line.style.display = 'block'
-              line.style.overflow = 'hidden'
-              if (!line.__inner) {
-                const inner = document.createElement('span')
-                inner.className = 'line-inner'
-                inner.style.display = 'inline-block'
-                while (line.firstChild) inner.appendChild(line.firstChild)
-                line.appendChild(inner)
-                line.__inner = inner
-              }
-              inners.push(line.__inner)
-            })
-            inners.forEach((el) => {
-              el.style.transform = 'translateY(100%)'
-              el.style.willChange = 'transform'
-              el.style.transition = 'transform 0.4s ease'
-            })
-            small.__lineInners = inners
-          } catch (e) {
-            // ignore
-          }
-        })
+
+        applyServiceCardDesktopClosedState(card, bloc, desc, { instant: true })
       })
 
       const machineCards = scope.querySelectorAll('.machine-card')

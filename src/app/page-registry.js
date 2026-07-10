@@ -1,4 +1,4 @@
-import { initSticky50 } from '../utils/base.js'
+import { initSticky50, refreshSticky50 } from '../utils/base.js'
 import { prepareIcons, resetServiceCardIcons } from './icons-runtime.js'
 
 function getScope(root = document) {
@@ -260,6 +260,14 @@ async function initSharedSections(root, options = {}) {
   }
 
   await Promise.all(jobs)
+
+  if (has(root, '.is-sticky-50')) {
+    try {
+      refreshSticky50(root)
+    } catch (e) {
+      // ignore
+    }
+  }
 }
 
 async function initNamespace(root) {

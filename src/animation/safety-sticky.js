@@ -17,7 +17,20 @@ function getScroller() {
   return document.querySelector('.page-wrap')
 }
 
+function measureElementHeight(el) {
+  if (!el) return 0
+  try {
+    const height = el.offsetHeight || el.getBoundingClientRect().height || 0
+    return Math.max(0, Math.round(height))
+  } catch (e) {
+    return 0
+  }
+}
+
 function findStickyParagraph(section) {
+  const homeBody = section.querySelector('.text-cta.h100 > .body-m')
+  if (homeBody) return homeBody
+
   const candidates = section.querySelectorAll(
     '.content-s .body-m, .sticky-wrap .body-m, .content_column .body-m'
   )
@@ -46,6 +59,81 @@ function parseStickyTopPx(el) {
   return 0
 }
 
+function resolveStickyTopPx(el) {
+  const cssTop = parseStickyTopPx(el)
+  if (cssTop > 0) return cssTop
+
+  const height = measureElementHeight(el)
+  if (!height) return 0
+
+  return Math.max(0, Math.round(window.innerHeight * 0.5 - height * 0.5))
+}
+
+function scheduleSafetyStickyReflow() {
+  const run = () => {
+    try {
+      if (
+        window.ScrollTrigger &&
+        typeof window.ScrollTrigger.refresh === 'function'
+      ) {
+        window.ScrollTrigger.refresh()
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(run)
+  })
+  setTimeout(run, 120)
+  setTimeout(run, 320)
+
+  try {
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') {
+      document.fonts.ready.then(run).catch(() => {})
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function bindSafetyStickyGlobalListeners() {
+  if (window.__safetyStickyGlobalsBound) return
+  window.__safetyStickyGlobalsBound = true
+
+  const refreshAll = () => {
+    try {
+      refreshSafetySticky(document)
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  try {
+    window.addEventListener('resize', () => {
+      try {
+        if (
+          window.ScrollTrigger &&
+          typeof window.ScrollTrigger.refresh === 'function'
+        ) {
+          window.ScrollTrigger.refresh()
+        }
+      } catch (e) {
+        // ignore
+      }
+    })
+    window.addEventListener('page:transition:after', refreshAll)
+    document.addEventListener('menu:close-end', () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(refreshAll)
+      })
+    })
+  } catch (e) {
+    // ignore
+  }
+}
+
 export function destroySafetySticky(root = document) {
   const scope = getScope(root)
   scope.querySelectorAll('.section_safety').forEach((section) => {
@@ -71,6 +159,7 @@ export function destroySafetySticky(root = document) {
 export function initSafetySticky(root = document) {
   const scope = getScope(root)
   destroySafetySticky(scope)
+  bindSafetyStickyGlobalListeners()
 
   const scroller = getScroller()
   if (!scroller) return
@@ -83,7 +172,6 @@ export function initSafetySticky(root = document) {
       bodyM.closest('.sticky-wrap, .is-s-wrap') || bodyM.parentElement
     if (!stickyWrap) return
 
-    const stickyTopPx = parseStickyTopPx(bodyM)
     bodyM.setAttribute('data-lenis-sticky', 'true')
     section.classList.add('is-lenis-sticky')
 
@@ -91,9 +179,10 @@ export function initSafetySticky(root = document) {
       trigger: bodyM,
       endTrigger: stickyWrap,
       scroller,
-      start: () => `top ${stickyTopPx}px`,
+      start: () => `top ${resolveStickyTopPx(bodyM)}px`,
       end: () => {
-        const releasePx = stickyTopPx + (bodyM.offsetHeight || 0)
+        const topPx = resolveStickyTopPx(bodyM)
+        const releasePx = topPx + measureElementHeight(bodyM)
         return `bottom top+=${releasePx}px`
       },
       pin: bodyM,
@@ -104,4 +193,10 @@ export function initSafetySticky(root = document) {
 
     section.__safetyStickyST = st
   })
+
+  scheduleSafetyStickyReflow()
+}
+
+export function refreshSafetySticky(root = document) {
+  initSafetySticky(root)
 }

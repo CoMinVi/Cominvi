@@ -268,6 +268,17 @@ async function initSharedSections(root, options = {}) {
       // ignore
     }
   }
+
+  if (has(root, '.section_safety')) {
+    try {
+      const mod = await import('../animation/safety-sticky.js')
+      if (typeof mod.refreshSafetySticky === 'function') {
+        mod.refreshSafetySticky(root)
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
 }
 
 async function initNamespace(root) {

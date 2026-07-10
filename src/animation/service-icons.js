@@ -26,7 +26,7 @@ const LOTTIE_URLS = {
 const STATS_CARD_SELECTOR = '.stats-card, .stat-card'
 const ABOUT_SECTION_SELECTOR = '.section_about'
 const ICON_SELECTOR =
-  '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon, .service-card [data-lottie], .team-card [data-lottie], .stats-card [data-lottie], .stat-card [data-lottie]'
+  '.service-card .service-icon_icon, .team-card .service-icon_icon, .stats-card .service-icon_icon, .stat-card .service-icon_icon'
 
 // Resolve the origin from which the bundle (main.js) is served. This may
 // differ from the page origin: in dev the page is hosted on the Webflow
@@ -336,6 +336,29 @@ export function initIcons(root = document, opts = {}) {
               icon.getAttribute &&
               icon.getAttribute('data-animation-path')) ||
             null
+        }
+        if (!path) {
+          try {
+            const card = icon.closest(
+              '.service-card, .team-card, .stats-card, .stat-card'
+            )
+            const cardLottie = card?.getAttribute?.('data-lottie')
+            if (cardLottie) {
+              if (
+                /^(https?:)?\/\//i.test(cardLottie) ||
+                cardLottie.startsWith('/')
+              ) {
+                path = cardLottie
+              } else if (
+                LOTTIE_URLS &&
+                Object.prototype.hasOwnProperty.call(LOTTIE_URLS, cardLottie)
+              ) {
+                path = LOTTIE_URLS[cardLottie]
+              }
+            }
+          } catch (e) {
+            /* ignore */
+          }
         }
         // Legacy Webflow exports sometimes reference /documents/CoMinVi---Icon-XX.json.
         // Map those to local bundled assets restored under /lottie/icon-XX.json.

@@ -299,9 +299,6 @@ export function initLoader() {
     const loaderEase = CustomEase.create('loaderEase', easeCurve)
     const logoTargetWidthPx = logoInner.getBoundingClientRect().width || 0
     const textPaths = Array.from(logoText.querySelectorAll('path'))
-    const isWhiteLoader =
-      loader.getAttribute('data-wf--loader--variant') === 'is-white'
-
     const computePxFromEm = (el, emValue) => {
       const fontSizePx = parseFloat(getComputedStyle(el).fontSize) || 16
       return emValue * fontSizePx
@@ -334,9 +331,6 @@ export function initLoader() {
         autoAlpha: 0,
         mixBlendMode: 'normal',
       })
-      if (isWhiteLoader) {
-        gsap.set(outlineEl, { outlineColor: 'var(--white)' })
-      }
       syncOutlineSize = () => {
         const rect = logoWrap.getBoundingClientRect()
         gsap.set(outlineEl, {

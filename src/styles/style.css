@@ -438,7 +438,7 @@
   top: 0;
   z-index: 4;
   border-radius: 0.55em;
-  outline: 0.188em solid var(--accent);
+  outline: 0.188em solid var(--white);
   outline-offset: -0.188em;
   /* draw inside */
   pointer-events: none;

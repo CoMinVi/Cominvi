@@ -111,6 +111,115 @@ export function initTechnology(root = document) {
   const scroller =
     window.__lenisWrapper || root.querySelector('.page-wrap') || window
   let isScrollLocked = false
+  let gridLockScrollY = 0
+  let gridLockPreventScroll = null
+
+  const getGridScrollY = () => {
+    try {
+      if (window.lenis && typeof window.lenis.scroll === 'number') {
+        return window.lenis.scroll
+      }
+    } catch (e) {
+      // ignore
+    }
+    try {
+      if (
+        scroller &&
+        scroller !== window &&
+        typeof scroller.scrollTop === 'number'
+      ) {
+        return scroller.scrollTop
+      }
+    } catch (e) {
+      // ignore
+    }
+    return window.pageYOffset || document.documentElement.scrollTop || 0
+  }
+
+  const setGridScrollY = (value) => {
+    try {
+      if (window.lenis && typeof window.lenis.scrollTo === 'function') {
+        window.lenis.scrollTo(value, { immediate: true, force: true })
+        return
+      }
+    } catch (e) {
+      // ignore
+    }
+    try {
+      if (scroller && scroller !== window) {
+        scroller.scrollTop = value
+        return
+      }
+    } catch (e) {
+      // ignore
+    }
+    window.scrollTo(0, value)
+  }
+
+  const lockScroll = () => {
+    if (isScrollLocked) return
+    gridLockScrollY = getGridScrollY()
+
+    try {
+      if (window.lenis && typeof window.lenis.stop === 'function') {
+        window.lenis.stop()
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    setGridScrollY(gridLockScrollY)
+
+    const scrollTarget =
+      scroller && scroller !== window ? scroller : window.__lenisWrapper
+    if (scrollTarget) {
+      gridLockPreventScroll = (event) => {
+        event.preventDefault()
+      }
+      scrollTarget.addEventListener('wheel', gridLockPreventScroll, {
+        passive: false,
+        capture: true,
+      })
+      scrollTarget.addEventListener('touchmove', gridLockPreventScroll, {
+        passive: false,
+        capture: true,
+      })
+    }
+
+    isScrollLocked = true
+  }
+
+  const unlockScroll = () => {
+    if (!isScrollLocked) return
+
+    const scrollTarget =
+      scroller && scroller !== window ? scroller : window.__lenisWrapper
+    if (scrollTarget && gridLockPreventScroll) {
+      try {
+        scrollTarget.removeEventListener('wheel', gridLockPreventScroll, {
+          capture: true,
+        })
+        scrollTarget.removeEventListener('touchmove', gridLockPreventScroll, {
+          capture: true,
+        })
+      } catch (err) {
+        // ignore
+      }
+    }
+    gridLockPreventScroll = null
+
+    setGridScrollY(gridLockScrollY)
+
+    try {
+      if (window.lenis && typeof window.lenis.start === 'function') {
+        window.lenis.start()
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    isScrollLocked = false
+  }
 
   // Tablet detection for responsive animation values
   const getViewportWidth = () => {
@@ -513,57 +622,6 @@ export function initTechnology(root = document) {
     // ignore
   }
 
-  const lockScroll = () => {
-    if (isScrollLocked) return
-    try {
-      if (window.lenis && typeof window.lenis.stop === 'function') {
-        window.lenis.stop()
-      }
-    } catch (err) {
-      // ignore
-    }
-    try {
-      const targetEl =
-        scroller && scroller !== window ? scroller : document.documentElement
-      if (targetEl) {
-        targetEl.style.overflow = 'hidden'
-        targetEl.style.touchAction = 'none'
-      }
-      if (targetEl !== document.documentElement) {
-        document.documentElement.style.overflow = 'hidden'
-        document.body.style.overflow = 'hidden'
-        document.body.style.touchAction = 'none'
-      }
-    } catch (err) {
-      // ignore
-    }
-    isScrollLocked = true
-  }
-  const unlockScroll = () => {
-    if (!isScrollLocked) return
-    try {
-      if (window.lenis && typeof window.lenis.start === 'function') {
-        window.lenis.start()
-      }
-    } catch (err) {
-      // ignore
-    }
-    try {
-      const targetEl =
-        scroller && scroller !== window ? scroller : document.documentElement
-      if (targetEl) {
-        targetEl.style.overflow = ''
-        targetEl.style.touchAction = ''
-      }
-      document.documentElement.style.overflow = ''
-      document.body.style.overflow = ''
-      document.body.style.touchAction = ''
-    } catch (err) {
-      // ignore
-    }
-    isScrollLocked = false
-  }
-
   // ---------- Grid view: expand item fullscreen and push others ----------
   try {
     let gridList = null
@@ -749,37 +807,7 @@ export function initTechnology(root = document) {
       const openGridItem = (item) => {
         if (openItem === item) return
         openItem = item
-        // Capture current scroll to prevent any auto-scroll on click/focus
-        let savedTop = 0
-        let savedLeft = 0
-        let wrapper = null
-        try {
-          wrapper = window.__lenisWrapper || null
-          if (wrapper) {
-            savedTop = wrapper.scrollTop
-            savedLeft = wrapper.scrollLeft || 0
-          } else {
-            savedTop =
-              window.pageYOffset || document.documentElement.scrollTop || 0
-            savedLeft =
-              window.pageXOffset || document.documentElement.scrollLeft || 0
-          }
-        } catch (e) {
-          // ignore
-        }
         lockScroll()
-        // Restore scroll immediately after locking to neutralize any jump
-        try {
-          if (wrapper) {
-            wrapper.scrollTop = savedTop
-            if (typeof wrapper.scrollLeft === 'number')
-              wrapper.scrollLeft = savedLeft
-          } else {
-            window.scrollTo(savedLeft, savedTop)
-          }
-        } catch (e) {
-          // ignore
-        }
         const r = item.getBoundingClientRect()
         // Create a visual duplicate to animate, keep original in flow (opacity 0)
         try {

@@ -459,7 +459,38 @@ async function testMachinesGrid(page, baseUrl) {
     { timeout: 120000 }
   )
   await page.waitForTimeout(1500)
+
+  await page.evaluate(() => {
+    const grid = document.querySelector('.machines-grid-wrapper')
+    if (grid && window.lenis) {
+      window.lenis.scrollTo(grid, {
+        offset: -window.innerHeight * 0.2,
+        immediate: true,
+      })
+    }
+  })
+  await page.waitForTimeout(300)
+
+  const scrollBeforeOpen = await page.evaluate(() => ({
+    lenis: window.lenis?.scroll ?? null,
+    wrapper: window.__lenisWrapper?.scrollTop ?? null,
+  }))
+  console.log('MACHINES GRID SCROLL BEFORE OPEN:', scrollBeforeOpen)
+
   await page.locator('.machines-grid_item').first().click()
+  await page.waitForTimeout(200)
+
+  const scrollAfterOpen = await page.evaluate(() => ({
+    lenis: window.lenis?.scroll ?? null,
+    wrapper: window.__lenisWrapper?.scrollTop ?? null,
+  }))
+  console.log('MACHINES GRID SCROLL AFTER OPEN:', scrollAfterOpen)
+  assert(
+    scrollBeforeOpen.lenis !== null &&
+      scrollAfterOpen.lenis !== null &&
+      Math.abs(scrollAfterOpen.lenis - scrollBeforeOpen.lenis) <= 2,
+    `Saut de scroll à l'ouverture (${scrollBeforeOpen.lenis} -> ${scrollAfterOpen.lenis})`
+  )
 
   const samples = []
   let elapsed = 0

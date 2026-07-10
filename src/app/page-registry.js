@@ -94,6 +94,7 @@ async function initSharedSections(root, options = {}) {
         try {
           mod.initParallax(root)
           mod.initNextBackgroundParallax(root)
+          mod.initNextButtonSticky(root)
         } catch (e) {
           // ignore
         }
@@ -101,11 +102,14 @@ async function initSharedSections(root, options = {}) {
     )
   } else {
     jobs.push(
-      importAndRun(
-        () => import('../animation/parallax.js'),
-        'initNextBackgroundParallax',
-        root
-      )
+      import('../animation/parallax.js').then((mod) => {
+        try {
+          mod.initNextBackgroundParallax(root)
+          mod.initNextButtonSticky(root)
+        } catch (e) {
+          // ignore
+        }
+      })
     )
   }
 
@@ -260,6 +264,17 @@ async function initSharedSections(root, options = {}) {
   }
 
   await Promise.all(jobs)
+
+  if (has(root, '.service-card')) {
+    try {
+      const mod = await import('../animation/service-cards.js')
+      if (typeof mod.refreshServiceCards === 'function') {
+        mod.refreshServiceCards(root)
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
 
   if (has(root, '.is-sticky-50')) {
     try {

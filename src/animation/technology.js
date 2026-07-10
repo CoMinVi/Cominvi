@@ -3,7 +3,11 @@ import { CustomEase } from 'gsap/CustomEase'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 import { animateNavbarSpreadForGrid } from './nav'
-import { initParallax, initNextBackgroundParallax } from './parallax.js'
+import {
+  initParallax,
+  initNextBackgroundParallax,
+  initNextButtonSticky,
+} from './parallax.js'
 import { initWorkshopsStickyImages } from './workshops'
 
 gsap.registerPlugin(ScrollTrigger, CustomEase)
@@ -1713,6 +1717,7 @@ export function initTechnology(root = document) {
             // Re-init parallax and refresh triggers after closing overlay
             try {
               initNextBackgroundParallax(root)
+              initNextButtonSticky(root)
             } catch (e0) {
               // ignore
             }
@@ -1759,6 +1764,7 @@ export function initTechnology(root = document) {
             }
             try {
               initNextBackgroundParallax(root)
+              initNextButtonSticky(root)
             } catch (e0) {
               // ignore
             }

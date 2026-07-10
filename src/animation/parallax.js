@@ -732,3 +732,86 @@ export function initNextBackgroundParallax(root = document) {
   ScrollTrigger.refresh()
   return tweens
 }
+
+export function destroyNextButtonSticky(root = document) {
+  try {
+    if (window.__nextButtonStickyLenisHandler && window.lenis?.off) {
+      window.lenis.off('scroll', window.__nextButtonStickyLenisHandler)
+    }
+    if (window.__nextButtonStickyOnTransition) {
+      window.removeEventListener(
+        'page:transition:after',
+        window.__nextButtonStickyOnTransition
+      )
+    }
+    if (window.__nextButtonStickyOnResize) {
+      window.removeEventListener('resize', window.__nextButtonStickyOnResize)
+    }
+    if (window.__nextButtonStickyRafId) {
+      cancelAnimationFrame(window.__nextButtonStickyRafId)
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  window.__nextButtonStickyLenisHandler = null
+  window.__nextButtonStickyOnTransition = null
+  window.__nextButtonStickyOnResize = null
+  window.__nextButtonStickyRafId = null
+
+  const scope = root && root.querySelector ? root : document
+  scope
+    .querySelectorAll('.section_next .next-button-wrapper')
+    .forEach((wrapper) => {
+      try {
+        wrapper.style.removeProperty('transform')
+      } catch (e) {
+        // ignore
+      }
+    })
+}
+
+export function initNextButtonSticky(root = document) {
+  const scope = root && root.querySelector ? root : document
+  const wrappers = scope.querySelectorAll('.section_next .next-button-wrapper')
+  destroyNextButtonSticky(scope)
+  if (!wrappers.length) return
+
+  const updateAll = () => {
+    const nodes = scope.querySelectorAll('.section_next .next-button-wrapper')
+    nodes.forEach((wrapper) => {
+      const section = wrapper.closest('.section_next')
+      if (!section) return
+      const sectionTop = section.getBoundingClientRect().top
+      const extraY = Math.min(0, Math.round(sectionTop))
+      wrapper.style.transform = `translate(0, calc(-50% + ${extraY}px))`
+    })
+  }
+
+  updateAll()
+
+  const onScroll = () => updateAll()
+  window.__nextButtonStickyLenisHandler = onScroll
+  if (window.lenis && typeof window.lenis.on === 'function') {
+    window.lenis.on('scroll', onScroll)
+  }
+
+  window.__nextButtonStickyOnTransition = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(updateAll)
+    })
+  }
+  window.addEventListener(
+    'page:transition:after',
+    window.__nextButtonStickyOnTransition
+  )
+
+  window.__nextButtonStickyOnResize = () => updateAll()
+  window.addEventListener('resize', window.__nextButtonStickyOnResize)
+
+  const tick = () => {
+    updateAll()
+    window.__nextButtonStickyRafId = requestAnimationFrame(tick)
+  }
+  window.__nextButtonStickyRafId = requestAnimationFrame(tick)
+}

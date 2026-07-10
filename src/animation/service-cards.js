@@ -16,6 +16,126 @@ let __svcResizeHandler = null
 let __svcMenuStateResetBound = false
 let __svcMenuTransitionActive = false
 let __svcMenuTransitionUnlockTimer = null
+let __svcPageRefreshBound = false
+
+const isTabletOrBelowNow = () => {
+  try {
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 991px)').matches
+    )
+  } catch (e) {
+    return false
+  }
+}
+
+const isMenuOpenNow = () => {
+  try {
+    return document.documentElement.getAttribute('data-menu-open') === 'true'
+  } catch (e) {
+    return false
+  }
+}
+
+const isServiceCardHovered = (card) => {
+  try {
+    return !!card.matches(':hover')
+  } catch (e) {
+    return false
+  }
+}
+
+const measureServiceBodyLOffset = (card, bloc, bodyL) => {
+  bodyL.style.transform = ''
+  const blocRect = bloc.getBoundingClientRect()
+  const bodyLRect = bodyL.getBoundingClientRect()
+  const offsetWithinBloc = bodyLRect.bottom - blocRect.bottom
+  const distanceToBottom = Math.max(0, Math.round(-offsetWithinBloc))
+  bodyL.__svcBottomOffsetPx = distanceToBottom
+  card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
+  return distanceToBottom
+}
+
+const setServiceCardBodyLClosed = (bodyL, offset, { instant = false } = {}) => {
+  if (!bodyL) return
+  const easing = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
+  if (instant) {
+    bodyL.style.transition = 'none'
+    bodyL.style.transform = `translateY(${offset}px)`
+    void bodyL.offsetWidth
+    bodyL.style.transition = easing
+    return
+  }
+  bodyL.style.transition = easing
+  bodyL.style.transform = `translateY(${offset}px)`
+}
+
+const hideServiceCardBodySLines = (small, { instant = false } = {}) => {
+  if (!small) return
+  const inners = small.__lineInners || []
+  inners.forEach((el, i) => {
+    el.style.transitionDelay = instant ? '0s' : `${i * 0.03}s`
+    el.style.removeProperty('transform')
+    el.style.transform = 'translateY(100%)'
+  })
+}
+
+export function refreshServiceCards(root = document) {
+  if (isTabletOrBelowNow() || isMenuOpenNow()) return
+
+  const scope = root && root.querySelector ? root : document
+  scope.querySelectorAll('.service-card').forEach((card) => {
+    const desc = card.querySelector('.desc')
+    const bloc = card.querySelector('.card-inner') || desc
+    if (!desc || !bloc) return
+
+    const bodyL = bloc.querySelector('.body-l')
+    const small = desc.querySelector('.body-s')
+    const hovered = isServiceCardHovered(card)
+
+    if (bodyL) {
+      const offset = measureServiceBodyLOffset(card, bloc, bodyL)
+      if (!hovered) {
+        setServiceCardBodyLClosed(bodyL, offset, { instant: true })
+      }
+    }
+
+    if (!hovered) {
+      hideServiceCardBodySLines(small, { instant: true })
+      card.style.removeProperty('background-color')
+      card.style.backgroundColor = 'var(--white)'
+    }
+  })
+}
+
+const scheduleServiceCardsRefresh = (root = document) => {
+  const run = () => {
+    try {
+      refreshServiceCards(root)
+    } catch (e) {
+      // ignore
+    }
+  }
+  requestAnimationFrame(() => {
+    requestAnimationFrame(run)
+  })
+  try {
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(run).catch(() => {})
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+const bindServiceCardsPageRefresh = () => {
+  if (__svcPageRefreshBound) return
+  __svcPageRefreshBound = true
+  window.addEventListener('page:transition:after', () => {
+    requestAnimationFrame(() => refreshServiceCards(document))
+  })
+}
 
 // Ensure the same custom ease as Technology
 if (!gsap.parseEase('machinesStep')) {
@@ -28,24 +148,6 @@ if (!gsap.parseEase('machinesStep')) {
 export function initServiceCards(root = document) {
   const scope = root && root.querySelector ? root : document
   const cards = scope.querySelectorAll('.service-card')
-  const isTabletOrBelowNow = () => {
-    try {
-      return (
-        typeof window !== 'undefined' &&
-        typeof window.matchMedia === 'function' &&
-        window.matchMedia('(max-width: 991px)').matches
-      )
-    } catch (e) {
-      return false
-    }
-  }
-  const isMenuOpenNow = () => {
-    try {
-      return document.documentElement.getAttribute('data-menu-open') === 'true'
-    } catch (e) {
-      return false
-    }
-  }
   const updateServiceCardBaseState = (card) => {
     const desc = card.querySelector('.desc')
     const bloc = card.querySelector('.card-inner') || desc
@@ -60,16 +162,11 @@ export function initServiceCards(root = document) {
           // Measure from the natural layout (without current transform),
           // otherwise repeated resets (e.g. when opening the menu) collapse
           // the cached offset to 0 and keep cards visually "open".
-          bodyL.style.transform = ''
-          const blocRect = bloc.getBoundingClientRect()
-          const bodyLRect = bodyL.getBoundingClientRect()
-          // Compute remaining space below .body-l inside the bloc
-          const offsetWithinBloc = bodyLRect.bottom - blocRect.bottom
-          const measuredOffset = Math.max(0, Math.round(-offsetWithinBloc))
           const previousOffset =
             typeof bodyL.__svcBottomOffsetPx === 'number'
               ? bodyL.__svcBottomOffsetPx
               : 0
+          const measuredOffset = measureServiceBodyLOffset(card, bloc, bodyL)
           const distanceToBottom =
             __svcMenuTransitionActive &&
             measuredOffset === 0 &&
@@ -78,8 +175,9 @@ export function initServiceCards(root = document) {
               : measuredOffset
           bodyL.__svcBottomOffsetPx = distanceToBottom
           card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
-          bodyL.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
-          bodyL.style.transform = `translateY(${distanceToBottom}px)`
+          setServiceCardBodyLClosed(bodyL, distanceToBottom, {
+            instant: !isServiceCardHovered(card),
+          })
         }
 
         // 2) Split .desc .body-s into lines and set initial translateY(100%)
@@ -176,15 +274,15 @@ export function initServiceCards(root = document) {
       try {
         const bodyL = bloc.querySelector('.body-l')
         if (bodyL) {
-          let back = 0
-          if (typeof bodyL.__svcBottomOffsetPx === 'number') {
-            back = bodyL.__svcBottomOffsetPx
-          } else {
-            const cssOffset = card.style.getPropertyValue('--svc-bodyl-offset')
-            const parsed = parseFloat(cssOffset)
-            if (!Number.isNaN(parsed)) {
-              back = parsed
-            }
+          const previousOffset =
+            typeof bodyL.__svcBottomOffsetPx === 'number'
+              ? bodyL.__svcBottomOffsetPx
+              : 0
+          let back = measureServiceBodyLOffset(card, bloc, bodyL)
+          if (__svcMenuTransitionActive && back === 0 && previousOffset > 0) {
+            back = previousOffset
+            bodyL.__svcBottomOffsetPx = back
+            card.style.setProperty('--svc-bodyl-offset', `${back}px`)
           }
           bodyL.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
           if (menuIsOpen) {
@@ -570,6 +668,20 @@ export function initServiceCards(root = document) {
     try {
       if (__svcMenuTransitionActive) return
       const allCards = scope.querySelectorAll('.service-card')
+      allCards.forEach((card) => {
+        if (!isServiceCardHovered(card)) {
+          const desc = card.querySelector('.desc')
+          const bloc = card.querySelector('.card-inner') || desc
+          const bodyL = bloc && bloc.querySelector('.body-l')
+          const small = desc && desc.querySelector('.body-s')
+          if (bodyL && bloc) {
+            const offset = measureServiceBodyLOffset(card, bloc, bodyL)
+            setServiceCardBodyLClosed(bodyL, offset, { instant: true })
+          }
+          hideServiceCardBodySLines(small, { instant: true })
+          card.style.backgroundColor = 'var(--white)'
+        }
+      })
       allCards.forEach((c) => updateServiceCardBaseState(c))
       // Recompute .body-l bottom offsets and rebuild .body-s splits for desktop
       allCards.forEach((card) => {
@@ -925,6 +1037,9 @@ export function initServiceCards(root = document) {
     ensureMobileState()
     card.__machineMobileBound = true
   })
+
+  bindServiceCardsPageRefresh()
+  scheduleServiceCardsRefresh(scope)
 }
 
 // Reset all Lottie icons inside service/team cards to frame 0 after transitions

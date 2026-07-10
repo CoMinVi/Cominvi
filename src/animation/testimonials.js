@@ -318,8 +318,10 @@ export function initTestimonials(root = document) {
           overwrite: 'auto',
         })
         // Eyebrow (toggle-id) color preview on hover
-        toggleIds.forEach((idEl) => idEl.classList.remove('is-active'))
-        toggleIds[i]?.classList.add('is-active')
+        toggleIds.forEach((idEl, idx) => {
+          if (idx === i) idEl.classList.add('is-active')
+          else idEl.classList.remove('is-active')
+        })
       })
 
       // Switch testimonial on click without animating indicator (indicator handled by hover)

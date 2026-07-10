@@ -355,18 +355,6 @@
    The video and its wrappers must NOT be promoted independently,
    otherwise the compositor desyncs the video from the parent scale
    and produces a visible jitter during the hero intro scale. */
-
-/* During pt-inner leave the hero surface is a bitmap (af-display), not a live canvas. */
-[data-cominvi-hero-transition-leave='true'] .hero-background .background-inner {
-  will-change: auto;
-}
-
-[data-cominvi-hero-transition-leave='true']
-  .hero-background
-  [data-loader-sequence-canvas='true'] {
-  will-change: auto;
-}
-
 .hero-background {
   z-index: 0;
   display: flex;

@@ -55,7 +55,6 @@ export function createHeroScrollSequence({
     show: () => {},
     hide: () => {},
     repaint: () => false,
-    lockSurfaceForLeave: () => false,
     destroy: () => {},
   }
 
@@ -101,143 +100,6 @@ export function createHeroScrollSequence({
   let requestedFrame = 0
   let paintedFrame = -1
   let rafToken = 0
-  let surfaceLocked = false
-
-  let displayImg = null
-  let displayImgUrl = null
-  let frameSnapshot = null
-  let frameSnapshotCtx = null
-  let frameSnapshotW = 0
-  let frameSnapshotH = 0
-
-  const ensureDisplayImg = () => {
-    if (displayImg) return displayImg
-
-    displayImg = document.createElement('img')
-    displayImg.setAttribute('data-cominvi-af-display', 'true')
-    displayImg.setAttribute('alt', '')
-    displayImg.decoding = 'async'
-    Object.assign(displayImg.style, {
-      position: 'absolute',
-      inset: '0',
-      width: '100%',
-      height: '100%',
-      display: 'block',
-      objectFit: 'cover',
-      objectPosition: 'center center',
-      pointerEvents: 'none',
-      zIndex: '4',
-      opacity: '0',
-      visibility: 'hidden',
-    })
-    mediaHost.appendChild(displayImg)
-    afResizeLog('hero-scroll:displayImg-created')
-    return displayImg
-  }
-
-  const hideDisplayImg = (reason = 'unknown') => {
-    if (!displayImg) return
-    displayImg.style.opacity = '0'
-    displayImg.style.visibility = 'hidden'
-    afResizeLog('hero-scroll:displayImg-hidden', { reason })
-  }
-
-  const showDisplayImg = (reason = 'unknown') => {
-    ensureDisplayImg()
-    displayImg.style.opacity = '1'
-    displayImg.style.visibility = 'visible'
-    afResizeLog('hero-scroll:displayImg-shown', { reason })
-  }
-
-  const cacheFrameSnapshot = (source, srcW, srcH) => {
-    if (!source || !srcW || !srcH) return false
-
-    if (!frameSnapshot) {
-      frameSnapshot = document.createElement('canvas')
-      frameSnapshotCtx = frameSnapshot.getContext('2d', { alpha: false })
-    }
-    if (!frameSnapshotCtx) return false
-
-    if (frameSnapshot.width !== srcW || frameSnapshot.height !== srcH) {
-      frameSnapshot.width = srcW
-      frameSnapshot.height = srcH
-    }
-
-    frameSnapshotCtx.setTransform(1, 0, 0, 1, 0, 0)
-    frameSnapshotCtx.clearRect(0, 0, srcW, srcH)
-    frameSnapshotCtx.drawImage(source, 0, 0, srcW, srcH)
-    frameSnapshotW = srcW
-    frameSnapshotH = srcH
-    return true
-  }
-
-  const syncDisplayImgFromSnapshotSync = (reason = 'unknown') => {
-    if (!frameSnapshot || !frameSnapshotW || !frameSnapshotH) {
-      afResizeLog('hero-scroll:displayImg-skip-no-snapshot', { reason })
-      return false
-    }
-
-    ensureDisplayImg()
-
-    try {
-      if (displayImgUrl) {
-        URL.revokeObjectURL(displayImgUrl)
-        displayImgUrl = null
-      }
-      displayImg.src = frameSnapshot.toDataURL('image/jpeg', 0.92)
-      showDisplayImg(reason)
-      return true
-    } catch (e) {
-      afResizeLog('hero-scroll:displayImg-error', {
-        reason,
-        message: e?.message,
-      })
-      return false
-    }
-  }
-
-  const syncDisplayImgFromSnapshot = (reason = 'unknown') => {
-    if (!frameSnapshot || !frameSnapshotW || !frameSnapshotH) {
-      afResizeLog('hero-scroll:displayImg-skip-no-snapshot', { reason })
-      return false
-    }
-
-    ensureDisplayImg()
-
-    try {
-      if (displayImgUrl) {
-        URL.revokeObjectURL(displayImgUrl)
-        displayImgUrl = null
-      }
-
-      frameSnapshot.toBlob(
-        (blob) => {
-          if (!blob || !displayImg) return
-          displayImgUrl = URL.createObjectURL(blob)
-          displayImg.src = displayImgUrl
-          showDisplayImg(reason)
-        },
-        'image/jpeg',
-        0.92
-      )
-      return true
-    } catch (e) {
-      afResizeLog('hero-scroll:displayImg-error', {
-        reason,
-        message: e?.message,
-      })
-      return false
-    }
-  }
-
-  const nudgeSurfaceComposite = () => {
-    try {
-      canvas.style.transform = 'translateZ(0)'
-      void canvas.offsetHeight
-    } catch (e) {
-      // ignore
-    }
-  }
 
   const fitCanvas = () => {
     const rect = mediaHost.getBoundingClientRect()
@@ -270,20 +132,6 @@ export function createHeroScrollSequence({
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, destW, destH)
     ctx.drawImage(source, 0, 0, srcW, srcH, offsetX, offsetY, drawW, drawH)
-    return true
-  }
-
-  const paintCachedSnapshot = (reason = 'unknown') => {
-    if (!frameSnapshot || !frameSnapshotW || !frameSnapshotH) {
-      afResizeLog('hero-scroll:snapshot-miss', { reason })
-      return false
-    }
-
-    drawCoverImage(frameSnapshot, frameSnapshotW, frameSnapshotH)
-    syncDisplayImgFromSnapshot(reason)
-    canvas.style.opacity = '1'
-    canvas.style.visibility = 'visible'
-    afResizeLog('hero-scroll:snapshot-painted', { reason })
     return true
   }
 
@@ -322,14 +170,12 @@ export function createHeroScrollSequence({
   }
 
   const paintFrame = (index, reason = 'paint') => {
-    if (surfaceLocked) return false
-
     const url = getFrameUrl(index)
     const img = images.get(url)
 
     if (!img) {
       preloadFrame(index).then((loaded) => {
-        if (!loaded || surfaceLocked) return
+        if (!loaded) return
         if (requestedFrame === index) {
           paintFrame(index, `${reason}-async`)
         }
@@ -340,12 +186,9 @@ export function createHeroScrollSequence({
     const painted = drawCoverImage(img, img.naturalWidth, img.naturalHeight)
     if (!painted) return false
 
-    cacheFrameSnapshot(img, img.naturalWidth, img.naturalHeight)
-    hideDisplayImg(`${reason}-canvas-active`)
     paintedFrame = index
     canvas.style.opacity = '1'
     canvas.style.visibility = 'visible'
-    nudgeSurfaceComposite()
     afResizeLog('hero-scroll:paint', { reason, index })
     return true
   }
@@ -358,7 +201,7 @@ export function createHeroScrollSequence({
   }
 
   const schedulePaint = () => {
-    if (rafToken || surfaceLocked) return
+    if (rafToken) return
     rafToken = window.requestAnimationFrame(flushFrame)
   }
 
@@ -394,80 +237,28 @@ export function createHeroScrollSequence({
     ready,
     frameCount,
     setProgress(progress) {
-      if (surfaceLocked) return
       requestFrame(resolveFrameFromProgress(progress))
     },
     setFrame(frame) {
-      if (surfaceLocked) return
       requestFrame(frame)
     },
     show() {
-      if (surfaceLocked) {
-        showDisplayImg('show-while-locked')
-        return
-      }
       canvas.style.opacity = '1'
       canvas.style.visibility = 'visible'
     },
     hide() {
       canvas.style.opacity = '0'
       canvas.style.visibility = 'hidden'
-      hideDisplayImg('hide')
     },
     repaint(reason = 'repaint') {
-      if (surfaceLocked) {
-        return syncDisplayImgFromSnapshot(reason)
-      }
-
-      if (paintedFrame >= 0 && paintCachedSnapshot(reason)) {
-        nudgeSurfaceComposite()
-        return true
-      }
-
+      fitCanvas()
       return paintFrame(requestedFrame, reason)
     },
-    lockSurfaceForLeave(reason = 'transition-leave-freeze') {
-      surfaceLocked = true
-
-      if (rafToken) {
-        window.cancelAnimationFrame(rafToken)
-        rafToken = 0
-      }
-
-      if (paintedFrame < 0) {
-        paintFrame(requestedFrame, `${reason}-prime`)
-      }
-
-      if (!frameSnapshot || !frameSnapshotW || !frameSnapshotH) {
-        return false
-      }
-
-      syncDisplayImgFromSnapshotSync(reason)
-      canvas.style.opacity = '0'
-      canvas.style.visibility = 'hidden'
-      afResizeLog('hero-scroll:lock-surface', {
-        reason,
-        requestedFrame,
-        paintedFrame,
-      })
-      return true
-    },
     destroy() {
-      surfaceLocked = false
       if (rafToken) {
         window.cancelAnimationFrame(rafToken)
         rafToken = 0
       }
-      if (displayImgUrl) {
-        URL.revokeObjectURL(displayImgUrl)
-        displayImgUrl = null
-      }
-      try {
-        displayImg?.remove()
-      } catch (e) {
-        // ignore
-      }
-      displayImg = null
       try {
         canvas.remove()
       } catch (e) {

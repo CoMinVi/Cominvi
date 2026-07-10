@@ -680,6 +680,73 @@ export function prefetchHomeSequenceBinary() {
   }
 }
 
+function killHeroBackgroundParallax() {
+  try {
+    if (window.__heroBgParallax?.scrollTrigger) {
+      window.__heroBgParallax.scrollTrigger.kill()
+    }
+  } catch (e) {
+    // ignore
+  }
+  try {
+    window.__heroBgParallax?.kill?.()
+  } catch (e) {
+    // ignore
+  }
+  window.__heroBgParallax = null
+}
+
+function captureHomeScrollProgress() {
+  try {
+    const distance = window.innerHeight * (SCROLL_RANGE_VH / 100)
+    if (!Number.isFinite(distance) || distance <= 0) return null
+
+    if (window.lenis && typeof window.lenis.scroll === 'number') {
+      return Math.max(0, Math.min(window.lenis.scroll / distance, 1))
+    }
+
+    const st = window.__homeSequenceScrollTrigger
+    if (st && Number.isFinite(st.progress)) {
+      return Math.max(0, Math.min(st.progress, 1))
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return null
+}
+
+function detachHomeSequenceRefreshRepaint() {
+  if (
+    window.__homeSequenceRefreshRepaintCleanup &&
+    typeof window.__homeSequenceRefreshRepaintCleanup === 'function'
+  ) {
+    try {
+      window.__homeSequenceRefreshRepaintCleanup()
+    } catch (e) {
+      // ignore
+    }
+    window.__homeSequenceRefreshRepaintCleanup = null
+  }
+}
+
+function markHomeHeroTransitionLeave(active) {
+  window.__homeHeroTransitionLeave = !!active
+  try {
+    const container = document.querySelector(
+      '[data-barba-namespace="home"][data-barba="container"]'
+    )
+    if (!container) return
+    if (active) {
+      container.setAttribute('data-cominvi-hero-transition-leave', 'true')
+    } else {
+      container.removeAttribute('data-cominvi-hero-transition-leave')
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
 export function suspendHomeSequenceForLeave() {
   if (
     window.__homeSequenceTransitionTimeline &&
@@ -694,7 +761,23 @@ export function suspendHomeSequenceForLeave() {
   }
   window.__homeSequenceTransitionStarted = false
 
+  markHomeHeroTransitionLeave(true)
+  killHeroBackgroundParallax()
+  detachHomeSequenceRefreshRepaint()
+
   const controller = window.__homeSequenceController
+  const progress = captureHomeScrollProgress()
+  if (
+    progress !== null &&
+    typeof controller?.setScrollProgress === 'function'
+  ) {
+    try {
+      controller.setScrollProgress(progress)
+    } catch (e) {
+      // ignore
+    }
+  }
+
   if (typeof controller?.freezeForTransitionLeave === 'function') {
     try {
       controller.freezeForTransitionLeave()
@@ -704,10 +787,11 @@ export function suspendHomeSequenceForLeave() {
   }
 
   cleanupHomeSequenceBindings({ destroyController: false })
-  afResizeLog('suspendHomeSequenceForLeave')
+  afResizeLog('suspendHomeSequenceForLeave', { progress })
 }
 
 export function destroyHomeSequenceForTransition() {
+  markHomeHeroTransitionLeave(false)
   if (
     window.__homeSequenceTransitionTimeline &&
     typeof window.__homeSequenceTransitionTimeline.kill === 'function'

@@ -734,6 +734,18 @@ export function initTechnology(root = document) {
 
       // (removed maintainFullscreenSize; handled via resizeHandler)
 
+      const ensureMachineGridTitleClip = (nameInner) => {
+        if (!nameInner) return
+        try {
+          nameInner.style.overflow = 'hidden'
+          nameInner.querySelectorAll('.body-xl > span').forEach((span) => {
+            span.style.overflow = 'hidden'
+          })
+        } catch (e) {
+          // ignore
+        }
+      }
+
       const openGridItem = (item) => {
         if (openItem === item) return
         openItem = item
@@ -1123,11 +1135,14 @@ export function initTechnology(root = document) {
                   '.machines-grid_name-inner'
                 )
                 if (overlayName) {
+                  const overlayNameClosedY = '-10em'
+                  const overlayNameOpenY = 0
                   gsap.set(overlayName, {
                     display: 'block',
                     opacity: 1,
-                    y: 0,
+                    y: overlayNameClosedY,
                   })
+                  ensureMachineGridTitleClip(overlayName)
                   // Split words, then letters inside each word (no mid-word breaks), animate letters from yPercent:-100 to 0
                   try {
                     const textEl =
@@ -1179,6 +1194,15 @@ export function initTechnology(root = document) {
                   } catch (esplit) {
                     // ignore
                   }
+                  tl.to(
+                    overlayName,
+                    {
+                      y: overlayNameOpenY,
+                      duration: 1.2,
+                      ease: gsap.parseEase('machinesStep') || 'power2.out',
+                    },
+                    0
+                  )
                   layoutOverlayInfosCentered()
                 }
                 // Move clone close button into the overlay as well
@@ -1798,6 +1822,24 @@ export function initTechnology(root = document) {
                 '.machines-grid_name-inner'
               )
               if (overlayNameInner) {
+                ensureMachineGridTitleClip(overlayNameInner)
+                const lettersRoot =
+                  overlayNameInner.querySelector('.body-xl') || overlayNameInner
+                const letters = Array.from(
+                  lettersRoot.querySelectorAll('span > span')
+                )
+                if (letters.length) {
+                  tl.to(
+                    letters,
+                    {
+                      yPercent: -100,
+                      duration: 1.2,
+                      ease: gsap.parseEase('machinesStep') || 'power2.inOut',
+                      stagger: 0.02,
+                    },
+                    0
+                  )
+                }
                 tl.to(
                   overlayNameInner,
                   {

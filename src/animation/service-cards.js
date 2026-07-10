@@ -47,11 +47,27 @@ const isServiceCardHovered = (card) => {
 }
 
 const measureServiceBodyLOffset = (card, bloc, bodyL) => {
+  if (
+    card.classList.contains('is-card-reveal-pending') &&
+    typeof bodyL.__svcBottomOffsetPx === 'number' &&
+    bodyL.__svcBottomOffsetPx > 0
+  ) {
+    return bodyL.__svcBottomOffsetPx
+  }
+
   bodyL.style.transform = ''
-  const blocRect = bloc.getBoundingClientRect()
+  const cardRect = card.getBoundingClientRect()
   const bodyLRect = bodyL.getBoundingClientRect()
-  const offsetWithinBloc = bodyLRect.bottom - blocRect.bottom
-  const distanceToBottom = Math.max(0, Math.round(-offsetWithinBloc))
+  const padBottom = parseFloat(getComputedStyle(card).paddingBottom) || 0
+  const measured = Math.max(
+    0,
+    Math.round(cardRect.bottom - padBottom - bodyLRect.bottom)
+  )
+  const previous =
+    typeof bodyL.__svcBottomOffsetPx === 'number'
+      ? bodyL.__svcBottomOffsetPx
+      : 0
+  const distanceToBottom = measured > 0 ? measured : previous
   bodyL.__svcBottomOffsetPx = distanceToBottom
   card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
   return distanceToBottom
@@ -164,6 +180,16 @@ export function refreshServiceCards(root = document) {
     const desc = card.querySelector('.desc')
     const bloc = card.querySelector('.card-inner') || desc
     if (!desc || !bloc) return
+    const bodyL = bloc.querySelector('.body-l')
+    const isPending = card.classList.contains('is-card-reveal-pending')
+    if (
+      isPending &&
+      bodyL &&
+      typeof bodyL.__svcBottomOffsetPx === 'number' &&
+      bodyL.__svcBottomOffsetPx > 0
+    ) {
+      return
+    }
     applyServiceCardDesktopClosedState(card, bloc, desc, { instant: true })
   })
 }
@@ -194,6 +220,13 @@ const bindServiceCardsPageRefresh = () => {
   window.addEventListener('page:transition:after', () => {
     requestAnimationFrame(() => refreshServiceCards(document))
   })
+  document.addEventListener(
+    'loader:done',
+    () => {
+      scheduleServiceCardsRefresh(document)
+    },
+    { once: true }
+  )
 }
 
 // Ensure the same custom ease as Technology

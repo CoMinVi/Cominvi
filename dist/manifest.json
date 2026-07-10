@@ -93,6 +93,9 @@
     "isDynamicEntry": true,
     "imports": [
       "src/main.js"
+    ],
+    "dynamicImports": [
+      "src/animation/service-cards.js"
     ]
   },
   "src/animation/text-reveal.js": {

@@ -125,6 +125,24 @@ async function testCardsRevealOnHome(page, baseUrl) {
   )
   assert(before.servicePending, 'Service cards sans classe pending')
   assert(before.teamPending, 'Team cards sans classe pending')
+  assert(!before.played, 'Reveal services déjà joué avant scroll')
+
+  const titlesBeforeHover = await page.evaluate(() => {
+    const card = document.querySelector('.section_services .service-card')
+    const bodyL = card?.querySelector('.body-l')
+    const transform = bodyL?.style.transform || getComputedStyle(bodyL || document.body).transform
+    return {
+      transform,
+      offset: bodyL?.__svcBottomOffsetPx ?? null,
+    }
+  })
+  console.log('SERVICE TITLE CLOSED:', JSON.stringify(titlesBeforeHover, null, 2))
+  assert(
+    (titlesBeforeHover.offset ?? 0) > 8 ||
+      /translateY\(([-\d.]+)px\)/.test(titlesBeforeHover.transform) &&
+        parseFloat(titlesBeforeHover.transform.match(/translateY\(([-\d.]+)px\)/)[1]) > 8,
+    `Titre pas en position fermée avant scroll (offset=${titlesBeforeHover.offset})`
+  )
 
   await scrollSectionIntoView(page, '.section_services')
 
@@ -176,6 +194,24 @@ async function testCardsRevealOnHome(page, baseUrl) {
   )
   assert(after.played, 'Reveal services non marqué comme joué')
   assert(sawStagger || sawMotion, 'Aucun stagger ni mouvement détecté pendant le reveal')
+
+  await page.waitForTimeout(500)
+  const titlesAfterReveal = await page.evaluate(() => {
+    const card = document.querySelector('.section_services .service-card')
+    const bodyL = card?.querySelector('.body-l')
+    const transform = bodyL?.style.transform || getComputedStyle(bodyL || document.body).transform
+    const match = transform.match(/translateY\(([-\d.]+)px\)/)
+    return {
+      transform,
+      offsetPx: match ? parseFloat(match[1]) : 0,
+      cachedOffset: bodyL?.__svcBottomOffsetPx ?? null,
+    }
+  })
+  console.log('SERVICE TITLE AFTER REVEAL:', JSON.stringify(titlesAfterReveal, null, 2))
+  assert(
+    titlesAfterReveal.offsetPx > 8,
+    `Titre service card en position ouverte/haute (translateY=${titlesAfterReveal.offsetPx}px)`
+  )
 
   await scrollSectionIntoView(page, '.section_teams')
   let teamReady = false
@@ -380,6 +416,7 @@ async function testMachinesGridClose(page, baseUrl) {
   await page.waitForTimeout(1600)
   await page.locator('.machines-grid_close-button').first().click({ force: true })
 
+  let closeOverflow = null
   const samples = []
   let elapsed = 0
   for (const wait of [300, 200, 200, 200, 200]) {
@@ -388,13 +425,32 @@ async function testMachinesGridClose(page, baseUrl) {
     const sample = await page.evaluate(() => {
       const img = document.querySelector('.machines-grid_item-clone .machines-grid_img')
       const rect = img?.getBoundingClientRect()
+      const overlay = document.querySelector('.grid-desc-overlay')
+      const nameInner = overlay?.querySelector('.machines-grid_name-inner')
+      const wordSpans = Array.from(
+        nameInner?.querySelectorAll('.body-xl > span') || []
+      )
       return {
         width: rect ? Math.round(rect.width) : null,
         top: rect ? Math.round(rect.top) : null,
         left: img ? getComputedStyle(img).left : null,
+        overlayPresent: !!overlay,
+        nameInnerOverflow: nameInner
+          ? getComputedStyle(nameInner).overflow
+          : null,
+        wordSpanOverflows: wordSpans.map((s) => getComputedStyle(s).overflow),
       }
     })
     samples.push({ t: elapsed, ...sample })
+    if (
+      !closeOverflow &&
+      sample.overlayPresent &&
+      sample.nameInnerOverflow === 'hidden' &&
+      sample.wordSpanOverflows.length > 0 &&
+      sample.wordSpanOverflows.every((v) => v === 'hidden')
+    ) {
+      closeOverflow = sample
+    }
   }
   console.log('MACHINES GRID CLOSE:', JSON.stringify(samples, null, 2))
 
@@ -404,6 +460,12 @@ async function testMachinesGridClose(page, baseUrl) {
   assert(
     last.width < first.width,
     `Largeur image ne diminue pas à la fermeture (${first.width} -> ${last.width})`
+  )
+
+  console.log('MACHINES CLOSE OVERFLOW:', JSON.stringify(closeOverflow, null, 2))
+  assert(
+    closeOverflow,
+    'Overflow hidden du titre non détecté pendant la fermeture'
   )
 }
 

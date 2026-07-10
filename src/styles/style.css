@@ -533,8 +533,8 @@ a.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after {
 .service-card.is-card-reveal-pending,
 .team-card.is-card-reveal-pending {
   opacity: 0 !important;
-  visibility: hidden;
   transform: translateY(2em);
+  pointer-events: none;
 }
 
 .machines-grid_item {

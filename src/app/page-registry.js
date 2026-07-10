@@ -122,23 +122,11 @@ async function initSharedSections(root, options = {}) {
   }
 
   if (has(root, '.section_services .service-card, .section_teams .team-card')) {
-    const runCardsReveal = () =>
-      importAndRun(
-        () => import('../animation/cards-reveal.js'),
-        'initCardsViewportReveal',
-        root
-      )
-    const loaderPending =
-      getNamespaceKey(root) === 'home' &&
-      !window.__loaderDone &&
-      document.querySelector('.loader')
-    if (loaderPending) {
-      document.addEventListener('loader:done', () => runCardsReveal(), {
-        once: true,
-      })
-    } else {
-      await runCardsReveal()
-    }
+    await importAndRun(
+      () => import('../animation/cards-reveal.js'),
+      'initCardsViewportReveal',
+      root
+    )
   }
 
   if (

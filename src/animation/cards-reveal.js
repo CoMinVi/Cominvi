@@ -7,6 +7,7 @@ let __cardsRevealPageBound = false
 
 const SECTION_SELECTORS = '.section_services, .section_teams'
 const CARD_SELECTOR = '.service-card, .team-card'
+const PENDING_CLASS = 'is-card-reveal-pending'
 
 function getRevealCards(section) {
   return Array.from(section.querySelectorAll(CARD_SELECTOR))
@@ -29,6 +30,14 @@ function detachSectionListeners(section) {
     }
     section.__cardsRevealScrollTrigger = null
   }
+  if (section.__cardsRevealObserver) {
+    try {
+      section.__cardsRevealObserver.disconnect()
+    } catch (e) {
+      // ignore
+    }
+    section.__cardsRevealObserver = null
+  }
 }
 
 function destroyCardsReveal(root = document) {
@@ -38,6 +47,7 @@ function destroyCardsReveal(root = document) {
     section.__cardsRevealPlayed = false
     getRevealCards(section).forEach((card) => {
       card.__cardsRevealBound = false
+      card.classList.remove(PENDING_CLASS)
       try {
         gsap.killTweensOf(card)
         gsap.set(card, { clearProps: 'opacity,visibility,transform' })
@@ -48,25 +58,30 @@ function destroyCardsReveal(root = document) {
   })
 }
 
-function refreshCardsRevealTriggers() {
-  try {
-    ScrollTrigger.refresh()
-  } catch (e) {
-    // ignore
-  }
-}
-
 function sectionShouldReveal(section) {
   try {
     const rect = section.getBoundingClientRect()
     const vh = window.innerHeight || 1
-    return rect.top < vh * 0.85 && rect.bottom > 0
+    return rect.top < vh * 0.85 && rect.bottom > vh * 0.2
   } catch (e) {
     return false
   }
 }
 
-export function initCardsViewportReveal(root = document) {
+function whenLoaderReady(fn) {
+  const run = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(fn)
+    })
+  }
+  if (window.__loaderDone || !document.querySelector('.loader')) {
+    run()
+    return
+  }
+  document.addEventListener('loader:done', run, { once: true })
+}
+
+function setupCardsReveal(root = document) {
   const scope = root && root.querySelector ? root : document
   const sections = Array.from(scope.querySelectorAll(SECTION_SELECTORS))
   if (!sections.length) return
@@ -80,19 +95,25 @@ export function initCardsViewportReveal(root = document) {
     const cards = getRevealCards(section)
     if (!cards.length) return
 
+    cards.forEach((card) => {
+      card.classList.add(PENDING_CLASS)
+      card.__cardsRevealBound = true
+    })
+
     gsap.set(cards, {
       autoAlpha: 0,
       y: '2em',
       willChange: 'transform, opacity',
-    })
-    cards.forEach((card) => {
-      card.__cardsRevealBound = true
     })
 
     const playReveal = () => {
       if (section.__cardsRevealPlayed) return
       section.__cardsRevealPlayed = true
       detachSectionListeners(section)
+
+      cards.forEach((card) => {
+        card.classList.remove(PENDING_CLASS)
+      })
 
       gsap.to(cards, {
         autoAlpha: 1,
@@ -126,6 +147,18 @@ export function initCardsViewportReveal(root = document) {
       onEnter: playReveal,
     })
 
+    if (typeof IntersectionObserver !== 'undefined') {
+      section.__cardsRevealObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) maybePlay()
+          })
+        },
+        { threshold: 0.01, rootMargin: '0px 0px -10% 0px' }
+      )
+      section.__cardsRevealObserver.observe(section)
+    }
+
     const onScroll = () => maybePlay()
     section.__cardsRevealScrollListener = onScroll
     try {
@@ -134,22 +167,29 @@ export function initCardsViewportReveal(root = document) {
       // ignore
     }
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(maybePlay)
-    })
+    maybePlay()
   })
+
+  try {
+    ScrollTrigger.refresh()
+  } catch (e) {
+    // ignore
+  }
+}
+
+export function initCardsViewportReveal(root = document) {
+  whenLoaderReady(() => setupCardsReveal(root))
 
   if (!__cardsRevealPageBound) {
     __cardsRevealPageBound = true
     window.addEventListener('page:transition:after', () => {
-      requestAnimationFrame(refreshCardsRevealTriggers)
-    })
-    document.addEventListener('loader:done', refreshCardsRevealTriggers, {
-      once: true,
+      requestAnimationFrame(() => {
+        try {
+          ScrollTrigger.refresh()
+        } catch (e) {
+          // ignore
+        }
+      })
     })
   }
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(refreshCardsRevealTriggers)
-  })
 }

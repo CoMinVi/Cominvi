@@ -948,6 +948,9 @@ export function initTechnology(root = document) {
               const targetTop = isTablet()
                 ? 'calc(35% - 2em)'
                 : 'calc(70% - 2em)'
+              clonedImg.dataset.gridEndLeft = targetLeft
+              clonedImg.dataset.gridEndTop = targetTop
+              clonedImg.dataset.gridEndWidth = '60em'
 
               tl.to(
                 clonedImg,
@@ -1707,9 +1710,6 @@ export function initTechnology(root = document) {
                 {
                   left: startLeft,
                   top: startTop,
-                  bottom: 'auto',
-                  xPercent: -50,
-                  yPercent: -50,
                   width: startWidth,
                   duration: 1.2,
                   ease: gsap.parseEase('machinesStep') || 'power2.inOut',

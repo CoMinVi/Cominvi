@@ -530,6 +530,13 @@ a.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after {
   transform-origin: bottom left;
 }
 
+.service-card.is-card-reveal-pending,
+.team-card.is-card-reveal-pending {
+  opacity: 0 !important;
+  visibility: hidden;
+  transform: translateY(2em);
+}
+
 .machines-grid_item {
   cursor: pointer;
 }

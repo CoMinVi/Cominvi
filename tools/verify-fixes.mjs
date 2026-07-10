@@ -91,26 +91,40 @@ async function testCardsRevealOnHome(page, baseUrl) {
   await waitForHomeReady(page)
 
   const before = await page.evaluate(() => {
-    const cards = Array.from(
+    const serviceCards = Array.from(
       document.querySelectorAll('.section_services .service-card')
     )
+    const teamCards = Array.from(
+      document.querySelectorAll('.section_teams .team-card')
+    )
     return {
-      opacities: cards.map((c) => getComputedStyle(c).opacity),
-      visibilities: cards.map((c) => getComputedStyle(c).visibility),
-      transforms: cards.map(
-        (c) => c.style.transform || getComputedStyle(c).transform
+      serviceOpacities: serviceCards.map((c) => getComputedStyle(c).opacity),
+      teamOpacities: teamCards.map((c) => getComputedStyle(c).opacity),
+      servicePending: serviceCards.some((c) =>
+        c.classList.contains('is-card-reveal-pending')
+      ),
+      teamPending: teamCards.some((c) =>
+        c.classList.contains('is-card-reveal-pending')
       ),
       played: !!document.querySelector('.section_services')?.__cardsRevealPlayed,
     }
   })
   console.log('HOME CARDS BEFORE SCROLL:', JSON.stringify(before, null, 2))
 
-  before.opacities.forEach((op, i) =>
+  before.serviceOpacities.forEach((op, i) =>
     assert(
       parseFloat(op) < 0.1,
-      `Card ${i} devrait être invisible avant scroll (opacity=${op})`
+      `Service card ${i} devrait être invisible avant scroll (opacity=${op})`
     )
   )
+  before.teamOpacities.forEach((op, i) =>
+    assert(
+      parseFloat(op) < 0.1,
+      `Team card ${i} devrait être invisible avant scroll (opacity=${op})`
+    )
+  )
+  assert(before.servicePending, 'Service cards sans classe pending')
+  assert(before.teamPending, 'Team cards sans classe pending')
 
   await scrollSectionIntoView(page, '.section_services')
 
@@ -160,8 +174,29 @@ async function testCardsRevealOnHome(page, baseUrl) {
       `Card ${i} devrait être visible après reveal (opacity=${op})`
     )
   )
-  assert(after.played, 'Reveal non marqué comme joué sur la home')
+  assert(after.played, 'Reveal services non marqué comme joué')
   assert(sawStagger || sawMotion, 'Aucun stagger ni mouvement détecté pendant le reveal')
+
+  await scrollSectionIntoView(page, '.section_teams')
+  let teamReady = false
+  for (let i = 0; i < 40; i += 1) {
+    await page.waitForTimeout(150)
+    const sample = await page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll('.section_teams .team-card'))
+      const opacities = cards.map((c) => parseFloat(getComputedStyle(c).opacity))
+      return {
+        opacities,
+        played: !!document.querySelector('.section_teams')?.__cardsRevealPlayed,
+        allVisible: opacities.length > 0 && opacities.every((o) => o >= 0.99),
+      }
+    })
+    if (sample.allVisible) {
+      teamReady = true
+      console.log('HOME TEAM CARDS AFTER SCROLL:', JSON.stringify(sample, null, 2))
+      break
+    }
+  }
+  assert(teamReady, 'Team cards non révélées après scroll vers section_teams')
 }
 
 async function testBlogLayout(page, baseUrl) {
@@ -334,6 +369,44 @@ async function testMachinesGrid(page, baseUrl) {
   )
 }
 
+async function testMachinesGridClose(page, baseUrl) {
+  await page.goto(`${baseUrl}/technology.html`, { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(
+    () => document.querySelector('.machines-grid_item') && window.__lenisWrapper,
+    { timeout: 120000 }
+  )
+  await page.waitForTimeout(1000)
+  await page.locator('.machines-grid_item').first().click()
+  await page.waitForTimeout(1600)
+  await page.locator('.machines-grid_close-button').first().click({ force: true })
+
+  const samples = []
+  let elapsed = 0
+  for (const wait of [300, 200, 200, 200, 200]) {
+    await page.waitForTimeout(wait)
+    elapsed += wait
+    const sample = await page.evaluate(() => {
+      const img = document.querySelector('.machines-grid_item-clone .machines-grid_img')
+      const rect = img?.getBoundingClientRect()
+      return {
+        width: rect ? Math.round(rect.width) : null,
+        top: rect ? Math.round(rect.top) : null,
+        left: img ? getComputedStyle(img).left : null,
+      }
+    })
+    samples.push({ t: elapsed, ...sample })
+  }
+  console.log('MACHINES GRID CLOSE:', JSON.stringify(samples, null, 2))
+
+  const first = samples[0]
+  const last = samples[samples.length - 1]
+  assert(first.width && last.width, 'Image absente pendant la fermeture')
+  assert(
+    last.width < first.width,
+    `Largeur image ne diminue pas à la fermeture (${first.width} -> ${last.width})`
+  )
+}
+
 async function main() {
   const baseUrl = `http://127.0.0.1:${port}`
   const server = await startServer()
@@ -359,6 +432,7 @@ async function main() {
     await testBlogLayout(page, baseUrl)
     await testBlogHoverViaBarba(page, baseUrl)
     await testMachinesGrid(page, baseUrl)
+    await testMachinesGridClose(page, baseUrl)
     console.log('\n✅ Tous les tests Playwright ont réussi.')
   } finally {
     await browser.close()

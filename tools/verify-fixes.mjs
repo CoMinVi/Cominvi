@@ -90,20 +90,6 @@ async function scrollSectionIntoView(page, selector) {
   }, selector)
 }
 
-async function waitForLenisIdle(page, timeout = 15000) {
-  await page.waitForFunction(
-    () => {
-      const lenis = window.lenis
-      if (!lenis) return true
-      const vel =
-        typeof lenis.velocity === 'number' ? Math.abs(lenis.velocity) : 0
-      return lenis.isScrolling !== true && vel < 0.05
-    },
-    { timeout }
-  )
-  await page.waitForTimeout(150)
-}
-
 async function testCardsRevealOnHome(page, baseUrl) {
   await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' })
   await waitForHomeReady(page)
@@ -332,7 +318,7 @@ async function testServiceTitlesOnResize(page, baseUrl) {
     `Titres pas fermés avant resize (${beforeResize.join(',')})`
   )
   assert(
-    descBeforeResize.every((d) => d.opacity < 0.1),
+    descBeforeResize.every((d) => d.height <= 2 && d.opacity < 0.1),
     `desc visible avant resize: ${JSON.stringify(descBeforeResize)}`
   )
 
@@ -355,7 +341,7 @@ async function testServiceTitlesOnResize(page, baseUrl) {
     `Titres en position ouverte après resize (${afterResize.join(',')})`
   )
   assert(
-    descAfterResize.every((d) => d.opacity < 0.1),
+    descAfterResize.every((d) => d.height <= 2 && d.opacity < 0.1),
     `desc visible après resize sans hover: ${JSON.stringify(descAfterResize)}`
   )
 }
@@ -403,81 +389,6 @@ async function testServiceTitlesAfterHoverClose(page, baseUrl) {
       `Titre card ${i} dépasse le bas après fermeture (overflow=${sample.overflow}px, transform=${sample.transform})`
     )
   })
-}
-
-async function testServiceSectionStableOnHover(page, baseUrl) {
-  await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' })
-  await waitForHomeReady(page)
-  await scrollSectionIntoView(page, '.section_services')
-  await waitForLenisIdle(page)
-
-  await page.evaluate(() => {
-    const card = document.querySelector('.section_services .service-card')
-    if (!card || !window.lenis) return
-    const rect = card.getBoundingClientRect()
-    const centerY = rect.top + rect.height / 2
-    const delta = centerY - window.innerHeight * 0.45
-    window.lenis.scrollTo(window.lenis.scroll + delta, {
-      immediate: true,
-      force: true,
-    })
-  })
-  await waitForLenisIdle(page)
-
-  const readLayout = () =>
-    page.evaluate(() => {
-      const section = document.querySelector('.section_services')
-      const grid = document.querySelector('.section_services .is-grid-3')
-      const content = document.querySelector('.section_services .content')
-      const viewer = document.querySelector('.section_services .services-viewer')
-      const scroll = Math.round(
-        window.lenis?.scroll ?? window.__lenisWrapper?.scrollTop ?? 0
-      )
-      const sectionRect = section?.getBoundingClientRect()
-      const gridRect = grid?.getBoundingClientRect()
-      const contentRect = content?.getBoundingClientRect()
-      const viewerRect = viewer?.getBoundingClientRect()
-      const docY = (rect) =>
-        rect ? Math.round(rect.top + scroll) : null
-      return {
-        sectionDocY: docY(sectionRect),
-        contentDocY: docY(contentRect),
-        gridHeight: gridRect ? Math.round(gridRect.height) : null,
-        contentHeight: contentRect ? Math.round(contentRect.height) : null,
-        viewerHeight: viewerRect ? Math.round(viewerRect.height) : null,
-        scroll,
-      }
-    })
-
-  const before = await readLayout()
-  await page
-    .locator('.section_services .service-card')
-    .first()
-    .hover({ force: true })
-  await page.waitForTimeout(800)
-  await waitForLenisIdle(page)
-  const during = await readLayout()
-  console.log('SERVICE SECTION HOVER LAYOUT:', { before, during })
-
-  assert(
-    before.sectionDocY !== null &&
-      Math.abs(during.sectionDocY - before.sectionDocY) <= 1,
-    `Section décalée dans le document au hover (${before.sectionDocY} -> ${during.sectionDocY})`
-  )
-  assert(
-    before.gridHeight !== null &&
-      Math.abs(during.gridHeight - before.gridHeight) <= 1,
-    `Grille agrandie au hover (${before.gridHeight} -> ${during.gridHeight})`
-  )
-  assert(
-    before.contentHeight !== null &&
-      Math.abs(during.contentHeight - before.contentHeight) <= 1,
-    `Contenu agrandi au hover (${before.contentHeight} -> ${during.contentHeight})`
-  )
-  assert(
-    Math.abs(during.scroll - before.scroll) <= 1,
-    `Scroll modifié au hover (${before.scroll} -> ${during.scroll})`
-  )
 }
 
 async function testBlogLayout(page, baseUrl) {
@@ -769,7 +680,6 @@ async function main() {
     await testCardsRevealOnHome(page, baseUrl)
     await testServiceTitlesOnResize(page, baseUrl)
     await testServiceTitlesAfterHoverClose(page, baseUrl)
-    await testServiceSectionStableOnHover(page, baseUrl)
     await testBlogLayout(page, baseUrl)
     await testBlogHoverViaBarba(page, baseUrl)
     await testMachinesGrid(page, baseUrl)

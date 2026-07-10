@@ -538,64 +538,28 @@ a.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after {
 }
 
 @media (min-width: 992px) {
-  .section_services .is-grid-3 {
-    overflow-anchor: none;
-  }
-
-  .section_services .is-grid-3 > .service-card,
-  .section_services .is-grid-3 > .services-viewer {
-    min-height: 0;
-    height: 100%;
-    contain: layout style paint;
-  }
-
-  .section_services .is-grid-3 > .services-viewer {
-    aspect-ratio: 1;
-    width: 100%;
-  }
-
-  .section_services .services-viewer .button {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    z-index: 3;
-  }
-
-  .service-card .card-inner {
-    position: relative;
-    min-height: 0;
-    flex: 1 1 auto;
-    width: 100%;
-  }
-
   .service-card .desc {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: var(--svc-desc-top, 2.2em);
+    max-height: 0;
     opacity: 0;
-    visibility: hidden;
     overflow: hidden;
     pointer-events: none;
-    margin: 0;
-    max-height: none;
+    margin-top: 0;
     transition:
-      opacity 0.8s cubic-bezier(0.5, 0, 0, 1),
-      visibility 0.8s cubic-bezier(0.5, 0, 0, 1);
+      max-height 0.8s cubic-bezier(0.5, 0, 0, 1),
+      opacity 0.8s cubic-bezier(0.5, 0, 0, 1);
   }
 
   .service-card:hover .desc,
   .service-card.is-svc-hover .desc {
+    max-height: 24em;
     opacity: 1;
-    visibility: visible;
     pointer-events: auto;
-    max-height: none;
   }
 }
 
 html[data-menu-open='true'] .service-card .desc {
+  max-height: 0 !important;
   opacity: 0 !important;
-  visibility: hidden !important;
   pointer-events: none !important;
 }
 

@@ -504,10 +504,7 @@
 
 .blogline-line {
   position: relative;
-  display: block;
   overflow: visible;
-  width: fit-content;
-  max-width: 100%;
 }
 
 .blog-name > .body-l {

@@ -81,6 +81,81 @@ const hideServiceCardBodySLines = (small, { instant = false } = {}) => {
   })
 }
 
+const splitServiceCardBodyS = (small) => {
+  if (!small) return []
+  try {
+    if (small.__splitLines && typeof small.__splitLines.revert === 'function') {
+      small.__splitLines.revert()
+      small.__splitLines = null
+      small.__lines = null
+      small.__lineInners = null
+    }
+    const split = new SplitType(small, {
+      types: 'lines',
+      tagName: 'span',
+    })
+    small.__splitLines = split
+    small.__lines = split.lines || []
+    const inners = []
+    small.__lines.forEach((line) => {
+      line.style.display = 'block'
+      line.style.overflow = 'hidden'
+      if (!line.__inner) {
+        const inner = document.createElement('span')
+        inner.className = 'line-inner'
+        inner.style.display = 'inline-block'
+        while (line.firstChild) inner.appendChild(line.firstChild)
+        line.appendChild(inner)
+        line.__inner = inner
+      }
+      inners.push(line.__inner)
+    })
+    inners.forEach((el) => {
+      el.style.transform = 'translateY(100%)'
+      el.style.willChange = 'transform'
+      el.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
+    })
+    small.__lineInners = inners
+    return inners
+  } catch (e) {
+    return []
+  }
+}
+
+const applyServiceCardDesktopClosedState = (
+  card,
+  bloc,
+  desc,
+  { instant = false } = {}
+) => {
+  const small = desc.querySelector('.body-s')
+  splitServiceCardBodyS(small)
+
+  const bodyL = bloc.querySelector('.body-l')
+  if (bodyL) {
+    const previousOffset =
+      typeof bodyL.__svcBottomOffsetPx === 'number'
+        ? bodyL.__svcBottomOffsetPx
+        : 0
+    const measuredOffset = measureServiceBodyLOffset(card, bloc, bodyL)
+    const distanceToBottom =
+      __svcMenuTransitionActive && measuredOffset === 0 && previousOffset > 0
+        ? previousOffset
+        : measuredOffset
+    bodyL.__svcBottomOffsetPx = distanceToBottom
+    card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
+    if (!isServiceCardHovered(card)) {
+      setServiceCardBodyLClosed(bodyL, distanceToBottom, { instant })
+    }
+  }
+
+  if (!isServiceCardHovered(card)) {
+    hideServiceCardBodySLines(small, { instant })
+    card.style.removeProperty('background-color')
+    card.style.backgroundColor = 'var(--white)'
+  }
+}
+
 export function refreshServiceCards(root = document) {
   if (isTabletOrBelowNow() || isMenuOpenNow()) return
 
@@ -89,23 +164,7 @@ export function refreshServiceCards(root = document) {
     const desc = card.querySelector('.desc')
     const bloc = card.querySelector('.card-inner') || desc
     if (!desc || !bloc) return
-
-    const bodyL = bloc.querySelector('.body-l')
-    const small = desc.querySelector('.body-s')
-    const hovered = isServiceCardHovered(card)
-
-    if (bodyL) {
-      const offset = measureServiceBodyLOffset(card, bloc, bodyL)
-      if (!hovered) {
-        setServiceCardBodyLClosed(bodyL, offset, { instant: true })
-      }
-    }
-
-    if (!hovered) {
-      hideServiceCardBodySLines(small, { instant: true })
-      card.style.removeProperty('background-color')
-      card.style.backgroundColor = 'var(--white)'
-    }
+    applyServiceCardDesktopClosedState(card, bloc, desc, { instant: true })
   })
 }
 
@@ -155,73 +214,9 @@ export function initServiceCards(root = document) {
     const isTablet = isTabletOrBelowNow()
     try {
       if (!isTablet) {
-        // Desktop: new reveal behavior
-        // 1) Position .body-l visually at the bottom of .card-inner
-        const bodyL = bloc.querySelector('.body-l')
-        if (bodyL) {
-          // Measure from the natural layout (without current transform),
-          // otherwise repeated resets (e.g. when opening the menu) collapse
-          // the cached offset to 0 and keep cards visually "open".
-          const previousOffset =
-            typeof bodyL.__svcBottomOffsetPx === 'number'
-              ? bodyL.__svcBottomOffsetPx
-              : 0
-          const measuredOffset = measureServiceBodyLOffset(card, bloc, bodyL)
-          const distanceToBottom =
-            __svcMenuTransitionActive &&
-            measuredOffset === 0 &&
-            previousOffset > 0
-              ? previousOffset
-              : measuredOffset
-          bodyL.__svcBottomOffsetPx = distanceToBottom
-          card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
-          setServiceCardBodyLClosed(bodyL, distanceToBottom, {
-            instant: !isServiceCardHovered(card),
-          })
-        }
-
-        // 2) Split .desc .body-s into lines and set initial translateY(100%)
-        const small = desc.querySelector('.body-s')
-        if (small) {
-          try {
-            if (
-              small.__splitLines &&
-              typeof small.__splitLines.revert === 'function'
-            ) {
-              small.__splitLines.revert()
-              small.__splitLines = null
-              small.__lines = null
-            }
-            const split = new SplitType(small, {
-              types: 'lines',
-              tagName: 'span',
-            })
-            small.__splitLines = split
-            small.__lines = split.lines || []
-            const inners = []
-            small.__lines.forEach((line) => {
-              line.style.display = 'block'
-              line.style.overflow = 'hidden'
-              if (!line.__inner) {
-                const inner = document.createElement('span')
-                inner.className = 'line-inner'
-                inner.style.display = 'inline-block'
-                while (line.firstChild) inner.appendChild(line.firstChild)
-                line.appendChild(inner)
-                line.__inner = inner
-              }
-              inners.push(line.__inner)
-            })
-            inners.forEach((el) => {
-              el.style.transform = 'translateY(100%)'
-              el.style.willChange = 'transform'
-              el.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
-            })
-            small.__lineInners = inners
-          } catch (e) {
-            // ignore
-          }
-        }
+        applyServiceCardDesktopClosedState(card, bloc, desc, {
+          instant: !isServiceCardHovered(card),
+        })
       } else {
         // Mobile/tablet: reset transforms
         bloc.style.transition = ''
@@ -363,68 +358,7 @@ export function initServiceCards(root = document) {
     // Set initial reveal state (no flicker on arrival)
     try {
       if (!isTabletOrBelow) {
-        // Desktop: bottom-align .body-l instantly, prepare .body-s lines
-        const bodyL = bloc.querySelector('.body-l')
-        if (bodyL) {
-          // Measure natural position without transform
-          bodyL.style.transform = ''
-          const blocRect = bloc.getBoundingClientRect()
-          const bodyLRect = bodyL.getBoundingClientRect()
-          const offsetWithinBloc = bodyLRect.bottom - blocRect.bottom
-          const distanceToBottom = Math.max(0, Math.round(-offsetWithinBloc))
-          bodyL.__svcBottomOffsetPx = distanceToBottom
-          card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
-          // Set instantly (no animation), then re-enable transition
-          const prevTransition = bodyL.style.transition
-          bodyL.style.transition = 'none'
-          bodyL.style.transform = `translateY(${distanceToBottom}px)`
-          void bodyL.offsetWidth
-          bodyL.style.transition =
-            prevTransition || 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
-          // restore previous inline transform var if any (not needed here)
-        }
-
-        const smallNodes = Array.from(desc.querySelectorAll('.body-s'))
-        smallNodes.forEach((small) => {
-          try {
-            if (
-              small.__splitLines &&
-              typeof small.__splitLines.revert === 'function'
-            ) {
-              small.__splitLines.revert()
-              small.__splitLines = null
-              small.__lines = null
-            }
-            const split = new SplitType(small, {
-              types: 'lines',
-              tagName: 'span',
-            })
-            small.__splitLines = split
-            small.__lines = split.lines || []
-            const inners = []
-            small.__lines.forEach((line) => {
-              line.style.display = 'block'
-              line.style.overflow = 'hidden'
-              if (!line.__inner) {
-                const inner = document.createElement('span')
-                inner.className = 'line-inner'
-                inner.style.display = 'inline-block'
-                while (line.firstChild) inner.appendChild(line.firstChild)
-                line.appendChild(inner)
-                line.__inner = inner
-              }
-              inners.push(line.__inner)
-            })
-            inners.forEach((el) => {
-              el.style.transform = 'translateY(100%)'
-              el.style.willChange = 'transform'
-              el.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
-            })
-            small.__lineInners = inners
-          } catch (e) {
-            // ignore
-          }
-        })
+        applyServiceCardDesktopClosedState(card, bloc, desc, { instant: true })
       } else {
         // On tablet/mobile: reset transforms and revert splits
         bloc.style.transition = ''
@@ -480,42 +414,30 @@ export function initServiceCards(root = document) {
         bodyL.style.transition = 'transform 0.8s cubic-bezier(0.5, 0, 0, 1)'
         bodyL.style.transform = `translateY(${toPx}px)`
       }
+      const onHoverEnter = () => {
+        if (isTabletOrBelowNow() || isMenuOpenNow() || card.__svcHoverActive)
+          return
+        card.__svcHoverActive = true
+        moveBodyL(0)
+        animateSmallLines('0%')
+        card.style.backgroundColor = 'var(--accent)'
+      }
+      const onHoverLeave = () => {
+        if (isTabletOrBelowNow()) return
+        card.__svcHoverActive = false
+        let back = 0
+        if (bodyL && typeof bodyL.__svcBottomOffsetPx === 'number') {
+          back = bodyL.__svcBottomOffsetPx
+        }
+        moveBodyL(back)
+        animateSmallLines('100%')
+        card.style.backgroundColor = 'var(--white)'
+      }
 
-      card.addEventListener('mouseenter', () => {
-        if (isTabletOrBelowNow() || isMenuOpenNow()) return
-        moveBodyL(0)
-        animateSmallLines('0%')
-        // bg to accent on hover
-        card.style.backgroundColor = 'var(--accent)'
-      })
-      card.addEventListener('mouseleave', () => {
-        if (isTabletOrBelowNow()) return
-        let back = 0
-        if (bodyL && typeof bodyL.__svcBottomOffsetPx === 'number') {
-          back = bodyL.__svcBottomOffsetPx
-        }
-        moveBodyL(back)
-        animateSmallLines('100%')
-        // bg back to white
-        card.style.backgroundColor = 'var(--white)'
-      })
-      // Pointer events for broader support
-      card.addEventListener('pointerenter', () => {
-        if (isTabletOrBelowNow() || isMenuOpenNow()) return
-        moveBodyL(0)
-        animateSmallLines('0%')
-        card.style.backgroundColor = 'var(--accent)'
-      })
-      card.addEventListener('pointerleave', () => {
-        if (isTabletOrBelowNow()) return
-        let back = 0
-        if (bodyL && typeof bodyL.__svcBottomOffsetPx === 'number') {
-          back = bodyL.__svcBottomOffsetPx
-        }
-        moveBodyL(back)
-        animateSmallLines('100%')
-        card.style.backgroundColor = 'var(--white)'
-      })
+      card.addEventListener('mouseenter', onHoverEnter)
+      card.addEventListener('mouseleave', onHoverLeave)
+      card.addEventListener('pointerenter', onHoverEnter)
+      card.addEventListener('pointerleave', onHoverLeave)
 
       // Icons hover logic moved to service-icons.js
     }

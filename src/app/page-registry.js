@@ -113,23 +113,19 @@ async function initSharedSections(root, options = {}) {
     )
   }
 
-  if (has(root, '.section_services .service-card, .section_teams .team-card')) {
-    jobs.push(
-      importAndRun(
-        () => import('../animation/cards-reveal.js'),
-        'initCardsViewportReveal',
-        root
-      )
+  if (has(root, '.service-card, .team-card, .machine-card')) {
+    await importAndRun(
+      () => import('../animation/service-cards.js'),
+      'initServiceCards',
+      root
     )
   }
 
-  if (has(root, '.service-card, .team-card, .machine-card')) {
-    jobs.push(
-      importAndRun(
-        () => import('../animation/service-cards.js'),
-        'initServiceCards',
-        root
-      )
+  if (has(root, '.section_services .service-card, .section_teams .team-card')) {
+    await importAndRun(
+      () => import('../animation/cards-reveal.js'),
+      'initCardsViewportReveal',
+      root
     )
   }
 

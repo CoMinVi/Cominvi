@@ -928,15 +928,23 @@ export function initTechnology(root = document) {
               const startLeft = '50%'
               const startTop = '50%'
               const startWidth = '24em'
+              const emPx =
+                parseFloat(
+                  getComputedStyle(document.documentElement).fontSize
+                ) || 16
+              const bottomGapPx = emPx * 2
+              const targetLeft = isTablet() ? '50%' : '80%'
               // Persist for reverse
               clonedImg.dataset.gridStartLeft = startLeft
               clonedImg.dataset.gridStartTop = startTop
               clonedImg.dataset.gridStartWidth = startWidth
+              clonedImg.dataset.gridBottomGapPx = String(bottomGapPx)
               // Place image absolutely inside clone at its current position
               gsap.set(clonedImg, {
                 position: 'absolute',
                 left: startLeft,
                 top: startTop,
+                bottom: 'auto',
                 width: startWidth,
                 height: 'auto',
                 margin: 0,
@@ -946,13 +954,33 @@ export function initTechnology(root = document) {
                 xPercent: -50,
                 yPercent: -50,
               })
-              const targetLeft = isTablet() ? '50%' : '80%'
+              const measureOpenImageTopPx = () => {
+                gsap.set(clonedImg, {
+                  left: targetLeft,
+                  top: 'auto',
+                  bottom: `${bottomGapPx}px`,
+                  width: '60em',
+                  xPercent: -50,
+                  yPercent: 0,
+                })
+                const topPx = clonedImg.offsetTop
+                gsap.set(clonedImg, {
+                  left: startLeft,
+                  top: startTop,
+                  bottom: 'auto',
+                  width: startWidth,
+                  xPercent: -50,
+                  yPercent: -50,
+                })
+                return topPx
+              }
+              const targetTopPx = measureOpenImageTopPx()
               tl.to(
                 clonedImg,
                 {
                   left: targetLeft,
-                  top: 'auto',
-                  bottom: '2em',
+                  top: targetTopPx,
+                  bottom: `${bottomGapPx}px`,
                   xPercent: -50,
                   yPercent: 0,
                   width: '60em',
@@ -961,6 +989,9 @@ export function initTechnology(root = document) {
                 },
                 0
               )
+              tl.add(() => {
+                gsap.set(clonedImg, { top: 'auto' })
+              }, 1.2)
             }
           }
         } catch (eImgAnim) {
@@ -1052,6 +1083,11 @@ export function initTechnology(root = document) {
               zIndex: 7,
               pointerEvents: 'auto',
               opacity: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              paddingLeft: '2em',
+              boxSizing: 'border-box',
             })
             // Use webkitMask first for Safari/WebKit compatibility; fallback to standard mask
             overlayContainer.style.webkitMaskImage = `url(#${maskId})`
@@ -1062,11 +1098,12 @@ export function initTechnology(root = document) {
             const layoutOverlayInfosCentered = () => {
               try {
                 gsap.set(overlayInfos, {
-                  position: 'absolute',
-                  left: '2em',
-                  top: '50%',
+                  position: 'relative',
+                  left: 'auto',
+                  top: 'auto',
                   x: 0,
-                  yPercent: -50,
+                  y: 0,
+                  yPercent: 0,
                   width: '34.25em',
                   minHeight: 0,
                   height: 'auto',
@@ -1076,6 +1113,7 @@ export function initTechnology(root = document) {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '2em',
+                  flexShrink: 0,
                 })
                 const overlayDescEl = overlayInfos.querySelector(
                   '.machines-grid_desc'
@@ -1114,13 +1152,10 @@ export function initTechnology(root = document) {
                   '.machines-grid_name-inner'
                 )
                 if (overlayName) {
-                  // Keep the title slightly higher in open state so the paragraph remains visible.
-                  const overlayNameClosedY = '-10em'
-                  const overlayNameOpenY = 0
                   gsap.set(overlayName, {
                     display: 'block',
                     opacity: 1,
-                    y: overlayNameClosedY,
+                    y: 0,
                   })
                   // Split words, then letters inside each word (no mid-word breaks), animate letters from yPercent:-100 to 0
                   try {
@@ -1173,15 +1208,7 @@ export function initTechnology(root = document) {
                   } catch (esplit) {
                     // ignore
                   }
-                  tl.to(
-                    overlayName,
-                    {
-                      y: overlayNameOpenY,
-                      duration: 1.2,
-                      ease: gsap.parseEase('machinesStep') || 'power2.out',
-                    },
-                    0
-                  )
+                  layoutOverlayInfosCentered()
                 }
                 // Move clone close button into the overlay as well
                 const sourceCloseBtn = item.querySelector(

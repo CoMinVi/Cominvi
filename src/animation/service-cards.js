@@ -105,9 +105,25 @@ const measureServiceBodyLOffset = (card, bloc, bodyL) => {
       ? bodyL.__svcBottomOffsetPx
       : 0
   const distanceToBottom = measured > 0 ? measured : previous
-  bodyL.__svcBottomOffsetPx = distanceToBottom
-  card.style.setProperty('--svc-bodyl-offset', `${distanceToBottom}px`)
-  return distanceToBottom
+  const clamped = clampServiceBodyLOffset(card, bodyL, distanceToBottom)
+  bodyL.__svcBottomOffsetPx = clamped
+  card.style.setProperty('--svc-bodyl-offset', `${clamped}px`)
+  return clamped
+}
+
+const clampServiceBodyLOffset = (card, bodyL, offset) => {
+  const cardRect = card.getBoundingClientRect()
+  const padBottom = parseFloat(getComputedStyle(card).paddingBottom) || 0
+  const limitBottom = cardRect.bottom - padBottom
+
+  bodyL.style.transition = 'none'
+  bodyL.style.transform = `translateY(${offset}px)`
+  const rect = bodyL.getBoundingClientRect()
+  if (rect.bottom > limitBottom + 1) {
+    offset = Math.max(0, offset - Math.ceil(rect.bottom - limitBottom))
+  }
+  bodyL.style.transform = ''
+  return offset
 }
 
 const setServiceCardBodyLClosed = (bodyL, offset, { instant = false } = {}) => {
@@ -197,6 +213,12 @@ const applyServiceCardDesktopClosedState = (
   const small = desc.querySelector('.body-s')
   ensureServiceCardBodySSplit(small)
 
+  if (!isServiceCardHovered(card)) {
+    setServiceCardDescClosed(desc, { instant: true })
+    hideServiceCardBodySLines(small, { instant: true })
+    card.classList.remove('is-svc-hover')
+  }
+
   const bodyL = bloc.querySelector('.body-l')
   if (bodyL) {
     const previousOffset =
@@ -218,9 +240,6 @@ const applyServiceCardDesktopClosedState = (
   }
 
   if (!isServiceCardHovered(card)) {
-    setServiceCardDescClosed(desc, { instant })
-    hideServiceCardBodySLines(small, { instant })
-    card.classList.remove('is-svc-hover')
     card.style.removeProperty('background-color')
     card.style.backgroundColor = 'var(--white)'
   }
@@ -477,13 +496,10 @@ export function initServiceCards(root = document) {
         if (isTabletOrBelowNow()) return
         card.__svcHoverActive = false
         card.classList.remove('is-svc-hover')
-        let back = 0
-        if (bodyL && typeof bodyL.__svcBottomOffsetPx === 'number') {
-          back = bodyL.__svcBottomOffsetPx
-        }
+        setServiceCardDescClosed(desc, { instant: true })
+        hideServiceCardBodySLines(small, { instant: true })
+        const back = measureServiceBodyLOffset(card, bloc, bodyL)
         moveBodyL(back)
-        animateSmallLines('100%')
-        setServiceCardDescClosed(desc)
         card.style.backgroundColor = 'var(--white)'
       }
 

@@ -346,6 +346,51 @@ async function testServiceTitlesOnResize(page, baseUrl) {
   )
 }
 
+async function testServiceTitlesAfterHoverClose(page, baseUrl) {
+  await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' })
+  await waitForHomeReady(page)
+  await scrollSectionIntoView(page, '.section_services')
+  await page.waitForTimeout(2500)
+
+  const readTitleOverflow = () =>
+    page.evaluate(() =>
+      Array.from(document.querySelectorAll('.section_services .service-card')).map(
+        (card) => {
+          const bodyL = card.querySelector('.body-l')
+          const cardRect = card.getBoundingClientRect()
+          const bodyLRect = bodyL?.getBoundingClientRect()
+          const padBottom = parseFloat(getComputedStyle(card).paddingBottom) || 0
+          const limitBottom = cardRect.bottom - padBottom
+          const overflow = bodyLRect
+            ? Math.round(bodyLRect.bottom - limitBottom)
+            : 0
+          const transform = bodyL?.style.transform || ''
+          return { overflow, transform }
+        }
+      )
+    )
+
+  const cards = page.locator('.section_services .service-card')
+  const count = await cards.count()
+
+  for (let i = 0; i < count; i += 1) {
+    const card = cards.nth(i)
+    await card.hover()
+    await page.waitForTimeout(900)
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(900)
+  }
+
+  const afterHover = await readTitleOverflow()
+  console.log('SERVICE TITLES AFTER HOVER CLOSE:', JSON.stringify(afterHover, null, 2))
+  afterHover.forEach((sample, i) => {
+    assert(
+      sample.overflow <= 2,
+      `Titre card ${i} dépasse le bas après fermeture (overflow=${sample.overflow}px, transform=${sample.transform})`
+    )
+  })
+}
+
 async function testBlogLayout(page, baseUrl) {
   await page.goto(`${baseUrl}/blog.html`, { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(
@@ -634,6 +679,7 @@ async function main() {
   try {
     await testCardsRevealOnHome(page, baseUrl)
     await testServiceTitlesOnResize(page, baseUrl)
+    await testServiceTitlesAfterHoverClose(page, baseUrl)
     await testBlogLayout(page, baseUrl)
     await testBlogHoverViaBarba(page, baseUrl)
     await testMachinesGrid(page, baseUrl)

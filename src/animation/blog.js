@@ -1,5 +1,59 @@
+function splitBlogTitles(scope = document) {
+  const root = scope && scope.querySelector ? scope : document
+  const titles = Array.from(root.querySelectorAll('.blog-name > .body-l'))
+  titles.forEach((title) => {
+    try {
+      if (title.dataset.linesSplit === 'true') return
+      const originalText = (title.textContent || '').replace(/\s+/g, ' ').trim()
+      if (!originalText) return
+      const words = originalText.split(' ')
+      title.textContent = ''
+      words.forEach((word, idx) => {
+        const w = document.createElement('span')
+        w.className = 'blogline-word'
+        w.textContent = word
+        title.appendChild(w)
+        if (idx < words.length - 1) {
+          title.appendChild(document.createTextNode(' '))
+        }
+      })
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            const wordEls = Array.from(title.querySelectorAll('.blogline-word'))
+            if (!wordEls.length) return
+            let currentTop = null
+            let lineWrap = null
+            wordEls.forEach((wEl) => {
+              const top = wEl.offsetTop
+              if (currentTop === null || Math.abs(top - currentTop) > 1) {
+                currentTop = top
+                lineWrap = document.createElement('span')
+                lineWrap.className = 'blogline-line'
+                title.insertBefore(lineWrap, wEl)
+              }
+              lineWrap.appendChild(wEl)
+              if (
+                wEl.nextSibling &&
+                wEl.nextSibling.nodeType === Node.TEXT_NODE
+              ) {
+                lineWrap.appendChild(wEl.nextSibling)
+              }
+            })
+            title.dataset.linesSplit = 'true'
+          } catch (err) {
+            // ignore
+          }
+        })
+      })
+    } catch (err) {
+      // ignore
+    }
+  })
+}
+
 export function initBlog(root = document) {
-  // Scope to Blog page via Barba namespace
   try {
     const container = root && root.nodeType === 1 ? root : document
     const isSelfBlog =
@@ -43,7 +97,11 @@ export function initBlog(root = document) {
       window.fsAttributes.push([
         'list',
         () => {
-          // List Filter initialized
+          try {
+            splitBlogTitles(root)
+          } catch (e) {
+            // ignore
+          }
         },
       ])
     }
@@ -361,62 +419,8 @@ export function initBlog(root = document) {
     // ignore
   }
 
-  // Split blog titles ('.blog-name > .body-l') into visual lines
   try {
-    const scope = root && root.nodeType === 1 ? root : document
-    const titles = Array.from(scope.querySelectorAll('.blog-name > .body-l'))
-    titles.forEach((title) => {
-      try {
-        if (title.dataset.linesSplit) return
-        const originalText = title.textContent || ''
-        const words = originalText.split(/\s+/)
-        // Build words as inline elements allowing natural wrapping
-        title.textContent = ''
-        words.forEach((word, idx) => {
-          const w = document.createElement('span')
-          w.className = 'blogline-word'
-          w.textContent = word
-          title.appendChild(w)
-          if (idx < words.length - 1)
-            title.appendChild(document.createTextNode(' '))
-        })
-
-        // After layout, group words by line using offsetTop
-        requestAnimationFrame(() => {
-          try {
-            const wordEls = Array.from(title.querySelectorAll('.blogline-word'))
-            if (!wordEls.length) return
-            let currentTop = null
-            let lineWrap = null
-            wordEls.forEach((wEl) => {
-              const top = wEl.offsetTop
-              if (currentTop === null || Math.abs(top - currentTop) > 1) {
-                currentTop = top
-                lineWrap = document.createElement('span')
-                lineWrap.className = 'blogline-line'
-                title.insertBefore(lineWrap, wEl)
-              }
-              lineWrap.appendChild(wEl)
-              // Move following space (if any) into the line container to preserve spacing
-              const next = lineWrap.nextSibling
-              if (
-                wEl.nextSibling &&
-                wEl.nextSibling.nodeType === Node.TEXT_NODE
-              ) {
-                lineWrap.appendChild(wEl.nextSibling)
-              } else if (next && next.nodeType === Node.TEXT_NODE) {
-                lineWrap.appendChild(next)
-              }
-            })
-            title.dataset.linesSplit = 'true'
-          } catch (err) {
-            // ignore
-          }
-        })
-      } catch (err) {
-        // ignore
-      }
-    })
+    splitBlogTitles(root)
   } catch (err) {
     // ignore
   }

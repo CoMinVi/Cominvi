@@ -920,7 +920,7 @@ export function initTechnology(root = document) {
           // ignore
         }
 
-        // Animate the clone's image from a fixed base (left:50%, top:50%, width:24em)
+        // Animate the clone's image from center toward bottom: 2em
         try {
           if (openClone) {
             const clonedImg = openClone.querySelector('.machines-grid_img')
@@ -934,12 +934,31 @@ export function initTechnology(root = document) {
                 ) || 16
               const bottomGapPx = emPx * 2
               const targetLeft = isTablet() ? '50%' : '80%'
-              // Persist for reverse
               clonedImg.dataset.gridStartLeft = startLeft
               clonedImg.dataset.gridStartTop = startTop
               clonedImg.dataset.gridStartWidth = startWidth
               clonedImg.dataset.gridBottomGapPx = String(bottomGapPx)
-              // Place image absolutely inside clone at its current position
+
+              const pinImageToBottom = () => {
+                gsap.set(clonedImg, {
+                  position: 'absolute',
+                  left: targetLeft,
+                  top: 'auto',
+                  bottom: bottomGapPx,
+                  width: '60em',
+                  height: 'auto',
+                  margin: 0,
+                  zIndex: 2,
+                  pointerEvents: 'none',
+                  objectFit: 'contain',
+                  xPercent: -50,
+                  yPercent: 0,
+                  x: 0,
+                  y: 0,
+                  clearProps: 'top',
+                })
+              }
+
               gsap.set(clonedImg, {
                 position: 'absolute',
                 left: startLeft,
@@ -953,45 +972,27 @@ export function initTechnology(root = document) {
                 objectFit: 'contain',
                 xPercent: -50,
                 yPercent: -50,
+                x: 0,
+                y: 0,
               })
-              const measureOpenImageTopPx = () => {
-                gsap.set(clonedImg, {
-                  left: targetLeft,
-                  top: 'auto',
-                  bottom: `${bottomGapPx}px`,
-                  width: '60em',
-                  xPercent: -50,
-                  yPercent: 0,
-                })
-                const topPx = clonedImg.offsetTop
-                gsap.set(clonedImg, {
-                  left: startLeft,
-                  top: startTop,
-                  bottom: 'auto',
-                  width: startWidth,
-                  xPercent: -50,
-                  yPercent: -50,
-                })
-                return topPx
-              }
-              const targetTopPx = measureOpenImageTopPx()
+
               tl.to(
                 clonedImg,
                 {
                   left: targetLeft,
-                  top: targetTopPx,
-                  bottom: `${bottomGapPx}px`,
+                  top: 'auto',
+                  bottom: bottomGapPx,
+                  width: '60em',
                   xPercent: -50,
                   yPercent: 0,
-                  width: '60em',
+                  x: 0,
+                  y: 0,
                   duration: 1.2,
                   ease: gsap.parseEase('machinesStep') || 'power2.out',
                 },
                 0
               )
-              tl.add(() => {
-                gsap.set(clonedImg, { top: 'auto' })
-              }, 1.2)
+              tl.add(pinImageToBottom, 1.2)
             }
           }
         } catch (eImgAnim) {

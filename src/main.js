@@ -18,21 +18,19 @@ import siteStyles from './styles/style.css?inline'
 
 function injectSiteStyles() {
   try {
-    let style = document.querySelector('style[data-cominvi-site-styles]')
-    if (!style) {
-      style = document.createElement('style')
-      style.setAttribute('data-cominvi-site-styles', '')
-      style.textContent = siteStyles
+    if (document.querySelector('style[data-cominvi-site-styles]')) {
+      return
     }
-    const target = document.body || document.documentElement
-    if (style.parentNode !== target) {
-      target.appendChild(style)
-    }
+    const style = document.createElement('style')
+    style.setAttribute('data-cominvi-site-styles', '')
+    style.textContent = siteStyles
+    document.head.appendChild(style)
   } catch (e) {
     // ignore
   }
 }
 
+injectSiteStyles()
 startHeroSizeDebug()
 
 if (isHomeEntryUrl()) {

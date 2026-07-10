@@ -502,38 +502,9 @@
   transform-origin: bottom left;
 }
 
-.blogline-line {
-  position: relative;
-  display: block;
-  overflow: visible;
-  max-width: 100%;
-}
-
-.blog-name > .body-l {
-  overflow: visible;
-}
-
+/* Blog: seul override — rapprocher l'underline du texte (blog.html gère le reste) */
 .blog-name > .body-l > .blogline-line::after {
-  content: '';
-  position: absolute;
-  width: 100%;
-  transform: scaleX(0);
-  height: 2px;
   bottom: 0.08em;
-  left: 0;
-  background-color: #151515;
-  transform-origin: bottom left;
-  transition: transform 0.5s cubic-bezier(0.32, 0.01, 0, 1);
-  pointer-events: none;
-}
-
-.blog-inner_item.is-green:hover > .blog-name > .body-l > .blogline-line::after,
-.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after,
-.blog-main_item:hover .blog-name > .body-l > .blogline-line::after,
-.blog-main_link:hover .blog-name > .body-l > .blogline-line::after,
-a.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after {
-  transform: scaleX(1) !important;
-  transform-origin: bottom left;
 }
 
 .machines-grid_item {

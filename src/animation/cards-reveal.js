@@ -12,33 +12,17 @@ function getRevealCards(section) {
   return Array.from(section.querySelectorAll(CARD_SELECTOR))
 }
 
-function detachCardsRevealListeners(section) {
-  if (section.__cardsRevealObserver) {
-    try {
-      section.__cardsRevealObserver.disconnect()
-    } catch (e) {
-      // ignore
-    }
-    section.__cardsRevealObserver = null
-  }
-  if (
-    section.__cardsRevealLenisHandler &&
-    window.lenis &&
-    typeof window.lenis.off === 'function'
-  ) {
-    try {
-      window.lenis.off('scroll', section.__cardsRevealLenisHandler)
-    } catch (e) {
-      // ignore
-    }
-    section.__cardsRevealLenisHandler = null
-  }
-}
-
 function destroyCardsReveal(root = document) {
   const scope = root && root.querySelector ? root : document
   scope.querySelectorAll(SECTION_SELECTORS).forEach((section) => {
-    detachCardsRevealListeners(section)
+    if (section.__cardsRevealScrollTrigger) {
+      try {
+        section.__cardsRevealScrollTrigger.kill()
+      } catch (e) {
+        // ignore
+      }
+      section.__cardsRevealScrollTrigger = null
+    }
     if (section.__cardsRevealTween) {
       try {
         section.__cardsRevealTween.kill()
@@ -71,13 +55,11 @@ async function refreshServiceCardsAfterReveal(root) {
   }
 }
 
-function isSectionInRevealView(section) {
+function refreshCardsRevealTriggers() {
   try {
-    const rect = section.getBoundingClientRect()
-    const vh = window.innerHeight || 1
-    return rect.top < vh * 0.85 && rect.bottom > 0
+    ScrollTrigger.refresh()
   } catch (e) {
-    return false
+    // ignore
   }
 }
 
@@ -88,85 +70,85 @@ export function initCardsViewportReveal(root = document) {
 
   destroyCardsReveal(scope)
 
+  const scroller = window.__lenisWrapper || undefined
+
   sections.forEach((section) => {
-    section.__cardsRevealPlayed = false
     const cards = getRevealCards(section)
     if (!cards.length) return
 
+    gsap.set(cards, {
+      opacity: 0,
+      y: '2em',
+      willChange: 'transform, opacity',
+    })
     cards.forEach((card) => {
-      if (card.__cardsRevealBound) return
-      gsap.set(card, {
-        opacity: 0,
-        y: '2em',
-        willChange: 'transform, opacity',
-      })
       card.__cardsRevealBound = true
     })
 
-    const playReveal = () => {
-      if (section.__cardsRevealPlayed) return
-      if (!isSectionInRevealView(section)) return
-      section.__cardsRevealPlayed = true
-      detachCardsRevealListeners(section)
+    const tween = gsap.to(cards, {
+      opacity: 1,
+      y: 0,
+      duration: 0.8,
+      stagger: 0.08,
+      ease: 'power2.out',
+      overwrite: 'auto',
+      paused: true,
+      onComplete: () => {
+        section.__cardsRevealPlayed = true
+        cards.forEach((card) => {
+          try {
+            card.style.willChange = ''
+          } catch (e) {
+            // ignore
+          }
+        })
+        refreshServiceCardsAfterReveal(scope)
+      },
+    })
 
-      section.__cardsRevealTween = gsap.to(cards, {
-        opacity: 1,
-        y: 0,
-        duration: 0.8,
-        stagger: 0.08,
-        ease: 'power2.out',
-        overwrite: 'auto',
-        onComplete: () => {
-          cards.forEach((card) => {
-            try {
-              card.style.willChange = ''
-            } catch (e) {
-              // ignore
-            }
-          })
-          refreshServiceCardsAfterReveal(scope)
-        },
-      })
-    }
+    const st = ScrollTrigger.create({
+      trigger: section,
+      start: 'top 85%',
+      once: true,
+      scroller,
+      invalidateOnRefresh: true,
+      onEnter: () => {
+        if (section.__cardsRevealPlayed) return
+        tween.play(0)
+      },
+    })
 
-    if (typeof IntersectionObserver !== 'undefined') {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) playReveal()
-          })
-        },
-        {
-          root: null,
-          rootMargin: '0px 0px -15% 0px',
-          threshold: 0,
-        }
-      )
-      observer.observe(section)
-      section.__cardsRevealObserver = observer
-    }
-
-    if (window.lenis && typeof window.lenis.on === 'function') {
-      const onLenisScroll = () => playReveal()
-      window.lenis.on('scroll', onLenisScroll)
-      section.__cardsRevealLenisHandler = onLenisScroll
-    }
+    section.__cardsRevealTween = tween
+    section.__cardsRevealScrollTrigger = st
 
     requestAnimationFrame(() => {
-      playReveal()
+      try {
+        const rect = section.getBoundingClientRect()
+        const vh = window.innerHeight || 1
+        if (
+          rect.top < vh * 0.85 &&
+          rect.bottom > 0 &&
+          !section.__cardsRevealPlayed
+        ) {
+          tween.play(0)
+        }
+      } catch (e) {
+        // ignore
+      }
     })
   })
 
   if (!__cardsRevealPageBound) {
     __cardsRevealPageBound = true
     window.addEventListener('page:transition:after', () => {
-      requestAnimationFrame(() => {
-        try {
-          ScrollTrigger.refresh()
-        } catch (e) {
-          // ignore
-        }
-      })
+      requestAnimationFrame(refreshCardsRevealTriggers)
+    })
+    document.addEventListener('loader:done', refreshCardsRevealTriggers, {
+      once: true,
     })
   }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(refreshCardsRevealTriggers)
+  })
 }

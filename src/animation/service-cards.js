@@ -46,84 +46,6 @@ const isServiceCardHovered = (card) => {
   }
 }
 
-const getServiceHoverScrollY = () => {
-  try {
-    if (window.lenis && typeof window.lenis.scroll === 'number') {
-      return window.lenis.scroll
-    }
-    if (window.__lenisWrapper) return window.__lenisWrapper.scrollTop || 0
-    return window.pageYOffset || document.documentElement.scrollTop || 0
-  } catch (e) {
-    return 0
-  }
-}
-
-const setServiceHoverScrollY = (value) => {
-  try {
-    if (window.lenis && typeof window.lenis.scrollTo === 'function') {
-      window.lenis.scrollTo(value, { immediate: true, force: true })
-      return
-    }
-    if (window.__lenisWrapper) window.__lenisWrapper.scrollTop = value
-    else window.scrollTo(0, value)
-  } catch (e) {
-    // ignore
-  }
-}
-
-let serviceHoverScrollLocks = 0
-let serviceHoverPinnedY = null
-
-const pinServiceHoverScroll = () => {
-  serviceHoverScrollLocks += 1
-  if (serviceHoverScrollLocks !== 1) return
-  serviceHoverPinnedY = getServiceHoverScrollY()
-  try {
-    if (window.lenis && typeof window.lenis.stop === 'function') {
-      window.lenis.stop()
-    }
-  } catch (e) {
-    // ignore
-  }
-  setServiceHoverScrollY(serviceHoverPinnedY)
-}
-
-const unpinServiceHoverScroll = () => {
-  if (serviceHoverScrollLocks <= 0) return
-  serviceHoverScrollLocks -= 1
-  if (serviceHoverScrollLocks !== 0) return
-  if (serviceHoverPinnedY != null) {
-    setServiceHoverScrollY(serviceHoverPinnedY)
-  }
-  serviceHoverPinnedY = null
-  try {
-    if (window.lenis && typeof window.lenis.start === 'function') {
-      window.lenis.start()
-    }
-  } catch (e) {
-    // ignore
-  }
-}
-
-const syncServiceCardDescTop = (bloc, bodyL) => {
-  if (!bloc || !bodyL) return
-  try {
-    const titleHeight = Math.round(
-      bodyL.offsetHeight || bodyL.getBoundingClientRect().height
-    )
-    const gap =
-      parseFloat(getComputedStyle(bloc).rowGap) ||
-      parseFloat(getComputedStyle(bloc).gap) ||
-      0
-    bloc.style.setProperty(
-      '--svc-desc-top',
-      `${titleHeight + Math.round(gap)}px`
-    )
-  } catch (e) {
-    // ignore
-  }
-}
-
 const DESC_TRANSITION =
   'max-height 0.8s cubic-bezier(0.5, 0, 0, 1), opacity 0.8s cubic-bezier(0.5, 0, 0, 1)'
 
@@ -303,7 +225,6 @@ const applyServiceCardDesktopClosedState = (
 
   const bodyL = bloc.querySelector('.body-l')
   if (bodyL) {
-    syncServiceCardDescTop(bloc, bodyL)
     const previousOffset =
       typeof bodyL.__svcBottomOffsetPx === 'number'
         ? bodyL.__svcBottomOffsetPx
@@ -569,9 +490,7 @@ export function initServiceCards(root = document) {
         if (isTabletOrBelowNow() || isMenuOpenNow() || card.__svcHoverActive)
           return
         card.__svcHoverActive = true
-        pinServiceHoverScroll()
         card.classList.add('is-svc-hover')
-        syncServiceCardDescTop(bloc, bodyL)
         setServiceCardDescOpen(desc)
         moveBodyL(0)
         animateSmallLines('0%')
@@ -586,7 +505,6 @@ export function initServiceCards(root = document) {
         const back = measureServiceBodyLOffset(card, bloc, bodyL)
         moveBodyL(back)
         card.style.backgroundColor = 'var(--white)'
-        unpinServiceHoverScroll()
       }
 
       card.addEventListener('mouseenter', onHoverEnter)

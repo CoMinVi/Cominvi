@@ -451,6 +451,13 @@
 
 /* Minerals scroll canvas remplace le slider statique */
 .section_minerals
+  [fc-image-scrubbing='component'][data-minerals-canvas-active='true'] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.section_minerals
   .minerals_content:has([fc-image-scrubbing='component'][data-minerals-canvas-active='true'])
   .minerals-slider {
   display: none !important;

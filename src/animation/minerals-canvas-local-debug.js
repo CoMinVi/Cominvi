@@ -137,6 +137,8 @@ function err() {
   // Error logging removed
 }
 
+const DEFAULT_MINERALS_FORCE_IMAGES_ATTR = 'data-minerals-force-images'
+
 function parseImageUrls(raw) {
   return String(raw || '')
     .split(';')
@@ -144,15 +146,67 @@ function parseImageUrls(raw) {
     .filter(Boolean)
 }
 
+export function formatMineralsFrameFilename(frame) {
+  const index = Math.max(1, Math.floor(frame || 1))
+  if (index < 10) return String(index).padStart(4, '0')
+  if (index < 100) return String(index).padStart(5, '0')
+  return String(index).padStart(6, '0')
+}
+
 function buildMineralsLocalUrls(totalFrames = DEFAULT_MINERALS_TOTAL_FRAMES) {
   const total = Math.max(1, Math.floor(totalFrames || 0))
   const urls = []
   for (let frame = 1; frame <= total; frame += 1) {
-    const padded =
-      frame < 10
-        ? String(frame).padStart(4, '0')
-        : String(frame).padStart(5, '0')
-    urls.push(`/minerals/minerals-${padded}.avif`)
+    urls.push(
+      `/minerals/minerals-${formatMineralsFrameFilename(frame)}.avif`
+    )
+  }
+  return urls
+}
+
+function getAttrFromComponentOrScope(component, scope, attrName) {
+  const own = component.getAttribute(attrName)
+  if (own) return own
+  const holder = scope.querySelector(`[${attrName}]`)
+  return holder ? holder.getAttribute(attrName) : ''
+}
+
+function resolveMineralsImageUrls(component, scope, bp) {
+  const responsiveUrls = {
+    desktop: getAttrFromComponentOrScope(
+      component,
+      scope,
+      'fc-image-scrubbing-urls-desktop'
+    ),
+    tablet: getAttrFromComponentOrScope(
+      component,
+      scope,
+      'fc-image-scrubbing-urls-tablet'
+    ),
+    mobile: getAttrFromComponentOrScope(
+      component,
+      scope,
+      'fc-image-scrubbing-urls-mobile'
+    ),
+  }
+  const baseUrls = getAttrFromComponentOrScope(
+    component,
+    scope,
+    'fc-image-scrubbing-urls'
+  )
+  let urls = parseImageUrls(
+    responsiveUrls[bp] ||
+      responsiveUrls.desktop ||
+      responsiveUrls.tablet ||
+      responsiveUrls.mobile ||
+      baseUrls
+  )
+  if (!urls.length) {
+    const fallbackFrameCount = parsePositiveInt(
+      component.getAttribute('fc-image-scrubbing-total-frames'),
+      DEFAULT_MINERALS_TOTAL_FRAMES
+    )
+    urls = buildMineralsLocalUrls(fallbackFrameCount)
   }
   return urls
 }
@@ -199,45 +253,18 @@ export function initMineralsCanvas(root = document) {
     const component = scope.querySelector('[fc-image-scrubbing="component"]')
     if (!component) return null
 
-    const getAttrFromComponentOrScope = (attrName) => {
-      const own = component.getAttribute(attrName)
-      if (own) return own
-      const holder = scope.querySelector(`[${attrName}]`)
-      return holder ? holder.getAttribute(attrName) : ''
-    }
-
     const bp = getBreakpoint()
     const afUrl = DEFAULT_MINERALS_AF_PATH
+    const forceImageFallback =
+      component.getAttribute(DEFAULT_MINERALS_FORCE_IMAGES_ATTR) === 'true'
 
     const hasWebCodecs =
       typeof window !== 'undefined' &&
       'VideoDecoder' in window &&
       'EncodedVideoChunk' in window
-    const shouldUseAf = !!afUrl && hasWebCodecs
+    const shouldUseAf = !!afUrl && hasWebCodecs && !forceImageFallback
 
-    let urls = []
-    if (!shouldUseAf) {
-      const responsiveUrls = {
-        desktop: getAttrFromComponentOrScope('fc-image-scrubbing-urls-desktop'),
-        tablet: getAttrFromComponentOrScope('fc-image-scrubbing-urls-tablet'),
-        mobile: getAttrFromComponentOrScope('fc-image-scrubbing-urls-mobile'),
-      }
-      const baseUrls = getAttrFromComponentOrScope('fc-image-scrubbing-urls')
-      urls = parseImageUrls(
-        responsiveUrls[bp] ||
-          responsiveUrls.desktop ||
-          responsiveUrls.tablet ||
-          responsiveUrls.mobile ||
-          baseUrls
-      )
-      if (!urls.length) {
-        const fallbackFrameCount = parsePositiveInt(
-          component.getAttribute('fc-image-scrubbing-total-frames'),
-          DEFAULT_MINERALS_TOTAL_FRAMES
-        )
-        urls = buildMineralsLocalUrls(fallbackFrameCount)
-      }
-    }
+    const urls = shouldUseAf ? [] : resolveMineralsImageUrls(component, scope, bp)
 
     const canvas = component.querySelector('canvas')
     if (!canvas) {
@@ -387,13 +414,13 @@ export function initMineralsCanvas(root = document) {
           requestFrame(0)
         })
         .catch((error) => {
-          err(
-            'Echec chargement .af, fallback image possible via force-images',
-            {
-              afUrl,
-              error,
-            }
-          )
+          if (destroyed) return
+          err('Echec chargement .af, bascule vers fallback images', {
+            afUrl,
+            error,
+          })
+          component.setAttribute(DEFAULT_MINERALS_FORCE_IMAGES_ATTR, 'true')
+          initMineralsCanvas(root)
         })
 
       const onResize = () => {

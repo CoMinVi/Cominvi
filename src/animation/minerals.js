@@ -267,7 +267,7 @@ export function initMinerals(root = document) {
       section.querySelectorAll('.minerals-slider_img')
     )
     const hasCanvasSequence = !!section.querySelector(
-      '[fc-image-scrubbing="component"]'
+      '[fc-image-scrubbing="component"][data-minerals-canvas-active="true"]'
     )
 
     const setActiveNameIndex = (activeIndex) => {

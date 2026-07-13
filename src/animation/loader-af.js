@@ -21,7 +21,7 @@ import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
 const SCROLL_RANGE_VH = 100
-const HERO_INTRO_SCALE_DURATION = 3.2
+const HERO_INTRO_SCALE_DURATION = 1.8
 const HERO_REVEAL_MASK_BG_FADE_DURATION = HERO_INTRO_SCALE_DURATION * 0.5
 export const HOME_AF_SEQUENCE_URL =
   'https://cominvi.netlify.app/cave-scene/cave-scene-full-sequence.af'

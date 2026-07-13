@@ -138,6 +138,41 @@ function err() {
 }
 
 const DEFAULT_MINERALS_FORCE_IMAGES_ATTR = 'data-minerals-force-images'
+const MINERALS_CANVAS_ACTIVE_ATTR = 'data-minerals-canvas-active'
+
+function activateMineralsCanvasVisuals(component) {
+  if (!component) return
+
+  component.setAttribute(MINERALS_CANVAS_ACTIVE_ATTR, 'true')
+
+  const content = component.closest('.minerals_content')
+  if (content) {
+    content.setAttribute(MINERALS_CANVAS_ACTIVE_ATTR, 'true')
+  }
+
+  const slider = content?.querySelector('.minerals-slider')
+  if (slider) {
+    slider.setAttribute('aria-hidden', 'true')
+    slider.hidden = true
+  }
+}
+
+function deactivateMineralsCanvasVisuals(component) {
+  if (!component) return
+
+  component.removeAttribute(MINERALS_CANVAS_ACTIVE_ATTR)
+
+  const content = component.closest('.minerals_content')
+  if (content) {
+    content.removeAttribute(MINERALS_CANVAS_ACTIVE_ATTR)
+  }
+
+  const slider = content?.querySelector('.minerals-slider')
+  if (slider) {
+    slider.removeAttribute('aria-hidden')
+    slider.hidden = false
+  }
+}
 
 function parseImageUrls(raw) {
   return String(raw || '')
@@ -282,6 +317,8 @@ export function initMineralsCanvas(root = document) {
     if (typeof component.__mineralsCanvasCleanup === 'function') {
       component.__mineralsCanvasCleanup()
     }
+
+    activateMineralsCanvasVisuals(component)
 
     const fit = {
       base: component.getAttribute('fc-image-scrubbing-fit') || 'contain',
@@ -460,6 +497,7 @@ export function initMineralsCanvas(root = document) {
 
       const cleanup = () => {
         destroyed = true
+        deactivateMineralsCanvasVisuals(component)
         if (rafToken) {
           window.cancelAnimationFrame(rafToken)
           rafToken = 0
@@ -491,6 +529,7 @@ export function initMineralsCanvas(root = document) {
 
     if (!urls.length) {
       err('Aucune source de sequence (ni .af ni images).')
+      deactivateMineralsCanvasVisuals(component)
       return null
     }
 
@@ -1059,6 +1098,7 @@ export function initMineralsCanvas(root = document) {
 
     const cleanup = () => {
       destroyed = true
+      deactivateMineralsCanvasVisuals(component)
       pendingQueue.length = 0
       try {
         if (tween && typeof tween.kill === 'function') tween.kill()

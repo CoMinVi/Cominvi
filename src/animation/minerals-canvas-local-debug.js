@@ -191,66 +191,13 @@ function getBreakpoint() {
   return 'desktop'
 }
 
-export function findMineralsCanvasComponent(scope = document) {
-  const root = scope && scope.querySelector ? scope : document
-  const content = root.querySelector('.minerals_content')
-  if (!content) return null
-
-  const configured = content.querySelector(
-    ':scope > .minerals-slider_sequence[fc-image-scrubbing-total-frames], :scope > .minerals-slider_sequence[fc-image-scrubbing="component"]'
-  )
-  if (configured?.querySelector('canvas')) return configured
-
-  for (const sequence of content.querySelectorAll(
-    '.minerals-slider_sequence'
-  )) {
-    if (sequence.querySelector('canvas')) return sequence
-  }
-
-  return null
-}
-
-function hideStaticMineralsSliderInner(content) {
-  if (!content) return
-
-  content.querySelectorAll('.minerals-slider_inner').forEach((inner) => {
-    inner.setAttribute('aria-hidden', 'true')
-    try {
-      inner.style.setProperty('display', 'none', 'important')
-    } catch (e) {
-      inner.style.display = 'none'
-    }
-  })
-}
-
-function ensureMineralsCanvasHostVisible(component) {
-  if (!component) return
-
-  hideStaticMineralsSliderInner(component.closest('.minerals_content'))
-
-  const slider = component.closest('.minerals-slider')
-  if (!slider) return
-
-  try {
-    if (getComputedStyle(slider).display === 'none') {
-      slider.style.setProperty('display', 'flex', 'important')
-    }
-    slider.removeAttribute('hidden')
-    slider.setAttribute('aria-hidden', 'false')
-  } catch (e) {
-    slider.style.display = 'flex'
-  }
-}
-
 export function initMineralsCanvas(root = document) {
   try {
     if (!isAllowedPage(root)) return null
 
     const scope = root && root.querySelector ? root : document
-    const component = findMineralsCanvasComponent(scope)
+    const component = scope.querySelector('[fc-image-scrubbing="component"]')
     if (!component) return null
-
-    ensureMineralsCanvasHostVisible(component)
 
     const getAttrFromComponentOrScope = (attrName) => {
       const own = component.getAttribute(attrName)

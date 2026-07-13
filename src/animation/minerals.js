@@ -176,17 +176,6 @@ export function initMinerals(root = document) {
     const sliderImages = Array.from(
       section.querySelectorAll('.minerals-slider_img')
     )
-    const hasCanvasSequence = !!(
-      section.querySelector(
-        '.minerals-slider_sequence[fc-image-scrubbing="component"] canvas'
-      ) ||
-      section.querySelector('.minerals-slider .minerals-slider_sequence canvas')
-    )
-
-    if (hasCanvasSequence && sliderTrack) {
-      gsap.set(sliderTrack, { clearProps: 'all' })
-      sliderTrack.style.display = 'none'
-    }
 
     const setActiveNameIndex = (activeIndex) => {
       nameItems.forEach((el, idx) => {
@@ -205,7 +194,7 @@ export function initMinerals(root = document) {
     }
 
     const setActiveSlideIndex = (activeIndex) => {
-      if (hasCanvasSequence || !sliderTrack) return
+      if (!sliderTrack) return
       const D = 1.2
       const next = Math.max(0, Math.min(activeIndex, sliderImages.length - 1))
       const prev =

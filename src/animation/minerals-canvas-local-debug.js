@@ -194,54 +194,12 @@ function getBreakpoint() {
   return 'desktop'
 }
 
-function findMineralsCanvasComponent(scope) {
-  if (!scope || !scope.querySelector) return null
-
-  // Home + Services : le scroll trigger doit rester sur le premier composant
-  // fc-image-scrubbing (souvent .minerals-stage, 270vh), pas sur la petite
-  // .minerals-slider_sequence externe de la home.
-  const component = scope.querySelector('[fc-image-scrubbing="component"]')
-  if (!component?.querySelector('canvas')) return null
-
-  return component
-}
-
-function findMineralsCanvas(component) {
-  if (!component) return null
-
-  const explicitHost = component.querySelector(
-    '.minerals-slider_sequence[fc-image-scrubbing="component"]'
-  )
-  if (explicitHost) {
-    return explicitHost.querySelector('canvas')
-  }
-
-  const inSlider = component.querySelector(
-    '.minerals-slider .minerals-slider_sequence canvas'
-  )
-  if (inSlider) return inSlider
-
-  return component.querySelector('canvas')
-}
-
-function ensureMineralsSliderVisible(canvas) {
-  if (!canvas) return
-
-  const slider = canvas.closest('.minerals-slider')
-  if (!slider) return
-
-  const display = window.getComputedStyle(slider).display
-  if (display === 'none') {
-    slider.style.display = 'flex'
-  }
-}
-
 export function initMineralsCanvas(root = document) {
   try {
     if (!isAllowedPage(root)) return null
 
     const scope = root && root.querySelector ? root : document
-    const component = findMineralsCanvasComponent(scope)
+    const component = scope.querySelector('[fc-image-scrubbing="component"]')
     if (!component) return null
 
     const getAttrFromComponentOrScope = (attrName) => {
@@ -284,13 +242,11 @@ export function initMineralsCanvas(root = document) {
       }
     }
 
-    const canvas = findMineralsCanvas(component)
+    const canvas = component.querySelector('canvas')
     if (!canvas) {
       err('Canvas introuvable dans le composant.')
       return null
     }
-
-    ensureMineralsSliderVisible(canvas)
 
     const ctx = canvas.getContext('2d')
     if (!ctx) {

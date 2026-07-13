@@ -266,6 +266,9 @@ export function initMinerals(root = document) {
     const sliderImages = Array.from(
       section.querySelectorAll('.minerals-slider_img')
     )
+    const hasCanvasSequence = !!section.querySelector(
+      '[fc-image-scrubbing="component"]'
+    )
 
     const setActiveNameIndex = (activeIndex) => {
       nameItems.forEach((el, idx) => {
@@ -284,7 +287,7 @@ export function initMinerals(root = document) {
     }
 
     const setActiveSlideIndex = (activeIndex) => {
-      if (!sliderTrack) return
+      if (hasCanvasSequence || !sliderTrack) return
       const D = 1.2
       const next = Math.max(0, Math.min(activeIndex, sliderImages.length - 1))
       const prev =

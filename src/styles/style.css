@@ -449,6 +449,35 @@
   mix-blend-mode: normal;
 }
 
+/* Minerals scroll canvas remplace le slider statique */
+.section_minerals
+  .minerals_content:has([fc-image-scrubbing='component'][data-minerals-canvas-active='true'])
+  .minerals-slider {
+  display: none !important;
+}
+
+.section_minerals
+  .minerals_content:has([fc-image-scrubbing='component'][data-minerals-canvas-active='true'])
+  .minerals-slider_sequence {
+  aspect-ratio: 1;
+  border-radius: 100%;
+  justify-content: center;
+  align-items: center;
+  width: 95%;
+  height: auto;
+  max-height: none;
+  display: flex;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.section_minerals
+  .minerals_content:has([fc-image-scrubbing='component'][data-minerals-canvas-active='true'])
+  .minerals-slider_overlay {
+  z-index: 3;
+}
+
 .machines-grid_name-inner .body-xl > span {
   padding-bottom: 0.2em;
   overflow: hidden;

@@ -449,31 +449,19 @@
   mix-blend-mode: normal;
 }
 
-/* Minerals scroll canvas remplace le slider statique */
-.section_minerals
-  .minerals_content:not(
-    :has([fc-image-scrubbing='component'][data-minerals-canvas-active='true'])
-  )
-  .minerals-slider_inner {
-  display: flex !important;
+/* Minerals : canvas (.af ou AVIF) remplace le slider statique */
+.section_minerals .minerals-slider {
+  display: none !important;
+  visibility: hidden !important;
 }
 
-.section_minerals
-  [fc-image-scrubbing='component'][data-minerals-canvas-active='true'] {
+.section_minerals [fc-image-scrubbing='component'] {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
-.section_minerals
-  .minerals_content:has([fc-image-scrubbing='component'][data-minerals-canvas-active='true'])
-  .minerals-slider {
-  display: none !important;
-}
-
-.section_minerals
-  .minerals_content:has([fc-image-scrubbing='component'][data-minerals-canvas-active='true'])
-  .minerals-slider_sequence {
+.section_minerals .minerals-slider_sequence {
   width: 100%;
   height: 70%;
   max-height: none;
@@ -485,9 +473,7 @@
   overflow: hidden;
 }
 
-.section_minerals
-  .minerals_content:has([fc-image-scrubbing='component'][data-minerals-canvas-active='true'])
-  .minerals-slider_overlay {
+.section_minerals .minerals-slider_overlay {
   z-index: 3;
 }
 

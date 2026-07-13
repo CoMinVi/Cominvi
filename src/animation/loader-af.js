@@ -20,7 +20,8 @@ import { heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
 const SCROLL_RANGE_VH = 100
-const HERO_INTRO_SCALE_DURATION = 1.2
+const HERO_INTRO_SCALE_DURATION = 3.2
+const HERO_REVEAL_MASK_BG_FADE_DURATION = HERO_INTRO_SCALE_DURATION * 0.5
 export const HOME_AF_SEQUENCE_URL =
   'https://cominvi.netlify.app/cave-scene/cave-scene-full-sequence.af'
 export { HOME_HERO_MANIFEST_URL }
@@ -236,7 +237,7 @@ function startHeroAfterLogo(loaderEase, sequenceController, opts = {}) {
     try {
       initContactHero(scope, {
         animate: true,
-        duration: 1.2,
+        duration: HERO_INTRO_SCALE_DURATION,
         ease: loaderEase,
       })
     } catch (e) {
@@ -485,7 +486,11 @@ export function initLoader() {
       }, '>')
       tl.addLabel('heroIntro', '<')
       tl.to(backgroundInner, heroScaleTween, '<')
-      tl.to(loader, { opacity: 0, duration: 0.5, ease: loaderEase }, '<')
+      tl.to(
+        loader,
+        { opacity: 0, duration: HERO_INTRO_SCALE_DURATION, ease: loaderEase },
+        '<'
+      )
       tl.add(finishLoader)
     } else {
       let holeRectRef = null
@@ -584,12 +589,16 @@ export function initLoader() {
         width: () => `${window.innerWidth + 48}px`,
         height: () => `${window.innerHeight + 48}px`,
         marginLeft: 0,
-        duration: 1.1,
+        duration: HERO_INTRO_SCALE_DURATION,
         ease: loaderEase,
       })
       tl.to(
         textBox,
-        { backgroundColor: 'transparent', duration: 0.55, ease: loaderEase },
+        {
+          backgroundColor: 'transparent',
+          duration: HERO_REVEAL_MASK_BG_FADE_DURATION,
+          ease: loaderEase,
+        },
         '<'
       )
       tl.add(() => {
@@ -598,7 +607,7 @@ export function initLoader() {
         const vh = window.innerHeight
         gsap.to(holeRectRef, {
           attr: { x: -24, y: -24, width: vw + 48, height: vh + 48 },
-          duration: 1.1,
+          duration: HERO_INTRO_SCALE_DURATION,
           ease: loaderEase,
         })
       }, '<')
@@ -609,7 +618,11 @@ export function initLoader() {
       }, '<')
       tl.addLabel('heroIntro', '<')
       tl.to(backgroundInner, heroScaleTween, '<')
-      tl.to(logoText, { opacity: 0, duration: 1.1, ease: loaderEase }, '<')
+      tl.to(
+        logoText,
+        { opacity: 0, duration: HERO_INTRO_SCALE_DURATION, ease: loaderEase },
+        '<'
+      )
       tl.add(() => {
         try {
           textBox.remove()

@@ -1314,22 +1314,33 @@ svg.is-map g.region[id] {
   pointer-events: all;
 }
 
-/* Minerals canvas: masquer le slider statique et centrer la sequence */
-.section_minerals:has(.minerals-slider_sequence canvas) .minerals-slider_inner {
+/* Minerals canvas */
+/* Home : masquer le .minerals-slider dupliqué après la sequence externe */
+.section_minerals
+  .minerals-slider_sequence[fc-image-scrubbing='component']:has(canvas)
+  + .minerals-slider {
+  display: none !important;
+}
+
+/* Services : masquer le slider statique et centrer la sequence dans le slider */
+.section_minerals:not(:has(.minerals-slider_sequence[fc-image-scrubbing='component']))
+  .minerals-slider:has(.minerals-slider_sequence canvas)
+  .minerals-slider_inner {
   display: none !important;
   visibility: hidden !important;
   pointer-events: none !important;
   opacity: 0 !important;
 }
 
-.section_minerals:has(.minerals-slider_sequence canvas)
+.section_minerals:not(:has(.minerals-slider_sequence[fc-image-scrubbing='component']))
   .minerals-slider:has(.minerals-slider_sequence canvas) {
   display: flex !important;
   justify-content: center;
   align-items: center;
 }
 
-.section_minerals:has(.minerals-slider_sequence canvas)
+.section_minerals:not(:has(.minerals-slider_sequence[fc-image-scrubbing='component']))
+  .minerals-slider:has(.minerals-slider_sequence canvas)
   .minerals-slider_sequence:has(canvas) {
   display: flex;
   justify-content: center;
@@ -1340,7 +1351,8 @@ svg.is-map g.region[id] {
   flex: 0 0 auto;
 }
 
-.section_minerals:has(.minerals-slider_sequence canvas)
+.section_minerals:not(:has(.minerals-slider_sequence[fc-image-scrubbing='component']))
+  .minerals-slider:has(.minerals-slider_sequence canvas)
   .minerals-slider_sequence:has(canvas)
   .minerals_canvas {
   display: block;

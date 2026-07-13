@@ -1,6 +1,10 @@
 import { afResizeLog } from '../app/af-resize-debug.js'
 import { getScrollFrameCount, getScrollFrameUrl } from './hero-manifest.js'
 
+const PRELOAD_AHEAD = 48
+const PRELOAD_BEHIND = 12
+const BACKGROUND_PRELOAD_YIELD_EVERY = 4
+
 function createImageLoader() {
   const cache = new Map()
   const inflight = new Map()
@@ -52,6 +56,7 @@ export function createHeroScrollSequence({
     ready: Promise.resolve(),
     setProgress: () => {},
     setFrame: () => {},
+    startBackgroundPreload: () => {},
     show: () => {},
     hide: () => {},
     repaint: () => false,
@@ -100,6 +105,8 @@ export function createHeroScrollSequence({
   let requestedFrame = 0
   let paintedFrame = -1
   let rafToken = 0
+  let backgroundPreloadStarted = false
+  let backgroundPreloadCancelled = false
 
   const measureHostSize = () => {
     const rect = mediaHost.getBoundingClientRect()
@@ -180,36 +187,111 @@ export function createHeroScrollSequence({
   }
 
   const preloadAround = (index) => {
-    const ahead = 24
-    const behind = 6
-    const start = Math.max(0, index - behind)
-    const end = Math.min(frameCount - 1, index + ahead)
+    const start = Math.max(0, index - PRELOAD_BEHIND)
+    const end = Math.min(frameCount - 1, index + PRELOAD_AHEAD)
     for (let i = start; i <= end; i += 1) {
       preloadFrame(i)
     }
   }
 
-  const paintFrame = (index, reason = 'paint') => {
-    const url = getFrameUrl(index)
-    const img = images.get(url)
+  const findNearestLoadedIndex = (targetIndex) => {
+    const clamped = Math.max(0, Math.min(frameCount - 1, targetIndex))
+    if (images.has(getFrameUrl(clamped))) return clamped
 
-    if (!img) {
-      preloadFrame(index).then((loaded) => {
-        if (!loaded) return
-        if (requestedFrame === index) {
-          paintFrame(index, `${reason}-async`)
+    for (let distance = 1; distance < frameCount; distance += 1) {
+      const prev = clamped - distance
+      const next = clamped + distance
+      if (prev >= 0 && images.has(getFrameUrl(prev))) return prev
+      if (next < frameCount && images.has(getFrameUrl(next))) return next
+    }
+
+    return paintedFrame >= 0 ? paintedFrame : 0
+  }
+
+  const preloadRemainingBatches = async () => {
+    const batches = scrollConfig.batches || []
+    if (batches.length <= 2) {
+      const initialEnd =
+        batches.length === 0
+          ? -1
+          : Math.min(
+              frameCount - 1,
+              (batches[0]?.startIndex || 0) +
+                (batches[0]?.count || 0) +
+                (batches[1]?.count || 0) -
+                1
+            )
+      for (let i = Math.max(0, initialEnd + 1); i < frameCount; i += 1) {
+        if (backgroundPreloadCancelled) return
+        await preloadFrame(i)
+        if (i % BACKGROUND_PRELOAD_YIELD_EVERY === 0) {
+          await new Promise((resolve) => window.requestAnimationFrame(resolve))
+        }
+      }
+      return
+    }
+
+    for (let batchIndex = 2; batchIndex < batches.length; batchIndex += 1) {
+      if (backgroundPreloadCancelled) return
+      const batch = batches[batchIndex]
+      const start = Math.max(0, Math.floor(batch.startIndex || 0))
+      const end = Math.min(
+        frameCount - 1,
+        start + Math.max(0, Math.floor(batch.count || 0)) - 1
+      )
+      for (let i = start; i <= end; i += 1) {
+        if (backgroundPreloadCancelled) return
+        await preloadFrame(i)
+        if (i % BACKGROUND_PRELOAD_YIELD_EVERY === 0) {
+          await new Promise((resolve) => window.requestAnimationFrame(resolve))
+        }
+      }
+    }
+  }
+
+  const startBackgroundPreload = () => {
+    if (backgroundPreloadStarted || backgroundPreloadCancelled) return
+    backgroundPreloadStarted = true
+    afResizeLog('hero-scroll:background-preload-start', { frameCount })
+    preloadRemainingBatches()
+      .then(() => {
+        if (!backgroundPreloadCancelled) {
+          afResizeLog('hero-scroll:background-preload-done', { frameCount })
         }
       })
-      return false
+      .catch(() => {})
+  }
+
+  const paintFrame = (index, reason = 'paint') => {
+    const clamped = Math.max(0, Math.min(frameCount - 1, index))
+    let paintIndex = clamped
+    let url = getFrameUrl(paintIndex)
+    let img = images.get(url)
+
+    if (!img) {
+      paintIndex = findNearestLoadedIndex(clamped)
+      url = getFrameUrl(paintIndex)
+      img = images.get(url)
+      preloadFrame(clamped).then((loaded) => {
+        if (!loaded) return
+        if (requestedFrame === clamped) {
+          paintFrame(clamped, `${reason}-async`)
+        }
+      })
+      if (!img) return false
     }
 
     const painted = drawCoverImage(img, img.naturalWidth, img.naturalHeight)
     if (!painted) return false
 
-    paintedFrame = index
+    paintedFrame = paintIndex
     canvas.style.opacity = '1'
     canvas.style.visibility = 'visible'
-    afResizeLog('hero-scroll:paint', { reason, index })
+    afResizeLog('hero-scroll:paint', {
+      reason,
+      index: paintIndex,
+      requested: clamped,
+    })
     return true
   }
 
@@ -242,6 +324,11 @@ export function createHeroScrollSequence({
       return
     }
 
+    if (rafToken) {
+      window.cancelAnimationFrame(rafToken)
+      rafToken = 0
+    }
+    paintFrame(next, 'sync-nearest')
     schedulePaint()
   }
 
@@ -262,6 +349,7 @@ export function createHeroScrollSequence({
     setFrame(frame) {
       requestFrame(frame)
     },
+    startBackgroundPreload,
     show() {
       canvas.style.opacity = '1'
       canvas.style.visibility = 'visible'
@@ -325,6 +413,7 @@ export function createHeroScrollSequence({
       })
     },
     destroy() {
+      backgroundPreloadCancelled = true
       if (rafToken) {
         window.cancelAnimationFrame(rafToken)
         rafToken = 0

@@ -173,6 +173,8 @@ export function createHeroSequenceController(backgroundInner) {
         scrollFrames: scroll?.frameCount,
       })
 
+      scroll?.startBackgroundPreload?.()
+
       try {
         resizeObserver = new ResizeObserver(() => {
           if (mode === 'scroll' && scroll) {
@@ -226,6 +228,7 @@ export function createHeroSequenceController(backgroundInner) {
       if (!intro) return
       mode = 'intro'
       scroll?.hide()
+      scroll?.startBackgroundPreload?.()
       hidePosterOnce()
 
       const duration = intro.duration || 3.6

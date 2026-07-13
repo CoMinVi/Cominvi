@@ -197,23 +197,13 @@ function getBreakpoint() {
 function findMineralsCanvasComponent(scope) {
   if (!scope || !scope.querySelector) return null
 
-  const explicitSequence = scope.querySelector(
-    '.minerals-slider_sequence[fc-image-scrubbing="component"]'
-  )
-  if (explicitSequence?.querySelector('canvas')) return explicitSequence
+  // Home + Services : le scroll trigger doit rester sur le premier composant
+  // fc-image-scrubbing (souvent .minerals-stage, 270vh), pas sur la petite
+  // .minerals-slider_sequence externe de la home.
+  const component = scope.querySelector('[fc-image-scrubbing="component"]')
+  if (!component?.querySelector('canvas')) return null
 
-  for (const candidate of scope.querySelectorAll(
-    '[fc-image-scrubbing="component"]'
-  )) {
-    if (candidate.querySelector('canvas')) return candidate
-  }
-
-  const sequenceWithCanvas = scope
-    .querySelector('.minerals-slider_sequence canvas')
-    ?.closest('.minerals-slider_sequence')
-  if (sequenceWithCanvas) return sequenceWithCanvas
-
-  return null
+  return component
 }
 
 function findMineralsCanvas(component) {
@@ -223,25 +213,21 @@ function findMineralsCanvas(component) {
     '.minerals-slider_sequence[fc-image-scrubbing="component"]'
   )
   if (explicitHost) {
-    return (
-      explicitHost.querySelector('canvas:not([aria-hidden="true"])') ||
-      explicitHost.querySelector('canvas')
-    )
+    return explicitHost.querySelector('canvas')
   }
 
-  const sequenceCanvas = component.querySelector(
-    '.minerals-slider_sequence canvas:not([aria-hidden="true"])'
+  const inSlider = component.querySelector(
+    '.minerals-slider .minerals-slider_sequence canvas'
   )
-  if (sequenceCanvas) return sequenceCanvas
+  if (inSlider) return inSlider
 
-  return (
-    component.querySelector('canvas:not([aria-hidden="true"])') ||
-    component.querySelector('canvas')
-  )
+  return component.querySelector('canvas')
 }
 
-function ensureMineralsSliderVisible(component) {
-  const slider = component?.closest?.('.minerals-slider')
+function ensureMineralsSliderVisible(canvas) {
+  if (!canvas) return
+
+  const slider = canvas.closest('.minerals-slider')
   if (!slider) return
 
   const display = window.getComputedStyle(slider).display
@@ -257,8 +243,6 @@ export function initMineralsCanvas(root = document) {
     const scope = root && root.querySelector ? root : document
     const component = findMineralsCanvasComponent(scope)
     if (!component) return null
-
-    ensureMineralsSliderVisible(component)
 
     const getAttrFromComponentOrScope = (attrName) => {
       const own = component.getAttribute(attrName)

@@ -176,8 +176,11 @@ export function initMinerals(root = document) {
     const sliderImages = Array.from(
       section.querySelectorAll('.minerals-slider_img')
     )
-    const hasCanvasSequence = !!section.querySelector(
-      '.minerals-slider_sequence canvas'
+    const hasCanvasSequence = !!(
+      section.querySelector(
+        '.minerals-slider_sequence[fc-image-scrubbing="component"] canvas'
+      ) ||
+      section.querySelector('.minerals-slider .minerals-slider_sequence canvas')
     )
 
     if (hasCanvasSequence && sliderTrack) {

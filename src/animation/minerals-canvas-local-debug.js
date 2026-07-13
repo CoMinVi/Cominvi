@@ -138,6 +138,83 @@ function err() {
 }
 
 const DEFAULT_MINERALS_FORCE_IMAGES_ATTR = 'data-minerals-force-images'
+const MINERALS_CANVAS_ACTIVE_ATTR = 'data-minerals-canvas-active'
+const MINERALS_FORCE_IMAGES_QUERY = 'minerals-force-images'
+
+export function shouldForceMineralsImageFallback(scope = document) {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const queryValue = params.get(MINERALS_FORCE_IMAGES_QUERY)
+    if (queryValue === '1' || queryValue === 'true') return true
+    if (queryValue === '0' || queryValue === 'false') return false
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    const root = scope && scope.querySelector ? scope : document
+    const forced = root.querySelector(
+      `[fc-image-scrubbing="component"][${DEFAULT_MINERALS_FORCE_IMAGES_ATTR}="true"]`
+    )
+    return !!forced
+  } catch (e) {
+    return false
+  }
+}
+
+function activateMineralsCanvasVisuals(component) {
+  if (!component) return
+
+  component.setAttribute(MINERALS_CANVAS_ACTIVE_ATTR, 'true')
+  component.hidden = false
+  component.removeAttribute('hidden')
+  component.setAttribute('aria-hidden', 'false')
+  try {
+    component.style.setProperty('display', 'flex', 'important')
+    component.style.setProperty('visibility', 'visible', 'important')
+    component.style.setProperty('opacity', '1', 'important')
+  } catch (e) {
+    component.style.display = 'flex'
+    component.style.visibility = 'visible'
+    component.style.opacity = '1'
+  }
+
+  const content = component.closest('.minerals_content')
+  if (content) {
+    content.setAttribute(MINERALS_CANVAS_ACTIVE_ATTR, 'true')
+  }
+
+  const slider = content?.querySelector('.minerals-slider')
+  if (slider) {
+    slider.setAttribute('aria-hidden', 'true')
+    slider.hidden = true
+  }
+}
+
+function deactivateMineralsCanvasVisuals(component) {
+  if (!component) return
+
+  component.removeAttribute(MINERALS_CANVAS_ACTIVE_ATTR)
+  component.removeAttribute('aria-hidden')
+  try {
+    component.style.removeProperty('display')
+    component.style.removeProperty('visibility')
+    component.style.removeProperty('opacity')
+  } catch (e) {
+    // ignore
+  }
+
+  const content = component.closest('.minerals_content')
+  if (content) {
+    content.removeAttribute(MINERALS_CANVAS_ACTIVE_ATTR)
+  }
+
+  const slider = content?.querySelector('.minerals-slider')
+  if (slider) {
+    slider.removeAttribute('aria-hidden')
+    slider.hidden = false
+  }
+}
 
 function parseImageUrls(raw) {
   return String(raw || '')
@@ -251,6 +328,10 @@ export function initMineralsCanvas(root = document) {
     const component = scope.querySelector('[fc-image-scrubbing="component"]')
     if (!component) return null
 
+    if (shouldForceMineralsImageFallback(scope)) {
+      component.setAttribute(DEFAULT_MINERALS_FORCE_IMAGES_ATTR, 'true')
+    }
+
     const bp = getBreakpoint()
     const afUrl = DEFAULT_MINERALS_AF_PATH
     const forceImageFallback =
@@ -282,6 +363,8 @@ export function initMineralsCanvas(root = document) {
     if (typeof component.__mineralsCanvasCleanup === 'function') {
       component.__mineralsCanvasCleanup()
     }
+
+    activateMineralsCanvasVisuals(component)
 
     const fit = {
       base: component.getAttribute('fc-image-scrubbing-fit') || 'contain',
@@ -460,6 +543,7 @@ export function initMineralsCanvas(root = document) {
 
       const cleanup = () => {
         destroyed = true
+        deactivateMineralsCanvasVisuals(component)
         if (rafToken) {
           window.cancelAnimationFrame(rafToken)
           rafToken = 0
@@ -491,6 +575,7 @@ export function initMineralsCanvas(root = document) {
 
     if (!urls.length) {
       err('Aucune source de sequence (ni .af ni images).')
+      deactivateMineralsCanvasVisuals(component)
       return null
     }
 
@@ -1059,6 +1144,7 @@ export function initMineralsCanvas(root = document) {
 
     const cleanup = () => {
       destroyed = true
+      deactivateMineralsCanvasVisuals(component)
       pendingQueue.length = 0
       try {
         if (tween && typeof tween.kill === 'function') tween.kill()

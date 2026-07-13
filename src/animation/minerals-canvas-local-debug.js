@@ -162,6 +162,64 @@ export function shouldForceMineralsImageFallback(scope = document) {
   }
 }
 
+function hideStaticMineralsSlider(content) {
+  if (!content) return
+
+  const slider = content.querySelector('.minerals-slider')
+  if (!slider) return
+
+  slider.setAttribute('aria-hidden', 'true')
+  slider.hidden = true
+  try {
+    slider.style.setProperty('display', 'none', 'important')
+    slider.style.setProperty('visibility', 'hidden', 'important')
+  } catch (e) {
+    slider.style.display = 'none'
+    slider.style.visibility = 'hidden'
+  }
+}
+
+export function ensureMineralsCanvasComponent(scope = document) {
+  if (!isAllowedPage(scope)) return null
+
+  const root = scope && scope.querySelector ? scope : document
+  const content =
+    root.querySelector('.section_minerals .minerals_content') ||
+    root.querySelector('.minerals_content')
+  if (!content) return null
+
+  hideStaticMineralsSlider(content)
+
+  let component = content.querySelector('[fc-image-scrubbing="component"]')
+  if (component) return component
+
+  component = document.createElement('div')
+  component.className = 'minerals-slider_sequence'
+  component.setAttribute('fc-image-scrubbing', 'component')
+  component.setAttribute(
+    'fc-image-scrubbing-total-frames',
+    String(DEFAULT_MINERALS_TOTAL_FRAMES)
+  )
+  component.setAttribute('fc-image-scrubbing-fps', '24')
+  component.setAttribute('fc-image-scrubbing-fit', 'contain')
+  component.setAttribute('fc-image-scrubbing-start-point', 'top top')
+  component.setAttribute('fc-image-scrubbing-end-point', 'bottom bottom')
+
+  const canvas = document.createElement('canvas')
+  canvas.className = 'minerals_canvas'
+  canvas.setAttribute('aria-hidden', 'true')
+  component.appendChild(canvas)
+
+  const slider = content.querySelector('.minerals-slider')
+  if (slider) {
+    content.insertBefore(component, slider)
+  } else {
+    content.appendChild(component)
+  }
+
+  return component
+}
+
 function activateMineralsCanvasVisuals(component) {
   if (!component) return
 
@@ -182,12 +240,7 @@ function activateMineralsCanvasVisuals(component) {
   const content = component.closest('.minerals_content')
   if (content) {
     content.setAttribute(MINERALS_CANVAS_ACTIVE_ATTR, 'true')
-  }
-
-  const slider = content?.querySelector('.minerals-slider')
-  if (slider) {
-    slider.setAttribute('aria-hidden', 'true')
-    slider.hidden = true
+    hideStaticMineralsSlider(content)
   }
 }
 
@@ -207,12 +260,7 @@ function deactivateMineralsCanvasVisuals(component) {
   const content = component.closest('.minerals_content')
   if (content) {
     content.removeAttribute(MINERALS_CANVAS_ACTIVE_ATTR)
-  }
-
-  const slider = content?.querySelector('.minerals-slider')
-  if (slider) {
-    slider.removeAttribute('aria-hidden')
-    slider.hidden = false
+    hideStaticMineralsSlider(content)
   }
 }
 
@@ -234,9 +282,7 @@ function buildMineralsLocalUrls(totalFrames = DEFAULT_MINERALS_TOTAL_FRAMES) {
   const total = Math.max(1, Math.floor(totalFrames || 0))
   const urls = []
   for (let frame = 1; frame <= total; frame += 1) {
-    urls.push(
-      `/minerals/minerals-${formatMineralsFrameFilename(frame)}.avif`
-    )
+    urls.push(`/minerals/minerals-${formatMineralsFrameFilename(frame)}.avif`)
   }
   return urls
 }
@@ -327,7 +373,7 @@ export function initMineralsCanvas(root = document) {
     if (!isAllowedPage(root)) return null
 
     const scope = root && root.querySelector ? root : document
-    const component = scope.querySelector('[fc-image-scrubbing="component"]')
+    const component = ensureMineralsCanvasComponent(scope)
     if (!component) return null
 
     if (shouldForceMineralsImageFallback(scope)) {
@@ -345,7 +391,9 @@ export function initMineralsCanvas(root = document) {
       'EncodedVideoChunk' in window
     const shouldUseAf = !!afUrl && hasWebCodecs && !forceImageFallback
 
-    const urls = shouldUseAf ? [] : resolveMineralsImageUrls(component, scope, bp)
+    const urls = shouldUseAf
+      ? []
+      : resolveMineralsImageUrls(component, scope, bp)
 
     const canvas = component.querySelector('canvas')
     if (!canvas) {

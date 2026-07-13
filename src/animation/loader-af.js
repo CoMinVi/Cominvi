@@ -8,6 +8,7 @@ import { isSafariBrowser } from '../app/safari-detect.js'
 import { initContactHero } from './contact-hero.js'
 import {
   HOME_HERO_MANIFEST_URL,
+  getScrollFrameUrl,
   loadHeroManifest,
   pickHeroVariant,
   resolveHeroAssetUrl,
@@ -673,12 +674,27 @@ export function prefetchHomeSequenceBinary() {
     loadHeroManifest()
       .then((manifest) => {
         const variant = pickHeroVariant(manifest)
-        if (!variant?.intro?.mp4) return
-        preloadAsset(
-          resolveHeroAssetUrl(variant.intro.mp4),
-          'fetch',
-          'data-cominvi-hero-intro-preload'
-        )
+        if (variant?.intro?.mp4) {
+          preloadAsset(
+            resolveHeroAssetUrl(variant.intro.mp4),
+            'fetch',
+            'data-cominvi-hero-intro-preload'
+          )
+        }
+
+        const scrollConfig = variant?.scroll
+        const indexPad = manifest?.scroll?.indexPad || 5
+        const firstBatchCount = scrollConfig?.batches?.[0]?.count || 8
+        const prefetchCount = Math.min(8, Math.max(1, firstBatchCount))
+        for (let index = 0; index < prefetchCount; index += 1) {
+          const href = getScrollFrameUrl(scrollConfig, index, indexPad)
+          if (!href) continue
+          preloadAsset(
+            href,
+            'image',
+            `data-cominvi-hero-scroll-preload-${index}`
+          )
+        }
       })
       .catch(() => {})
 

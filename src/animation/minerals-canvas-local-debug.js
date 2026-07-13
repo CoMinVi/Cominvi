@@ -137,85 +137,6 @@ function err() {
   // Error logging removed
 }
 
-const DEFAULT_MINERALS_FORCE_IMAGES_ATTR = 'data-minerals-force-images'
-const MINERALS_CANVAS_ACTIVE_ATTR = 'data-minerals-canvas-active'
-const MINERALS_FORCE_IMAGES_QUERY = 'minerals-force-images'
-
-export function shouldForceMineralsImageFallback(scope = document) {
-  try {
-    const params = new URLSearchParams(window.location.search)
-    const queryValue = params.get(MINERALS_FORCE_IMAGES_QUERY)
-    if (queryValue === '1' || queryValue === 'true') return true
-    if (queryValue === '0' || queryValue === 'false') return false
-  } catch (e) {
-    // ignore
-  }
-
-  try {
-    const root = scope && scope.querySelector ? scope : document
-    const forced = root.querySelector(
-      `[fc-image-scrubbing="component"][${DEFAULT_MINERALS_FORCE_IMAGES_ATTR}="true"]`
-    )
-    return !!forced
-  } catch (e) {
-    return false
-  }
-}
-
-function activateMineralsCanvasVisuals(component) {
-  if (!component) return
-
-  component.setAttribute(MINERALS_CANVAS_ACTIVE_ATTR, 'true')
-  component.hidden = false
-  component.removeAttribute('hidden')
-  component.setAttribute('aria-hidden', 'false')
-  try {
-    component.style.setProperty('display', 'flex', 'important')
-    component.style.setProperty('visibility', 'visible', 'important')
-    component.style.setProperty('opacity', '1', 'important')
-  } catch (e) {
-    component.style.display = 'flex'
-    component.style.visibility = 'visible'
-    component.style.opacity = '1'
-  }
-
-  const content = component.closest('.minerals_content')
-  if (content) {
-    content.setAttribute(MINERALS_CANVAS_ACTIVE_ATTR, 'true')
-  }
-
-  const slider = content?.querySelector('.minerals-slider')
-  if (slider) {
-    slider.setAttribute('aria-hidden', 'true')
-    slider.hidden = true
-  }
-}
-
-function deactivateMineralsCanvasVisuals(component) {
-  if (!component) return
-
-  component.removeAttribute(MINERALS_CANVAS_ACTIVE_ATTR)
-  component.removeAttribute('aria-hidden')
-  try {
-    component.style.removeProperty('display')
-    component.style.removeProperty('visibility')
-    component.style.removeProperty('opacity')
-  } catch (e) {
-    // ignore
-  }
-
-  const content = component.closest('.minerals_content')
-  if (content) {
-    content.removeAttribute(MINERALS_CANVAS_ACTIVE_ATTR)
-  }
-
-  const slider = content?.querySelector('.minerals-slider')
-  if (slider) {
-    slider.removeAttribute('aria-hidden')
-    slider.hidden = false
-  }
-}
-
 function parseImageUrls(raw) {
   return String(raw || '')
     .split(';')
@@ -223,65 +144,15 @@ function parseImageUrls(raw) {
     .filter(Boolean)
 }
 
-export function formatMineralsFrameFilename(frame) {
-  const index = Math.max(1, Math.floor(frame || 1))
-  if (index < 10) return String(index).padStart(4, '0')
-  if (index < 100) return String(index).padStart(5, '0')
-  return String(index).padStart(6, '0')
-}
-
 function buildMineralsLocalUrls(totalFrames = DEFAULT_MINERALS_TOTAL_FRAMES) {
   const total = Math.max(1, Math.floor(totalFrames || 0))
   const urls = []
   for (let frame = 1; frame <= total; frame += 1) {
-    urls.push(`/minerals/minerals-${formatMineralsFrameFilename(frame)}.avif`)
-  }
-  return urls
-}
-
-function getAttrFromComponentOrScope(component, scope, attrName) {
-  const own = component.getAttribute(attrName)
-  if (own) return own
-  const holder = scope.querySelector(`[${attrName}]`)
-  return holder ? holder.getAttribute(attrName) : ''
-}
-
-function resolveMineralsImageUrls(component, scope, bp) {
-  const responsiveUrls = {
-    desktop: getAttrFromComponentOrScope(
-      component,
-      scope,
-      'fc-image-scrubbing-urls-desktop'
-    ),
-    tablet: getAttrFromComponentOrScope(
-      component,
-      scope,
-      'fc-image-scrubbing-urls-tablet'
-    ),
-    mobile: getAttrFromComponentOrScope(
-      component,
-      scope,
-      'fc-image-scrubbing-urls-mobile'
-    ),
-  }
-  const baseUrls = getAttrFromComponentOrScope(
-    component,
-    scope,
-    'fc-image-scrubbing-urls'
-  )
-  let urls = parseImageUrls(
-    responsiveUrls[bp] ||
-      responsiveUrls.desktop ||
-      responsiveUrls.tablet ||
-      responsiveUrls.mobile ||
-      baseUrls
-  )
-  if (!urls.length) {
-    const fallbackFrameCount = parsePositiveInt(
-      component.getAttribute('fc-image-scrubbing-total-frames'),
-      DEFAULT_MINERALS_TOTAL_FRAMES
-    )
-    urls = buildMineralsLocalUrls(fallbackFrameCount)
+    const padded =
+      frame < 10
+        ? String(frame).padStart(4, '0')
+        : String(frame).padStart(5, '0')
+    urls.push(`/minerals/minerals-${padded}.avif`)
   }
   return urls
 }
@@ -320,32 +191,106 @@ function getBreakpoint() {
   return 'desktop'
 }
 
+export function findMineralsCanvasComponent(scope = document) {
+  const root = scope && scope.querySelector ? scope : document
+  const content = root.querySelector('.minerals_content')
+  if (!content) return null
+
+  const configured = content.querySelector(
+    ':scope > .minerals-slider_sequence[fc-image-scrubbing-total-frames], :scope > .minerals-slider_sequence[fc-image-scrubbing="component"]'
+  )
+  if (configured?.querySelector('canvas')) return configured
+
+  for (const sequence of content.querySelectorAll(
+    '.minerals-slider_sequence'
+  )) {
+    if (sequence.querySelector('canvas')) return sequence
+  }
+
+  return null
+}
+
+function hideStaticMineralsSliderInner(content) {
+  if (!content) return
+
+  content.querySelectorAll('.minerals-slider_inner').forEach((inner) => {
+    inner.setAttribute('aria-hidden', 'true')
+    try {
+      inner.style.setProperty('display', 'none', 'important')
+    } catch (e) {
+      inner.style.display = 'none'
+    }
+  })
+}
+
+function ensureMineralsCanvasHostVisible(component) {
+  if (!component) return
+
+  hideStaticMineralsSliderInner(component.closest('.minerals_content'))
+
+  const slider = component.closest('.minerals-slider')
+  if (!slider) return
+
+  try {
+    if (getComputedStyle(slider).display === 'none') {
+      slider.style.setProperty('display', 'flex', 'important')
+    }
+    slider.removeAttribute('hidden')
+    slider.setAttribute('aria-hidden', 'false')
+  } catch (e) {
+    slider.style.display = 'flex'
+  }
+}
+
 export function initMineralsCanvas(root = document) {
   try {
     if (!isAllowedPage(root)) return null
 
     const scope = root && root.querySelector ? root : document
-    const component = scope.querySelector('[fc-image-scrubbing="component"]')
+    const component = findMineralsCanvasComponent(scope)
     if (!component) return null
 
-    if (shouldForceMineralsImageFallback(scope)) {
-      component.setAttribute(DEFAULT_MINERALS_FORCE_IMAGES_ATTR, 'true')
+    ensureMineralsCanvasHostVisible(component)
+
+    const getAttrFromComponentOrScope = (attrName) => {
+      const own = component.getAttribute(attrName)
+      if (own) return own
+      const holder = scope.querySelector(`[${attrName}]`)
+      return holder ? holder.getAttribute(attrName) : ''
     }
 
     const bp = getBreakpoint()
     const afUrl = DEFAULT_MINERALS_AF_PATH
-    const forceImageFallback =
-      component.getAttribute(DEFAULT_MINERALS_FORCE_IMAGES_ATTR) === 'true'
 
     const hasWebCodecs =
       typeof window !== 'undefined' &&
       'VideoDecoder' in window &&
       'EncodedVideoChunk' in window
-    const shouldUseAf = !!afUrl && hasWebCodecs && !forceImageFallback
+    const shouldUseAf = !!afUrl && hasWebCodecs
 
-    const urls = shouldUseAf
-      ? []
-      : resolveMineralsImageUrls(component, scope, bp)
+    let urls = []
+    if (!shouldUseAf) {
+      const responsiveUrls = {
+        desktop: getAttrFromComponentOrScope('fc-image-scrubbing-urls-desktop'),
+        tablet: getAttrFromComponentOrScope('fc-image-scrubbing-urls-tablet'),
+        mobile: getAttrFromComponentOrScope('fc-image-scrubbing-urls-mobile'),
+      }
+      const baseUrls = getAttrFromComponentOrScope('fc-image-scrubbing-urls')
+      urls = parseImageUrls(
+        responsiveUrls[bp] ||
+          responsiveUrls.desktop ||
+          responsiveUrls.tablet ||
+          responsiveUrls.mobile ||
+          baseUrls
+      )
+      if (!urls.length) {
+        const fallbackFrameCount = parsePositiveInt(
+          component.getAttribute('fc-image-scrubbing-total-frames'),
+          DEFAULT_MINERALS_TOTAL_FRAMES
+        )
+        urls = buildMineralsLocalUrls(fallbackFrameCount)
+      }
+    }
 
     const canvas = component.querySelector('canvas')
     if (!canvas) {
@@ -363,8 +308,6 @@ export function initMineralsCanvas(root = document) {
     if (typeof component.__mineralsCanvasCleanup === 'function') {
       component.__mineralsCanvasCleanup()
     }
-
-    activateMineralsCanvasVisuals(component)
 
     const fit = {
       base: component.getAttribute('fc-image-scrubbing-fit') || 'contain',
@@ -497,13 +440,13 @@ export function initMineralsCanvas(root = document) {
           requestFrame(0)
         })
         .catch((error) => {
-          if (destroyed) return
-          err('Echec chargement .af, bascule vers fallback images', {
-            afUrl,
-            error,
-          })
-          component.setAttribute(DEFAULT_MINERALS_FORCE_IMAGES_ATTR, 'true')
-          initMineralsCanvas(root)
+          err(
+            'Echec chargement .af, fallback image possible via force-images',
+            {
+              afUrl,
+              error,
+            }
+          )
         })
 
       const onResize = () => {
@@ -543,7 +486,6 @@ export function initMineralsCanvas(root = document) {
 
       const cleanup = () => {
         destroyed = true
-        deactivateMineralsCanvasVisuals(component)
         if (rafToken) {
           window.cancelAnimationFrame(rafToken)
           rafToken = 0
@@ -575,7 +517,6 @@ export function initMineralsCanvas(root = document) {
 
     if (!urls.length) {
       err('Aucune source de sequence (ni .af ni images).')
-      deactivateMineralsCanvasVisuals(component)
       return null
     }
 
@@ -1144,7 +1085,6 @@ export function initMineralsCanvas(root = document) {
 
     const cleanup = () => {
       destroyed = true
-      deactivateMineralsCanvasVisuals(component)
       pendingQueue.length = 0
       try {
         if (tween && typeof tween.kill === 'function') tween.kill()

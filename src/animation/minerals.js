@@ -262,12 +262,12 @@ export function initMinerals(root = document) {
     const eyebrowSliders = Array.from(
       section.querySelectorAll('.eyebrow-slider')
     )
+    const hasCanvasSequence = !!section.querySelector(
+      '.minerals_content .minerals-slider_sequence canvas'
+    )
     const sliderTrack = section.querySelector('.minerals-slider_inner')
     const sliderImages = Array.from(
       section.querySelectorAll('.minerals-slider_img')
-    )
-    const hasCanvasSequence = !!section.querySelector(
-      '[fc-image-scrubbing="component"]'
     )
 
     const setActiveNameIndex = (activeIndex) => {

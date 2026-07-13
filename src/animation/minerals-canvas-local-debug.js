@@ -2,6 +2,7 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 import { ActiveFrame } from './active-frame-player.js'
+import { buildMineralsLocalUrls } from './minerals-frame-urls.js'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -140,26 +141,6 @@ function err(...args) {
   console.error(LOG, ...args)
 }
 
-function parseImageUrls(raw) {
-  return String(raw || '')
-    .split(';')
-    .map((value) => value.trim())
-    .filter(Boolean)
-}
-
-function buildMineralsLocalUrls(totalFrames = DEFAULT_MINERALS_TOTAL_FRAMES) {
-  const total = Math.max(1, Math.floor(totalFrames || 0))
-  const urls = []
-  for (let frame = 1; frame <= total; frame += 1) {
-    const padded =
-      frame < 10
-        ? String(frame).padStart(4, '0')
-        : String(frame).padStart(5, '0')
-    urls.push(`/minerals/minerals-${padded}.avif`)
-  }
-  return urls
-}
-
 function parsePositiveInt(raw, fallback) {
   const n = parseInt(String(raw || ''), 10)
   if (!Number.isFinite(n) || n <= 0) return fallback
@@ -220,26 +201,11 @@ export function initMineralsCanvas(root = document) {
 
     let urls = []
     if (!shouldUseAf) {
-      const responsiveUrls = {
-        desktop: getAttrFromComponentOrScope('fc-image-scrubbing-urls-desktop'),
-        tablet: getAttrFromComponentOrScope('fc-image-scrubbing-urls-tablet'),
-        mobile: getAttrFromComponentOrScope('fc-image-scrubbing-urls-mobile'),
-      }
-      const baseUrls = getAttrFromComponentOrScope('fc-image-scrubbing-urls')
-      urls = parseImageUrls(
-        responsiveUrls[bp] ||
-          responsiveUrls.desktop ||
-          responsiveUrls.tablet ||
-          responsiveUrls.mobile ||
-          baseUrls
+      const fallbackFrameCount = parsePositiveInt(
+        getAttrFromComponentOrScope('fc-image-scrubbing-total-frames'),
+        DEFAULT_MINERALS_TOTAL_FRAMES
       )
-      if (!urls.length) {
-        const fallbackFrameCount = parsePositiveInt(
-          component.getAttribute('fc-image-scrubbing-total-frames'),
-          DEFAULT_MINERALS_TOTAL_FRAMES
-        )
-        urls = buildMineralsLocalUrls(fallbackFrameCount)
-      }
+      urls = buildMineralsLocalUrls(fallbackFrameCount)
     }
 
     const canvas = component.querySelector('canvas')

@@ -194,13 +194,71 @@ function getBreakpoint() {
   return 'desktop'
 }
 
+function findMineralsCanvasComponent(scope) {
+  if (!scope || !scope.querySelector) return null
+
+  const explicitSequence = scope.querySelector(
+    '.minerals-slider_sequence[fc-image-scrubbing="component"]'
+  )
+  if (explicitSequence?.querySelector('canvas')) return explicitSequence
+
+  for (const candidate of scope.querySelectorAll(
+    '[fc-image-scrubbing="component"]'
+  )) {
+    if (candidate.querySelector('canvas')) return candidate
+  }
+
+  const sequenceWithCanvas = scope
+    .querySelector('.minerals-slider_sequence canvas')
+    ?.closest('.minerals-slider_sequence')
+  if (sequenceWithCanvas) return sequenceWithCanvas
+
+  return null
+}
+
+function findMineralsCanvas(component) {
+  if (!component) return null
+
+  const explicitHost = component.querySelector(
+    '.minerals-slider_sequence[fc-image-scrubbing="component"]'
+  )
+  if (explicitHost) {
+    return (
+      explicitHost.querySelector('canvas:not([aria-hidden="true"])') ||
+      explicitHost.querySelector('canvas')
+    )
+  }
+
+  const sequenceCanvas = component.querySelector(
+    '.minerals-slider_sequence canvas:not([aria-hidden="true"])'
+  )
+  if (sequenceCanvas) return sequenceCanvas
+
+  return (
+    component.querySelector('canvas:not([aria-hidden="true"])') ||
+    component.querySelector('canvas')
+  )
+}
+
+function ensureMineralsSliderVisible(component) {
+  const slider = component?.closest?.('.minerals-slider')
+  if (!slider) return
+
+  const display = window.getComputedStyle(slider).display
+  if (display === 'none') {
+    slider.style.display = 'flex'
+  }
+}
+
 export function initMineralsCanvas(root = document) {
   try {
     if (!isAllowedPage(root)) return null
 
     const scope = root && root.querySelector ? root : document
-    const component = scope.querySelector('[fc-image-scrubbing="component"]')
+    const component = findMineralsCanvasComponent(scope)
     if (!component) return null
+
+    ensureMineralsSliderVisible(component)
 
     const getAttrFromComponentOrScope = (attrName) => {
       const own = component.getAttribute(attrName)
@@ -242,11 +300,13 @@ export function initMineralsCanvas(root = document) {
       }
     }
 
-    const canvas = component.querySelector('canvas')
+    const canvas = findMineralsCanvas(component)
     if (!canvas) {
       err('Canvas introuvable dans le composant.')
       return null
     }
+
+    ensureMineralsSliderVisible(canvas)
 
     const ctx = canvas.getContext('2d')
     if (!ctx) {

@@ -139,11 +139,45 @@ function err() {
 
 const DEFAULT_MINERALS_FORCE_IMAGES_ATTR = 'data-minerals-force-images'
 const MINERALS_CANVAS_ACTIVE_ATTR = 'data-minerals-canvas-active'
+const MINERALS_FORCE_IMAGES_QUERY = 'minerals-force-images'
+
+export function shouldForceMineralsImageFallback(scope = document) {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const queryValue = params.get(MINERALS_FORCE_IMAGES_QUERY)
+    if (queryValue === '1' || queryValue === 'true') return true
+    if (queryValue === '0' || queryValue === 'false') return false
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    const root = scope && scope.querySelector ? scope : document
+    const forced = root.querySelector(
+      `[fc-image-scrubbing="component"][${DEFAULT_MINERALS_FORCE_IMAGES_ATTR}="true"]`
+    )
+    return !!forced
+  } catch (e) {
+    return false
+  }
+}
 
 function activateMineralsCanvasVisuals(component) {
   if (!component) return
 
   component.setAttribute(MINERALS_CANVAS_ACTIVE_ATTR, 'true')
+  component.hidden = false
+  component.removeAttribute('hidden')
+  component.setAttribute('aria-hidden', 'false')
+  try {
+    component.style.setProperty('display', 'flex', 'important')
+    component.style.setProperty('visibility', 'visible', 'important')
+    component.style.setProperty('opacity', '1', 'important')
+  } catch (e) {
+    component.style.display = 'flex'
+    component.style.visibility = 'visible'
+    component.style.opacity = '1'
+  }
 
   const content = component.closest('.minerals_content')
   if (content) {
@@ -161,6 +195,14 @@ function deactivateMineralsCanvasVisuals(component) {
   if (!component) return
 
   component.removeAttribute(MINERALS_CANVAS_ACTIVE_ATTR)
+  component.removeAttribute('aria-hidden')
+  try {
+    component.style.removeProperty('display')
+    component.style.removeProperty('visibility')
+    component.style.removeProperty('opacity')
+  } catch (e) {
+    // ignore
+  }
 
   const content = component.closest('.minerals_content')
   if (content) {
@@ -287,6 +329,10 @@ export function initMineralsCanvas(root = document) {
     const scope = root && root.querySelector ? root : document
     const component = scope.querySelector('[fc-image-scrubbing="component"]')
     if (!component) return null
+
+    if (shouldForceMineralsImageFallback(scope)) {
+      component.setAttribute(DEFAULT_MINERALS_FORCE_IMAGES_ATTR, 'true')
+    }
 
     const bp = getBreakpoint()
     const afUrl = DEFAULT_MINERALS_AF_PATH

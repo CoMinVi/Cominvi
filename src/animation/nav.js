@@ -136,6 +136,47 @@ export function initializeMenuClick(options = {}, root = document) {
     return menuTheme
   }
 
+  const releaseMenuIconInlineColorLocks = () => {
+    try {
+      if (menuIconElement?.style) {
+        menuIconElement.style.removeProperty('background-color')
+        menuIconElement.style.removeProperty('border-color')
+        menuIconElement.style.removeProperty('transition')
+      }
+      if (menuIconBars?.length) {
+        menuIconBars.forEach((el) => {
+          try {
+            if (el?.style) {
+              el.style.removeProperty('background-color')
+              el.style.removeProperty('transition')
+            }
+          } catch (e) {
+            // ignore
+          }
+        })
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const applyMenuIconClosedThemeColors = (theme = {}) => {
+    releaseMenuIconInlineColorLocks()
+    if (menuIconElement) {
+      gsap.set(menuIconElement, {
+        backgroundColor: theme.menuIconBg,
+        borderColor: theme.menuIconBorder,
+        overwrite: 'auto',
+      })
+    }
+    if (menuIconBars?.length) {
+      gsap.set(menuIconBars, {
+        backgroundColor: theme.menuIconBarsBg,
+        overwrite: 'auto',
+      })
+    }
+  }
+
   // Hover: form a "+" when menu is closed; on click it rotates into an "X"
   // Ensures no conflict when the menu is open or during page transitions
   const hoverEase = CustomEase.create('custom', 'M0,0 C0.68,0 0,1 1,1 ')
@@ -299,37 +340,10 @@ export function initializeMenuClick(options = {}, root = document) {
       const key = (window.__theme && window.__theme.currentKey) || 'white'
       const getFor = window.__theme && window.__theme.getThemeFor
       const t = getFor ? getFor(key) : {}
-      if (menuIconElement) {
-        gsap.set(menuIconElement, {
-          backgroundColor: t.menuIconBg,
-          borderColor: t.menuIconBorder,
-          overwrite: 'auto',
-        })
-      }
-      if (menuIconBars && menuIconBars.length) {
-        gsap.set(menuIconBars, {
-          backgroundColor: t.menuIconBarsBg,
-          overwrite: 'auto',
-        })
-      }
+      applyMenuIconClosedThemeColors(t)
 
       if (menuIconElement && menuIconElement.dataset)
         delete menuIconElement.dataset.bgLocked
-      // Only remove transition to end the hover lock; keep computed colors
-      if (menuIconElement && menuIconElement.style) {
-        menuIconElement.style.removeProperty('transition')
-      }
-      if (menuIconBars && menuIconBars.length) {
-        menuIconBars.forEach((el) => {
-          try {
-            if (el && el.style) {
-              el.style.removeProperty('transition')
-            }
-          } catch (e) {
-            // ignore
-          }
-        })
-      }
     } catch (e) {
       // ignore
     }
@@ -436,6 +450,7 @@ export function initializeMenuClick(options = {}, root = document) {
           : {}
       if (menuIconElement) {
         if (menuIconElement.dataset) delete menuIconElement.dataset.bgLocked
+        releaseMenuIconInlineColorLocks()
         gsap.set(menuIconElement, {
           gap: '5px',
           rotation: 0,
@@ -444,11 +459,6 @@ export function initializeMenuClick(options = {}, root = document) {
           borderColor: theme.menuIconBorder,
           overwrite: 'auto',
         })
-        try {
-          menuIconElement.style.removeProperty('transition')
-        } catch (e) {
-          // ignore
-        }
       }
       if (menuIconBar1) {
         gsap.set(menuIconBar1, {
@@ -473,7 +483,7 @@ export function initializeMenuClick(options = {}, root = document) {
         })
         menuIconBars.forEach((el) => {
           try {
-            el.style.removeProperty('transition')
+            if (el?.style) el.style.removeProperty('transition')
           } catch (e) {
             // ignore
           }
@@ -893,6 +903,17 @@ export function initializeMenuClick(options = {}, root = document) {
         }
         // Recalc and resize only when closing (avoid jump at end of opening)
         if (!isOpen) {
+          try {
+            const targetKey =
+              (window.__theme && window.__theme.storedKey) || 'white'
+            const theme =
+              window.__theme && window.__theme.getThemeFor
+                ? window.__theme.getThemeFor(targetKey)
+                : {}
+            applyMenuIconClosedThemeColors(theme)
+          } catch (e) {
+            // ignore
+          }
           // Restore body background after close animation completes
           try {
             gsap.set(document.body, { backgroundColor: 'var(--primary)' })
@@ -1002,19 +1023,7 @@ export function initializeMenuClick(options = {}, root = document) {
                 window.__theme && window.__theme.getThemeFor
                   ? window.__theme.getThemeFor(targetKey)
                   : {}
-              if (menuIconElement) {
-                gsap.set(menuIconElement, {
-                  backgroundColor: theme.menuIconBg,
-                  borderColor: theme.menuIconBorder,
-                  overwrite: 'auto',
-                })
-              }
-              if (menuIconBars && menuIconBars.length) {
-                gsap.set(menuIconBars, {
-                  backgroundColor: theme.menuIconBarsBg,
-                  overwrite: 'auto',
-                })
-              }
+              applyMenuIconClosedThemeColors(theme)
             } catch (e) {
               // ignore
             }
@@ -1161,15 +1170,14 @@ export function initializeMenuClick(options = {}, root = document) {
         // Unlock and clean transition flag but keep colors so they finish at target theme
         if (menuIconElement && menuIconElement.dataset)
           delete menuIconElement.dataset.bgLocked
-        if (menuIconElement && menuIconElement.style) {
+        releaseMenuIconInlineColorLocks()
+        if (menuIconElement?.style) {
           menuIconElement.style.removeProperty('transition')
         }
-        if (menuIconBars && menuIconBars.length) {
+        if (menuIconBars?.length) {
           menuIconBars.forEach((el) => {
             try {
-              if (el && el.style) {
-                el.style.removeProperty('transition')
-              }
+              if (el?.style) el.style.removeProperty('transition')
             } catch (e) {
               // ignore
             }

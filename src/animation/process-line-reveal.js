@@ -7,7 +7,7 @@ const clamp01 = (value) => Math.max(0, Math.min(1, value))
 const roundOpacity = (value) => Math.round(value * 10000) / 10000
 
 export function shouldUseProcessLineReveal(viewportWidth) {
-  return Number.isFinite(viewportWidth) && viewportWidth <= 767
+  return Number.isFinite(viewportWidth) && viewportWidth < 767
 }
 
 export function getProcessLineRevealOpacity(

@@ -528,6 +528,10 @@ export function initTextReveal(root = document) {
 }
 
 export function destroyTextReveal(root = document) {
+  if (__textRevealResizeTimeout) {
+    clearTimeout(__textRevealResizeTimeout)
+    __textRevealResizeTimeout = null
+  }
   const targets = root.querySelectorAll('[tr="1"]')
   targets.forEach((el) => {
     try {
@@ -638,9 +642,13 @@ export function destroyTextReveal(root = document) {
         const eyebrowNodes = proc.querySelectorAll(EYEBROW_SELECTOR)
         eyebrowNodes.forEach((ey) => {
           ey.style.opacity = ''
+          ey.style.willChange = ''
         })
         const inner = proc.querySelector('.process_inner')
-        if (inner) inner.style.borderBottomColor = ''
+        if (inner) {
+          inner.style.borderBottomColor = ''
+          inner.style.borderBottom = ''
+        }
       } catch (e) {
         // ignore
       }
@@ -661,6 +669,9 @@ export function destroyTextReveal(root = document) {
         const st = el.__processInFadeST
         if (st && typeof st.kill === 'function') st.kill()
         el.__processInFadeST = null
+        const fadeST = el.__processFadeST
+        if (fadeST && typeof fadeST.kill === 'function') fadeST.kill()
+        el.__processFadeST = null
       } catch (e) {
         // ignore
       }

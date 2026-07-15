@@ -2,15 +2,32 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import SplitType from 'split-type'
 
+import {
+  getProcessLineRevealOpacity,
+  shouldUseProcessLineReveal,
+} from './process-line-reveal.js'
+
 gsap.registerPlugin(ScrollTrigger)
 
 let __textRevealResizeAttached = false
 let __textRevealResizeTimeout = null
+let __textRevealActive = false
+
+function registerTextRevealCleanup(root) {
+  try {
+    __textRevealActive = true
+    window.__textRevealCleanupRoot = root
+    window.__textRevealCleanup = () => destroyTextReveal(root)
+  } catch (e) {
+    // ignore
+  }
+}
 
 function attachTextRevealResizeHandler() {
   if (typeof window === 'undefined') return
   if (__textRevealResizeAttached) return
   const handler = () => {
+    if (!__textRevealActive) return
     if (__textRevealResizeTimeout) clearTimeout(__textRevealResizeTimeout)
     __textRevealResizeTimeout = setTimeout(() => {
       try {
@@ -91,7 +108,86 @@ function createLetterRevealTimeline(element) {
   return tweens
 }
 
+function parseRgbColor(value) {
+  try {
+    const match = String(value || '').match(
+      /rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i
+    )
+    if (match) return [match[1], match[2], match[3]]
+  } catch (e) {
+    // ignore
+  }
+  return ['0', '0', '0']
+}
+
+function createMobileProcessLineReveal(process) {
+  const textNodes = Array.from(
+    process.querySelectorAll('.process-infos h3, .process-desc p')
+  )
+  const splits = textNodes.map(
+    (element) =>
+      new SplitType(element, {
+        types: 'lines',
+        tagName: 'span',
+      })
+  )
+  const lines = splits.flatMap((split) => split.lines || [])
+  const eyebrows = Array.from(
+    process.querySelectorAll(
+      '.process_index .eyebrow-m, .process_index .eyebrow-s'
+    )
+  )
+  const inner = process.querySelector('.process_inner')
+  const colorAnchor = textNodes[0] || eyebrows[0] || process
+  const rgb = parseRgbColor(getComputedStyle(colorAnchor).color)
+
+  gsap.set(lines, {
+    opacity: 0.2,
+    display: 'block',
+    willChange: 'opacity',
+  })
+  gsap.set(eyebrows, { opacity: 0.2, willChange: 'opacity' })
+
+  const applyProgress = (progress) => {
+    const count = Math.max(1, lines.length)
+    lines.forEach((line, index) => {
+      line.style.opacity = String(
+        getProcessLineRevealOpacity(progress, index, count)
+      )
+    })
+    const groupOpacity = getProcessLineRevealOpacity(progress)
+    eyebrows.forEach((eyebrow) => {
+      eyebrow.style.opacity = String(groupOpacity)
+    })
+    if (inner) {
+      const rgba = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${groupOpacity})`
+      inner.style.borderBottomColor = rgba
+      inner.style.borderBottom = `1px solid ${rgba}`
+    }
+  }
+
+  const scrollTrigger = ScrollTrigger.create({
+    trigger: process,
+    start: 'top 90%',
+    end: 'bottom 10%',
+    scrub: true,
+    scroller: window.__lenisWrapper || undefined,
+    onUpdate: (self) => applyProgress(self.progress),
+    onLeave: () => applyProgress(1),
+    onLeaveBack: () => applyProgress(0),
+  })
+
+  process.__processMobileLineST = scrollTrigger
+  process.__processMobileLineSplits = splits
+  applyProgress(scrollTrigger.progress || 0)
+  return scrollTrigger
+}
+
 export function initTextReveal(root = document) {
+  const useMobileProcessLines = shouldUseProcessLineReveal(
+    window.innerWidth || document.documentElement.clientWidth || 0
+  )
+
   // Ensure process section texts also get the same opacity animation as .intro
   try {
     const scope = root && root.querySelectorAll ? root : document
@@ -103,7 +199,11 @@ export function initTextReveal(root = document) {
     const processTextNodes = scope.querySelectorAll(PROCESS_TEXT_SELECTOR)
     processTextNodes.forEach((el) => {
       try {
-        if (!el.hasAttribute('tr')) el.setAttribute('tr', '1')
+        if (useMobileProcessLines) {
+          el.removeAttribute('tr')
+        } else if (!el.hasAttribute('tr')) {
+          el.setAttribute('tr', '1')
+        }
       } catch (e) {
         // ignore
       }
@@ -153,16 +253,33 @@ export function initTextReveal(root = document) {
   }
 
   const targets = root.querySelectorAll('[tr="1"]')
-  if (!targets.length) return null
+  if (!targets.length && !useMobileProcessLines) return null
 
   // Ensure the resize/orientationchange re-init is attached once
   attachTextRevealResizeHandler()
+  registerTextRevealCleanup(root)
 
   const timelines = []
   targets.forEach((el) => {
+    if (useMobileProcessLines && el.closest('.section_process')) return
     const tl = createLetterRevealTimeline(el)
     if (tl) timelines.push(tl)
   })
+
+  if (useMobileProcessLines) {
+    const processes = Array.from(
+      root.querySelectorAll('.section_process .process')
+    )
+    processes.forEach((process) => {
+      try {
+        timelines.push(createMobileProcessLineReveal(process))
+      } catch (e) {
+        // keep other process reveals functional
+      }
+    })
+    ScrollTrigger.refresh()
+    return timelines
+  }
 
   // Fallback fade-in for process texts if letter splitting didn't attach (0.2 -> 1 like intro)
   try {
@@ -414,6 +531,11 @@ export function initTextReveal(root = document) {
 }
 
 export function destroyTextReveal(root = document) {
+  __textRevealActive = false
+  if (__textRevealResizeTimeout) {
+    clearTimeout(__textRevealResizeTimeout)
+    __textRevealResizeTimeout = null
+  }
   const targets = root.querySelectorAll('[tr="1"]')
   targets.forEach((el) => {
     try {
@@ -464,6 +586,23 @@ export function destroyTextReveal(root = document) {
     )
     processes.forEach((proc) => {
       try {
+        if (proc.__processMobileLineST) {
+          proc.__processMobileLineST.kill()
+          proc.__processMobileLineST = null
+        }
+        if (
+          proc.__processMobileLineSplits &&
+          Array.isArray(proc.__processMobileLineSplits)
+        ) {
+          proc.__processMobileLineSplits.forEach((split) => {
+            if (split && typeof split.revert === 'function') split.revert()
+          })
+          proc.__processMobileLineSplits = null
+        }
+      } catch (e) {
+        // ignore
+      }
+      try {
         if (proc.__processEnterST) {
           proc.__processEnterST.kill()
           proc.__processEnterST = null
@@ -507,9 +646,13 @@ export function destroyTextReveal(root = document) {
         const eyebrowNodes = proc.querySelectorAll(EYEBROW_SELECTOR)
         eyebrowNodes.forEach((ey) => {
           ey.style.opacity = ''
+          ey.style.willChange = ''
         })
         const inner = proc.querySelector('.process_inner')
-        if (inner) inner.style.borderBottomColor = ''
+        if (inner) {
+          inner.style.borderBottomColor = ''
+          inner.style.borderBottom = ''
+        }
       } catch (e) {
         // ignore
       }
@@ -530,10 +673,21 @@ export function destroyTextReveal(root = document) {
         const st = el.__processInFadeST
         if (st && typeof st.kill === 'function') st.kill()
         el.__processInFadeST = null
+        const fadeST = el.__processFadeST
+        if (fadeST && typeof fadeST.kill === 'function') fadeST.kill()
+        el.__processFadeST = null
       } catch (e) {
         // ignore
       }
     })
+  } catch (e) {
+    // ignore
+  }
+  try {
+    if (window.__textRevealCleanupRoot === root) {
+      window.__textRevealCleanup = null
+      window.__textRevealCleanupRoot = null
+    }
   } catch (e) {
     // ignore
   }

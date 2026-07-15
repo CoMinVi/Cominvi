@@ -629,7 +629,6 @@ export function initNextBackgroundParallax(root = document) {
     return []
   }
   const tweens = []
-  const callbacks = []
 
   const layoutWrapper = (bg) => {
     try {
@@ -688,7 +687,6 @@ export function initNextBackgroundParallax(root = document) {
         onUpdate: updateY,
       })
       tweens.push(st)
-      callbacks.push(updateY)
     } catch (err) {
       // ignore per-image failure
     }
@@ -706,29 +704,6 @@ export function initNextBackgroundParallax(root = document) {
   window.addEventListener('resize', window.__nextBgParallaxResizeHandler)
 
   window.__nextBgParallaxTweens = tweens
-  // Start a lightweight rAF fallback to keep Y in sync even if ST ticks stall
-  try {
-    if (callbacks.length) {
-      const tick = () => {
-        try {
-          callbacks.forEach((cb) => {
-            try {
-              cb && cb()
-            } catch (e) {
-              // ignore per-callback error
-            }
-          })
-        } catch (e) {
-          // ignore
-        }
-        window.__nextBgParallaxRafId = requestAnimationFrame(tick)
-      }
-      window.__nextBgParallaxCallbacks = callbacks
-      window.__nextBgParallaxRafId = requestAnimationFrame(tick)
-    }
-  } catch (e) {
-    // ignore
-  }
   ScrollTrigger.refresh()
   return tweens
 }
@@ -790,7 +765,14 @@ export function initNextButtonSticky(root = document) {
 
   updateAll()
 
-  const onScroll = () => updateAll()
+  let scrollRafId = null
+  const onScroll = () => {
+    if (scrollRafId != null) return
+    scrollRafId = requestAnimationFrame(() => {
+      scrollRafId = null
+      updateAll()
+    })
+  }
   window.__nextButtonStickyLenisHandler = onScroll
   if (window.lenis && typeof window.lenis.on === 'function') {
     window.lenis.on('scroll', onScroll)
@@ -808,10 +790,4 @@ export function initNextButtonSticky(root = document) {
 
   window.__nextButtonStickyOnResize = () => updateAll()
   window.addEventListener('resize', window.__nextButtonStickyOnResize)
-
-  const tick = () => {
-    updateAll()
-    window.__nextButtonStickyRafId = requestAnimationFrame(tick)
-  }
-  window.__nextButtonStickyRafId = requestAnimationFrame(tick)
 }

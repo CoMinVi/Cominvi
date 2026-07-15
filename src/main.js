@@ -10,7 +10,10 @@ import { initParallax } from './animation/parallax.js'
 import { initLenis } from './animation/scroll.js'
 import { createViewportClipOverlay } from './animation/svg-clip-overlay.js'
 import { prepareHeroMedia } from './app/hero-media.js'
-import { startHeroSizeDebug } from './app/hero-size-debug.js'
+import {
+  isHeroSizeDebugEnabled,
+  startHeroSizeDebug,
+} from './app/hero-size-debug.js'
 import { isHomeEntryUrl } from './app/home-entry.js'
 import { prepareIcons } from './app/icons-runtime.js'
 import { initContainerModules } from './app/page-registry.js'
@@ -31,7 +34,9 @@ function injectSiteStyles() {
 }
 
 injectSiteStyles()
-startHeroSizeDebug()
+if (isHeroSizeDebugEnabled()) {
+  startHeroSizeDebug()
+}
 
 if (isHomeEntryUrl()) {
   prefetchHomeSequenceBinary()

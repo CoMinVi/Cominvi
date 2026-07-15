@@ -117,8 +117,21 @@ function sizeKey(snapshot) {
   ].join('x')
 }
 
+export function isHeroSizeDebugEnabled() {
+  try {
+    if (typeof window === 'undefined') return false
+    if (window.__cominviHeroSizeDebugForce) return true
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('heroDebug') === '1') return true
+    return window.localStorage?.getItem('cominvi:heroDebug') === '1'
+  } catch (e) {
+    return false
+  }
+}
+
 export function logHeroSizeSnapshot(root = document, tag = 'sample') {
   const snapshot = readHeroSizeSnapshot(root, tag)
+  if (!isHeroSizeDebugEnabled()) return snapshot
   if (!window.__cominviHeroSizeDebug) {
     startHeroSizeDebug(root)
   }
@@ -127,6 +140,7 @@ export function logHeroSizeSnapshot(root = document, tag = 'sample') {
 }
 
 export function startHeroSizeDebug(root = document) {
+  if (!isHeroSizeDebugEnabled()) return null
   if (window.__cominviHeroSizeDebug && window.__cominviHeroSizeDebug.active) {
     return window.__cominviHeroSizeDebug
   }

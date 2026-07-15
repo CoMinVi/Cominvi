@@ -705,31 +705,33 @@ export function initAbout(root = document) {
     }
 
     update()
-    const onScroll = () => update()
+    let scrollRafId = null
+    const onScroll = () => {
+      if (scrollRafId != null) return
+      scrollRafId = requestAnimationFrame(() => {
+        scrollRafId = null
+        update()
+      })
+    }
     const onResize = () => update()
-    window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onResize)
-    // Also listen on Lenis wrapper if present
+    // Prefer Lenis wrapper scroll; avoid duplicate window + wrapper listeners.
     const scroller =
       (typeof window !== 'undefined' && window.__lenisWrapper) || null
     if (scroller && scroller.addEventListener) {
       scroller.addEventListener('scroll', onScroll, { passive: true })
+    } else {
+      window.addEventListener('scroll', onScroll, { passive: true })
     }
-    // rAF loop to catch transform-driven scroll changes
-    let rafId = null
-    const tick = () => {
-      update()
-      rafId = requestAnimationFrame(tick)
-    }
-    rafId = requestAnimationFrame(tick)
 
     return () => {
-      window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onResize)
       if (scroller && scroller.removeEventListener) {
         scroller.removeEventListener('scroll', onScroll)
+      } else {
+        window.removeEventListener('scroll', onScroll)
       }
-      if (rafId != null) cancelAnimationFrame(rafId)
+      if (scrollRafId != null) cancelAnimationFrame(scrollRafId)
       cancelDateOverlayAnimation()
     }
   }

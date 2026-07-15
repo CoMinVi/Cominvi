@@ -205,6 +205,8 @@ function ensureState() {
       lastVHStep: -1,
       // Track current breakpoint mode to allow re-init on resize
       lastIsHandheld: null,
+      handheldScrollHandler: null,
+      handheldScrollRafId: null,
     }
   }
   return window.__workshopsSticky
@@ -373,6 +375,287 @@ function updateGreenToggle(index, root) {
   }
 }
 
+function updateHandheldWorkshops(state) {
+  const base = pxFromEm(2)
+  const contentTop = getContentTopOffsetPx()
+  state.offsetPx = base + contentTop
+
+  const container = (state.scope || document).querySelector(
+    '.workshops_left-sm'
+  )
+  if (!container) {
+    state.tabletStickyStartY = null
+    state.tabletActiveIndex = 0
+    state.currentTextIndex = -1
+    return
+  }
+
+  if (!state.tabletZIndexed) {
+    try {
+      const wraps = container.querySelectorAll('.worskshops_img-wrap')
+      if (wraps && wraps.length) {
+        wraps.forEach((w, i) => {
+          const z = Math.max(0, 2 - i)
+          w.style.position = 'absolute'
+          w.style.zIndex = String(z)
+        })
+      }
+    } catch (e) {
+      // ignore
+    }
+    state.tabletZIndexed = true
+  }
+
+  if (!state.tabletLoggedElements) state.tabletLoggedElements = true
+
+  let started = false
+  try {
+    const cr = container.getBoundingClientRect()
+    started = cr.top <= state.offsetPx
+    state.tabletStickyStarted = state.tabletStickyStarted || started
+  } catch (e) {
+    started = false
+  }
+
+  if (!started) {
+    if (state.tabletStickyStartY !== null) {
+      state.tabletStickyStartY = null
+    }
+    if (state.tabletActiveIndex !== 0) {
+      const titles = state.titles || []
+      const descs = state.descs || []
+      titles.forEach((el, i) => {
+        const on = i === 0
+        if (on) {
+          el.style.display = ''
+          el.style.opacity = '1'
+          el.style.visibility = 'visible'
+          el.style.pointerEvents = 'auto'
+        } else {
+          el.style.opacity = '0'
+          el.style.visibility = 'hidden'
+          el.style.pointerEvents = 'none'
+          el.style.display = 'none'
+        }
+      })
+      descs.forEach((el, i) => {
+        const on = i === 0
+        if (on) {
+          el.style.display = ''
+          el.style.opacity = '1'
+          el.style.visibility = 'visible'
+          el.style.pointerEvents = 'auto'
+        } else {
+          el.style.opacity = '0'
+          el.style.visibility = 'hidden'
+          el.style.pointerEvents = 'none'
+          el.style.display = 'none'
+        }
+      })
+      try {
+        const wraps = container.querySelectorAll('.worskshops_img-wrap')
+        wraps.forEach((w) => {
+          w.style.opacity = '1'
+        })
+      } catch (e) {
+        // ignore
+      }
+      state.currentTextIndex = 0
+      state.tabletActiveIndex = 0
+      updateGreenToggle(0, container)
+    }
+    return
+  }
+
+  if (state.tabletSectionStartTop === null) {
+    try {
+      const workshops =
+        (container.closest && container.closest('.workshops')) ||
+        (state.scope || document).querySelector('.workshops')
+      const wr = workshops ? workshops.getBoundingClientRect() : null
+      const cr = container.getBoundingClientRect()
+      const passed = Math.max(0, state.offsetPx - cr.top)
+      state.tabletSectionStartTop = wr ? wr.top + passed : 0
+    } catch (e) {
+      state.tabletSectionStartTop = 0
+    }
+  }
+
+  const vh =
+    (window && window.innerHeight) || document.documentElement.clientHeight || 0
+  let delta = 0
+  try {
+    const workshops =
+      (container.closest && container.closest('.workshops')) ||
+      (state.scope || document).querySelector('.workshops')
+    const wr = workshops ? workshops.getBoundingClientRect() : null
+    const currentTop = wr ? wr.top : 0
+    delta = Math.max(0, (state.tabletSectionStartTop || 0) - currentTop)
+  } catch (e) {
+    delta = 0
+  }
+
+  const step = Math.max(1, vh * 0.5)
+  let idx = Math.floor(delta / step)
+  try {
+    const deltaVhUnits = vh ? (delta * 100) / vh : 0
+    const currentVHStep = Math.floor(deltaVhUnits)
+    if (state.lastVHStep < 0) {
+      state.lastVHStep = currentVHStep
+    } else if (currentVHStep > state.lastVHStep) {
+      while (state.lastVHStep < currentVHStep) {
+        state.lastVHStep += 1
+      }
+    } else if (currentVHStep < state.lastVHStep) {
+      state.lastVHStep = currentVHStep
+    }
+  } catch (e) {
+    // ignore
+  }
+  const titles = state.titles || []
+  const descs = state.descs || []
+  const imgWraps = container.querySelectorAll('.worskshops_img-wrap')
+  const maxLen = Math.max(
+    0,
+    Math.min(
+      titles.length || 0,
+      descs.length || 0,
+      imgWraps && imgWraps.length ? imgWraps.length : 0
+    ) - 1
+  )
+  if (!Number.isFinite(idx) || idx < 0) idx = 0
+  if (maxLen >= 0) idx = Math.min(idx, maxLen)
+  else idx = 0
+
+  if (idx !== state.tabletActiveIndex) {
+    updateGreenToggle(idx, container)
+
+    if (state.currentTextIndex >= 0) {
+      const prevTitle = titles[state.currentTextIndex]
+      const prevDesc = descs[state.currentTextIndex]
+      if (prevTitle) {
+        prevTitle.classList.remove('is-active')
+        prevTitle.style.opacity = '0'
+        prevTitle.style.visibility = 'hidden'
+        prevTitle.style.pointerEvents = 'none'
+        prevTitle.style.display = 'none'
+      }
+      if (prevDesc) {
+        prevDesc.classList.remove('is-active')
+        prevDesc.style.opacity = '0'
+        prevDesc.style.visibility = 'hidden'
+        prevDesc.style.pointerEvents = 'none'
+        prevDesc.style.display = 'none'
+      }
+    }
+
+    const titleIn = titles[idx]
+    const descIn = descs[idx]
+    if (titleIn) {
+      titleIn.style.display = ''
+      titleIn.style.opacity = '0'
+      titleIn.style.visibility = 'visible'
+      titleIn.style.pointerEvents = 'auto'
+      titleIn.classList.add('is-active')
+      prepareSplitLines(titleIn)
+    }
+    if (descIn) {
+      descIn.style.display = ''
+      descIn.style.opacity = '0'
+      descIn.style.visibility = 'visible'
+      descIn.style.pointerEvents = 'auto'
+      descIn.classList.add('is-active')
+      prepareSplitLines(descIn)
+    }
+
+    try {
+      if (!gsap.parseEase('wsEase'))
+        CustomEase.create('wsEase', 'M0,0 C0.6,0 0,1 1,1')
+      const tl = gsap.timeline({
+        defaults: { duration: 0.5, ease: 'wsEase' },
+      })
+      imgWraps.forEach((wrap, i) => {
+        const target = i < idx ? 0 : 1
+        tl.to(wrap, { opacity: target }, 0)
+      })
+      const addLineAnim = (el) => {
+        if (!el) return
+        try {
+          const inners = el.querySelectorAll('.ws-line-inner')
+          gsap.set(el, { opacity: 1 })
+          if (inners && inners.length) {
+            gsap.set(inners, { y: '1em', opacity: 0 })
+            tl.to(inners, { y: 0, opacity: 1, stagger: 0.06 }, 0)
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      addLineAnim(titleIn)
+      addLineAnim(descIn)
+    } catch (e) {
+      try {
+        imgWraps.forEach((wrap, i) => {
+          wrap.style.opacity = i < idx ? '0' : '1'
+        })
+      } catch (e2) {
+        // ignore
+      }
+    }
+
+    state.currentTextIndex = idx
+    state.tabletActiveIndex = idx
+  }
+}
+
+function stopHandheldScrollDriver() {
+  const state = ensureState()
+  if (state.handheldScrollHandler) {
+    const scroller = window.__lenisWrapper
+    try {
+      if (scroller && scroller.removeEventListener) {
+        scroller.removeEventListener('scroll', state.handheldScrollHandler)
+      }
+      if (window.lenis && typeof window.lenis.off === 'function') {
+        window.lenis.off('scroll', state.handheldScrollHandler)
+      }
+    } catch (e) {
+      // ignore
+    }
+    state.handheldScrollHandler = null
+  }
+  if (state.handheldScrollRafId != null) {
+    try {
+      cancelAnimationFrame(state.handheldScrollRafId)
+    } catch (e) {
+      // ignore
+    }
+    state.handheldScrollRafId = null
+  }
+}
+
+function startHandheldScrollDriver() {
+  stopHandheldScrollDriver()
+  const state = ensureState()
+  const run = () => updateHandheldWorkshops(state)
+  const onScroll = () => {
+    if (state.handheldScrollRafId != null) return
+    state.handheldScrollRafId = requestAnimationFrame(() => {
+      state.handheldScrollRafId = null
+      run()
+    })
+  }
+  state.handheldScrollHandler = onScroll
+  const scroller = window.__lenisWrapper
+  if (scroller && scroller.addEventListener) {
+    scroller.addEventListener('scroll', onScroll, { passive: true })
+  }
+  if (window.lenis && typeof window.lenis.on === 'function') {
+    window.lenis.on('scroll', onScroll)
+  }
+  run()
+}
+
 function startLoop() {
   const state = ensureState()
   if (state.running) return
@@ -383,284 +666,6 @@ function startLoop() {
       const base = pxFromEm(2)
       const contentTop = getContentTopOffsetPx()
       state.offsetPx = base + contentTop
-
-      // Handheld breakpoint handling (<= 991px)
-      const isHandheld = (() => {
-        try {
-          const w =
-            window.innerWidth || document.documentElement.clientWidth || 0
-          return w <= 991
-        } catch (e) {
-          return false
-        }
-      })()
-
-      // trimmed debug
-
-      if (isHandheld) {
-        // Scope to .workshops_left-sm
-        const container = (state.scope || document).querySelector(
-          '.workshops_left-sm'
-        )
-        // trimmed debug
-        if (!container) {
-          state.tabletStickyStartY = null
-          state.tabletActiveIndex = 0
-          state.currentTextIndex = -1
-          state.rafId = requestAnimationFrame(tick)
-          return
-        }
-
-        // Ensure z-index ordering once
-        if (!state.tabletZIndexed) {
-          try {
-            const wraps = container.querySelectorAll('.worskshops_img-wrap')
-            if (wraps && wraps.length) {
-              wraps.forEach((w, i) => {
-                // First -> zIndex 2, second -> 1, third -> 0
-                const z = Math.max(0, 2 - i)
-                w.style.position = 'absolute'
-                w.style.zIndex = String(z)
-              })
-              // trimmed debug
-            }
-          } catch (e) {
-            // ignore
-          }
-          state.tabletZIndexed = true
-        }
-
-        // One-time elements found log
-        if (!state.tabletLoggedElements) state.tabletLoggedElements = true
-
-        // Detect sticky start (top <= offset)
-        let started = false
-        try {
-          const cr = container.getBoundingClientRect()
-          started = cr.top <= state.offsetPx
-          // trimmed debug
-          state.tabletStickyStarted = state.tabletStickyStarted || started
-        } catch (e) {
-          started = false
-        }
-
-        if (!started) {
-          // Reset to initial state before sticky
-          if (state.tabletStickyStartY !== null) {
-            state.tabletStickyStartY = null
-          }
-          if (state.tabletActiveIndex !== 0) {
-            // Reset texts visibility to first
-            const titles = state.titles || []
-            const descs = state.descs || []
-            // trimmed debug
-            titles.forEach((el, i) => {
-              const on = i === 0
-              if (on) {
-                el.style.display = ''
-                el.style.opacity = '1'
-                el.style.visibility = 'visible'
-                el.style.pointerEvents = 'auto'
-              } else {
-                el.style.opacity = '0'
-                el.style.visibility = 'hidden'
-                el.style.pointerEvents = 'none'
-                el.style.display = 'none'
-              }
-            })
-            descs.forEach((el, i) => {
-              const on = i === 0
-              if (on) {
-                el.style.display = ''
-                el.style.opacity = '1'
-                el.style.visibility = 'visible'
-                el.style.pointerEvents = 'auto'
-              } else {
-                el.style.opacity = '0'
-                el.style.visibility = 'hidden'
-                el.style.pointerEvents = 'none'
-                el.style.display = 'none'
-              }
-            })
-            // Reset images opacity
-            try {
-              const wraps = container.querySelectorAll('.worskshops_img-wrap')
-              wraps.forEach((w) => {
-                w.style.opacity = '1'
-              })
-              // trimmed debug
-            } catch (e) {
-              // ignore
-            }
-            state.currentTextIndex = 0
-            state.tabletActiveIndex = 0
-            updateGreenToggle(0, container)
-          }
-          state.rafId = requestAnimationFrame(tick)
-          return
-        }
-
-        if (state.tabletSectionStartTop === null) {
-          try {
-            const workshops =
-              (container.closest && container.closest('.workshops')) ||
-              (state.scope || document).querySelector('.workshops')
-            const wr = workshops ? workshops.getBoundingClientRect() : null
-            // If we are already past the sticky threshold on resize, reconstruct
-            // the section start top so that delta reflects current progress.
-            const cr = container.getBoundingClientRect()
-            const passed = Math.max(0, state.offsetPx - cr.top)
-            state.tabletSectionStartTop = wr ? wr.top + passed : 0
-          } catch (e) {
-            state.tabletSectionStartTop = 0
-          }
-        }
-
-        const vh =
-          (window && window.innerHeight) ||
-          document.documentElement.clientHeight ||
-          0
-        let delta = 0
-        try {
-          const workshops =
-            (container.closest && container.closest('.workshops')) ||
-            (state.scope || document).querySelector('.workshops')
-          const wr = workshops ? workshops.getBoundingClientRect() : null
-          const currentTop = wr ? wr.top : 0
-          delta = Math.max(0, (state.tabletSectionStartTop || 0) - currentTop)
-        } catch (e) {
-          delta = 0
-        }
-
-        // Compute index at 50vh intervals (0 -> <50vh, 1 -> 50-<100vh, 2 -> >=100vh, ...)
-        const step = Math.max(1, vh * 0.5)
-        let idx = Math.floor(delta / step)
-        try {
-          const deltaVhUnits = vh ? (delta * 100) / vh : 0
-          const currentVHStep = Math.floor(deltaVhUnits)
-          if (state.lastVHStep < 0) {
-            state.lastVHStep = currentVHStep
-          } else if (currentVHStep > state.lastVHStep) {
-            // Catch up: log once per missing 1vh step
-            while (state.lastVHStep < currentVHStep) {
-              state.lastVHStep += 1
-            }
-          } else if (currentVHStep < state.lastVHStep) {
-            // Scrolling up: rebase to current step to avoid spam
-            state.lastVHStep = currentVHStep
-          }
-        } catch (e) {
-          // ignore
-        }
-        const titles = state.titles || []
-        const descs = state.descs || []
-        const imgWraps = container.querySelectorAll('.worskshops_img-wrap')
-        const maxLen = Math.max(
-          0,
-          Math.min(
-            titles.length || 0,
-            descs.length || 0,
-            imgWraps && imgWraps.length ? imgWraps.length : 0
-          ) - 1
-        )
-        if (!Number.isFinite(idx) || idx < 0) idx = 0
-        if (maxLen >= 0) idx = Math.min(idx, maxLen)
-        else idx = 0
-
-        // trimmed debug
-
-        if (idx !== state.tabletActiveIndex) {
-          // trimmed debug
-          // Update green toggle to reflect active index (scope to tablet container)
-          updateGreenToggle(idx, container)
-
-          // Hide previous
-          if (state.currentTextIndex >= 0) {
-            const prevTitle = titles[state.currentTextIndex]
-            const prevDesc = descs[state.currentTextIndex]
-            if (prevTitle) {
-              prevTitle.classList.remove('is-active')
-              prevTitle.style.opacity = '0'
-              prevTitle.style.visibility = 'hidden'
-              prevTitle.style.pointerEvents = 'none'
-              prevTitle.style.display = 'none'
-            }
-            if (prevDesc) {
-              prevDesc.classList.remove('is-active')
-              prevDesc.style.opacity = '0'
-              prevDesc.style.visibility = 'hidden'
-              prevDesc.style.pointerEvents = 'none'
-              prevDesc.style.display = 'none'
-            }
-          }
-
-          // Show new (prepare but keep opacity 0 for timeline sync with images)
-          const titleIn = titles[idx]
-          const descIn = descs[idx]
-          if (titleIn) {
-            titleIn.style.display = ''
-            titleIn.style.opacity = '0'
-            titleIn.style.visibility = 'visible'
-            titleIn.style.pointerEvents = 'auto'
-            titleIn.classList.add('is-active')
-            prepareSplitLines(titleIn)
-          }
-          if (descIn) {
-            descIn.style.display = ''
-            descIn.style.opacity = '0'
-            descIn.style.visibility = 'visible'
-            descIn.style.pointerEvents = 'auto'
-            descIn.classList.add('is-active')
-            prepareSplitLines(descIn)
-          }
-
-          // Build a single timeline to sync text and image switches exactly
-          try {
-            if (!gsap.parseEase('wsEase'))
-              CustomEase.create('wsEase', 'M0,0 C0.6,0 0,1 1,1')
-            const tl = gsap.timeline({
-              defaults: { duration: 0.5, ease: 'wsEase' },
-            })
-            // Image fades (hide previous wraps, keep current and next visible)
-            imgWraps.forEach((wrap, i) => {
-              const target = i < idx ? 0 : 1
-              tl.to(wrap, { opacity: target }, 0)
-            })
-            // Text lines animation in sync
-            const addLineAnim = (el) => {
-              if (!el) return
-              try {
-                const inners = el.querySelectorAll('.ws-line-inner')
-                gsap.set(el, { opacity: 1 })
-                if (inners && inners.length) {
-                  gsap.set(inners, { y: '1em', opacity: 0 })
-                  tl.to(inners, { y: 0, opacity: 1, stagger: 0.06 }, 0)
-                }
-              } catch (e) {
-                // ignore
-              }
-            }
-            addLineAnim(titleIn)
-            addLineAnim(descIn)
-            // trimmed debug
-          } catch (e) {
-            // Fallback without gsap timeline
-            try {
-              imgWraps.forEach((wrap, i) => {
-                wrap.style.opacity = i < idx ? '0' : '1'
-              })
-            } catch (e2) {
-              // ignore
-            }
-          }
-
-          state.currentTextIndex = idx
-          state.tabletActiveIndex = idx
-        }
-
-        state.rafId = requestAnimationFrame(tick)
-        return
-      }
 
       // Détermine si la première (la plus haute) a atteint le seuil (50% viewport)
       let earliestTop = Infinity
@@ -1020,7 +1025,11 @@ export function initWorkshopsStickyImages(root = document) {
     added.push(el)
   })
 
-  if (isHandheld || state.items.size) startLoop()
+  if (isHandheld) {
+    startHandheldScrollDriver()
+  } else if (state.items.size) {
+    startLoop()
+  }
 
   try {
     if (state.resizeHandler)
@@ -1254,5 +1263,6 @@ export function destroyWorkshopsStickyImages() {
   } catch (e) {
     // ignore
   }
+  stopHandheldScrollDriver()
   stopLoopIfIdle()
 }

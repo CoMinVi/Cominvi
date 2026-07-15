@@ -12,6 +12,12 @@
   mix-blend-mode: difference;
 }
 
+@media (pointer: coarse), (hover: none) {
+  .navbar {
+    mix-blend-mode: normal;
+  }
+}
+
 /* Allow article pages to extend beyond 100vh and be scrollable */
 [data-barba-namespace='article'] .page-wrap {
   height: auto;

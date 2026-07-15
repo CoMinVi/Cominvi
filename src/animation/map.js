@@ -393,15 +393,22 @@ export function initMap(root = document) {
       markerToButton.set(markerEl, btn)
       syncMarkerButton(markerEl, btn)
     })
-    // Keep positions in sync on resize/scroll
-    const onResizeOrScroll = () => syncAllMarkerButtons()
+    // Keep positions in sync on resize/scroll (coalesced to one layout pass per frame)
+    let mapScrollRafId = null
+    const onResizeOrScroll = () => {
+      if (mapScrollRafId != null) return
+      mapScrollRafId = requestAnimationFrame(() => {
+        mapScrollRafId = null
+        syncAllMarkerButtons()
+      })
+    }
     window.addEventListener('resize', onResizeOrScroll)
-    window.addEventListener('scroll', onResizeOrScroll, true)
-    // If a smooth-scroll wrapper exists, sync on its scroll as well
     try {
       const wrapper = window.__lenisWrapper || null
       if (wrapper && typeof wrapper.addEventListener === 'function') {
-        wrapper.addEventListener('scroll', onResizeOrScroll)
+        wrapper.addEventListener('scroll', onResizeOrScroll, { passive: true })
+      } else {
+        window.addEventListener('scroll', onResizeOrScroll, { passive: true })
       }
     } catch (e) {
       // ignore

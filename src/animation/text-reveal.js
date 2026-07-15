@@ -11,9 +11,11 @@ gsap.registerPlugin(ScrollTrigger)
 
 let __textRevealResizeAttached = false
 let __textRevealResizeTimeout = null
+let __textRevealActive = false
 
 function registerTextRevealCleanup(root) {
   try {
+    __textRevealActive = true
     window.__textRevealCleanupRoot = root
     window.__textRevealCleanup = () => destroyTextReveal(root)
   } catch (e) {
@@ -25,6 +27,7 @@ function attachTextRevealResizeHandler() {
   if (typeof window === 'undefined') return
   if (__textRevealResizeAttached) return
   const handler = () => {
+    if (!__textRevealActive) return
     if (__textRevealResizeTimeout) clearTimeout(__textRevealResizeTimeout)
     __textRevealResizeTimeout = setTimeout(() => {
       try {
@@ -528,6 +531,7 @@ export function initTextReveal(root = document) {
 }
 
 export function destroyTextReveal(root = document) {
+  __textRevealActive = false
   if (__textRevealResizeTimeout) {
     clearTimeout(__textRevealResizeTimeout)
     __textRevealResizeTimeout = null

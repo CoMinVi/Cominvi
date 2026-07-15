@@ -15,6 +15,7 @@ const BUTTON_BOUND_ATTR = 'data-button-hover-bound'
 const CARD_BOUND_ATTR = 'data-button-sm-hover-bound'
 const NAVLINK_BOUND_ATTR = 'data-navlink-hover-bound'
 const handlersByElement = new WeakMap()
+let navlinkResizeListener = null
 
 const getButtonParts = (button) => {
   const content = button.querySelector(
@@ -240,10 +241,6 @@ const bindButtonSm = (card) => {
 }
 
 const setNavlinkBaseState = (link) => {
-  if (!isMainBreakpoint()) {
-    gsap.set(link, { clearProps: 'transform' })
-    return
-  }
   gsap.set(link, { x: getNavlinkClosedX(link) })
 }
 
@@ -301,6 +298,38 @@ const bindNavlink = (link) => {
   })
 }
 
+const refreshNavlinkBaseStates = (root = document) => {
+  const scope = root && root.querySelectorAll ? root : document
+  scope.querySelectorAll('.navlink').forEach((link) => {
+    if (link.getAttribute(NAVLINK_BOUND_ATTR) === 'true') {
+      setNavlinkBaseState(link)
+    }
+  })
+}
+
+const ensureNavlinkResizeListener = () => {
+  if (navlinkResizeListener) return
+
+  let resizeFrame = 0
+  navlinkResizeListener = () => {
+    if (resizeFrame) cancelAnimationFrame(resizeFrame)
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0
+      refreshNavlinkBaseStates(document)
+    })
+  }
+
+  window.addEventListener('resize', navlinkResizeListener)
+
+  try {
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') {
+      document.fonts.ready.then(() => refreshNavlinkBaseStates(document))
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
 export function initButtonHover(root = document) {
   const scope = root && root.querySelectorAll ? root : document
   const buttons = scope.querySelectorAll('.button, .button-white')
@@ -310,6 +339,8 @@ export function initButtonHover(root = document) {
   buttons.forEach(bindButton)
   cards.forEach(bindButtonSm)
   navlinks.forEach(bindNavlink)
+  ensureNavlinkResizeListener()
+  refreshNavlinkBaseStates(scope)
 }
 
 export function destroyButtonHover(root = document) {
@@ -317,7 +348,6 @@ export function destroyButtonHover(root = document) {
   const boundElements = scope.querySelectorAll(
     `[${BUTTON_BOUND_ATTR}="true"], [${CARD_BOUND_ATTR}="true"], [${NAVLINK_BOUND_ATTR}="true"]`
   )
-
   boundElements.forEach((element) => {
     const handlers = handlersByElement.get(element)
     if (handlers) {

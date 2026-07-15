@@ -16,7 +16,7 @@ export function initLenis(root = document) {
     return null
   }
 
-  const prefersNativeTouchScroll = (() => {
+  const prefersCoarsePointer = (() => {
     try {
       return (
         window.matchMedia('(pointer: coarse)').matches ||
@@ -30,11 +30,13 @@ export function initLenis(root = document) {
   const lenis = new Lenis({
     wrapper,
     content,
-    lerp: prefersNativeTouchScroll ? 1 : 0.125,
+    lerp: 0.125,
     smoothWheel: true,
-    // Native touch scroll is smoother on mobile; Lenis smoothTouch adds lag.
-    smoothTouch: !prefersNativeTouchScroll,
-    syncTouch: !prefersNativeTouchScroll,
+    // syncTouch is required in wrapper mode: .page-wrap uses overflow:hidden,
+    // so native touch scroll cannot work when Lenis ignores touch gestures.
+    syncTouch: true,
+    // Slightly snappier touch response on mobile without disabling scroll.
+    syncTouchLerp: prefersCoarsePointer ? 0.15 : 0.075,
     // Ensure input events are bound to the wrapper in wrapper mode
     wheelEventsTarget: wrapper,
   })

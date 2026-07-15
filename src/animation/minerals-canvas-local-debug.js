@@ -370,7 +370,8 @@ export function initMineralsCanvas(root = document) {
         })
 
       const onResize = () => {
-        canvas.__highResReady = false
+        resizeCanvas()
+        canvas.__highResReady = true
         requestFrame(state.frame)
       }
 
@@ -962,7 +963,8 @@ export function initMineralsCanvas(root = document) {
     }
 
     const onResize = () => {
-      canvas.__highResReady = false
+      resizeCanvas()
+      canvas.__highResReady = true
       renderCurrentFrame()
     }
 

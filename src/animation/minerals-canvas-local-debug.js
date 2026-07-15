@@ -503,10 +503,7 @@ export function initMineralsCanvas(root = document) {
     let resizeObserver = null
 
     const resizeCanvas = () => {
-      const dpr = getCanvasPixelRatio(
-        window.devicePixelRatio,
-        bp !== 'desktop'
-      )
+      const dpr = getCanvasPixelRatio(window.devicePixelRatio, bp !== 'desktop')
       const width = Math.max(canvas.clientWidth || 0, 1)
       const height = Math.max(canvas.clientHeight || 0, 1)
 

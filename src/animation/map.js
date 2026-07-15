@@ -3,10 +3,7 @@ import { CustomEase } from 'gsap/CustomEase'
 import Swiper from 'swiper'
 import { Mousewheel } from 'swiper/modules'
 
-import {
-  isNearViewport,
-  readMarkerRects,
-} from './scroll-performance.js'
+import { isNearViewport, readMarkerRects } from './scroll-performance.js'
 
 gsap.registerPlugin(CustomEase)
 

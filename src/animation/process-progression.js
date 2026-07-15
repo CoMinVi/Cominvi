@@ -274,20 +274,16 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
             0
           const iw = extras.numberInner.getBoundingClientRect().width || 0
           const travel = Math.max(0, cw - iw)
-          const posPx = Math.round(
-            Math.min(travel, Math.max(0, travel * progress)) * 10
-          ) / 10
+          const posPx =
+            Math.round(Math.min(travel, Math.max(0, travel * progress)) * 10) /
+            10
           if (posPx !== lastProgressPx) {
             extras.numberInner.style.left = `${posPx}px`
             lastProgressPx = posPx
           }
         }
       }
-      if (
-        extras &&
-        extras.progressReadout &&
-        lastProgressPercent !== pct
-      ) {
+      if (extras && extras.progressReadout && lastProgressPercent !== pct) {
         extras.progressReadout.textContent = String(pct)
         lastProgressPercent = pct
       }

@@ -4,6 +4,7 @@ const LINE_STAGGER = 0.02
 const MAX_STAGGER_WINDOW = 0.12
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value))
+const roundOpacity = (value) => Math.round(value * 10000) / 10000
 
 export function shouldUseProcessLineReveal(viewportWidth) {
   return Number.isFinite(viewportWidth) && viewportWidth <= 767
@@ -25,7 +26,7 @@ export function getProcessLineRevealOpacity(
 
   if (p < FADE_PORTION) {
     const local = clamp01((p - index * LINE_STAGGER) / fadeDuration)
-    return MIN_OPACITY + (1 - MIN_OPACITY) * local
+    return roundOpacity(MIN_OPACITY + (1 - MIN_OPACITY) * local)
   }
 
   if (p > 1 - FADE_PORTION) {
@@ -33,7 +34,7 @@ export function getProcessLineRevealOpacity(
     const local = clamp01(
       (p - (1 - FADE_PORTION) - reverseIndex * LINE_STAGGER) / fadeDuration
     )
-    return 1 - (1 - MIN_OPACITY) * local
+    return roundOpacity(1 - (1 - MIN_OPACITY) * local)
   }
 
   return 1

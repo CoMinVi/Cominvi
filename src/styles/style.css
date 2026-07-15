@@ -28,6 +28,11 @@
   white-space: nowrap;
 }
 
+/* Aligné sur icon (1.5em) + gap (0.8em) — évite le décalage navigateur vs GSAP */
+.navlink {
+  transform: translate(calc(-1 * (1.5em + 0.8em)));
+}
+
 .nav-inner .navlink.w--current,
 .nav-inner .navlink[aria-current='page'] {
   opacity: 0.5;

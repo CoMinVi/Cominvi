@@ -159,3 +159,42 @@ test('réutilise le chargement AF en cours après un cleanup', async () => {
     await session.browser.close()
   }
 })
+
+test('restaure le fallback si le décodeur échoue après une frame AF', async () => {
+  const session = await createPage()
+  try {
+    await session.page.evaluate(() =>
+      window.lenis.scrollTo(2800, { immediate: true })
+    )
+    await session.page.waitForFunction(
+      () =>
+        document.querySelector('.section_minerals canvas')
+          .__mineralsLastSource === 'af',
+      null,
+      { timeout: 20000 }
+    )
+
+    await session.page.evaluate(() => {
+      window.__originalVideoDecoderDecode = VideoDecoder.prototype.decode
+      VideoDecoder.prototype.decode = () => {
+        throw new Error('forced decode failure')
+      }
+    })
+    await session.page.setViewportSize({ width: 400, height: 664 })
+    await session.page.waitForFunction(
+      () =>
+        document.querySelector('.section_minerals canvas')
+          .__mineralsLastSource === 'fallback',
+      null,
+      { timeout: 10000 }
+    )
+    assert.ok((await readCanvasAlpha(session.page)) > 0)
+  } finally {
+    await session.page.evaluate(() => {
+      if (window.__originalVideoDecoderDecode) {
+        VideoDecoder.prototype.decode = window.__originalVideoDecoderDecode
+      }
+    })
+    await session.browser.close()
+  }
+})

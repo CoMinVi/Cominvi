@@ -160,18 +160,35 @@ export function initializeMenuClick(options = {}, root = document) {
     }
   }
 
+  const resolveMenuIconRestTheme = () => {
+    try {
+      const themeApi = window.__theme
+      if (!themeApi || typeof themeApi.getThemeFor !== 'function') return {}
+      const key =
+        themeApi.storedKey ||
+        (typeof themeApi.compute === 'function' ? themeApi.compute() : null) ||
+        themeApi.currentKey ||
+        'white'
+      return themeApi.getThemeFor(key) || {}
+    } catch (e) {
+      return {}
+    }
+  }
+
   const applyMenuIconClosedThemeColors = (theme = {}) => {
+    const resolvedTheme =
+      theme && theme.menuIconBg ? theme : resolveMenuIconRestTheme()
     releaseMenuIconInlineColorLocks()
     if (menuIconElement) {
       gsap.set(menuIconElement, {
-        backgroundColor: theme.menuIconBg,
-        borderColor: theme.menuIconBorder,
+        backgroundColor: resolvedTheme.menuIconBg,
+        borderColor: resolvedTheme.menuIconBorder,
         overwrite: 'auto',
       })
     }
     if (menuIconBars?.length) {
       gsap.set(menuIconBars, {
-        backgroundColor: theme.menuIconBarsBg,
+        backgroundColor: resolvedTheme.menuIconBarsBg,
         overwrite: 'auto',
       })
     }
@@ -181,6 +198,7 @@ export function initializeMenuClick(options = {}, root = document) {
   // Ensures no conflict when the menu is open or during page transitions
   const hoverEase = CustomEase.create('custom', 'M0,0 C0.68,0 0,1 1,1 ')
   const hoverDuration = 0.6
+  let menuIconHoverTl = null
   const onMenuIconEnter = () => {
     if (!menuIconElement) return
     try {
@@ -223,9 +241,18 @@ export function initializeMenuClick(options = {}, root = document) {
     } catch (e) {
       // ignore
     }
+    if (menuIconHoverTl) {
+      try {
+        menuIconHoverTl.kill()
+      } catch (e) {
+        // ignore
+      }
+      menuIconHoverTl = null
+    }
     const tl = gsap.timeline({
       defaults: { duration: hoverDuration, ease: hoverEase, overwrite: 'auto' },
     })
+    menuIconHoverTl = tl
     tl.to(menuIconElement, { gap: '0px' }, 0)
     if (menuLabelInner) {
       try {
@@ -294,6 +321,14 @@ export function initializeMenuClick(options = {}, root = document) {
     } catch (e) {
       // ignore
     }
+    if (menuIconHoverTl) {
+      try {
+        menuIconHoverTl.kill()
+      } catch (e) {
+        // ignore
+      }
+      menuIconHoverTl = null
+    }
     gsap.to(menuIconElement, {
       duration: hoverDuration,
       ease: hoverEase,
@@ -336,11 +371,7 @@ export function initializeMenuClick(options = {}, root = document) {
       })
     }
     try {
-      // Snap directly back to the current theme colors to avoid flashes
-      const key = (window.__theme && window.__theme.currentKey) || 'white'
-      const getFor = window.__theme && window.__theme.getThemeFor
-      const t = getFor ? getFor(key) : {}
-      applyMenuIconClosedThemeColors(t)
+      applyMenuIconClosedThemeColors()
 
       if (menuIconElement && menuIconElement.dataset)
         delete menuIconElement.dataset.bgLocked
@@ -503,7 +534,7 @@ export function initializeMenuClick(options = {}, root = document) {
           // ignore
         }
         try {
-          window.__theme.menuCloseSamePage()
+          window.__theme.menuCloseSamePage({ apply: false })
         } catch (e) {
           // ignore
         }
@@ -904,13 +935,13 @@ export function initializeMenuClick(options = {}, root = document) {
         // Recalc and resize only when closing (avoid jump at end of opening)
         if (!isOpen) {
           try {
-            const targetKey =
-              (window.__theme && window.__theme.storedKey) || 'white'
-            const theme =
-              window.__theme && window.__theme.getThemeFor
-                ? window.__theme.getThemeFor(targetKey)
-                : {}
-            applyMenuIconClosedThemeColors(theme)
+            if (
+              window.__theme &&
+              typeof window.__theme.menuCloseSamePage === 'function'
+            ) {
+              window.__theme.menuCloseSamePage({ apply: false })
+            }
+            applyMenuIconClosedThemeColors()
           } catch (e) {
             // ignore
           }
@@ -1005,7 +1036,7 @@ export function initializeMenuClick(options = {}, root = document) {
                 window.__theme &&
                 typeof window.__theme.menuCloseSamePage === 'function'
               ) {
-                window.__theme.menuCloseSamePage()
+                window.__theme.menuCloseSamePage({ apply: false })
               }
             } catch (e) {
               // ignore
@@ -1017,13 +1048,7 @@ export function initializeMenuClick(options = {}, root = document) {
               // ignore
             }
             try {
-              const targetKey =
-                (window.__theme && window.__theme.storedKey) || 'white'
-              const theme =
-                window.__theme && window.__theme.getThemeFor
-                  ? window.__theme.getThemeFor(targetKey)
-                  : {}
-              applyMenuIconClosedThemeColors(theme)
+              applyMenuIconClosedThemeColors()
             } catch (e) {
               // ignore
             }
@@ -1766,12 +1791,14 @@ export function initializeThemeController() {
         activeKey = 'menu'
         applyMenuIconTheme('menu', true)
       },
-      menuCloseSamePage: () => {
+      menuCloseSamePage: (options = {}) => {
         const resolved = resolveThemeKeyFromRoot(document)
         currentKey = resolved
         activeKey = resolved
         storedKey = resolved
-        applyMenuIconTheme(resolved, false)
+        if (options.apply !== false) {
+          applyMenuIconTheme(resolved, !!options.instant)
+        }
       },
       bindScroll: (root = document) => {
         const resolved = resolveThemeKeyFromRoot(root)
@@ -1974,14 +2001,18 @@ export function initializeThemeController() {
       // Snap instantly to menu theme to avoid flashes
       applyTheme('menu', true)
     },
-    menuCloseSamePage: () => {
+    menuCloseSamePage: (options = {}) => {
       const latest = computeActiveTheme()
       const keyToApply = storedKey || snapshotKey || latest
+      currentKey = keyToApply
+      activeKey = keyToApply
+      storedKey = keyToApply
+      snapshotKey = latest
+      if (options.apply === false) return
       // Keep icon suppressed; external code will tween icon to stored theme
       suppressMenuIconTheme = true
       // Snap instantly on close to avoid flashes
       applyTheme(keyToApply, true)
-      snapshotKey = latest
     },
     bindScroll: (root = document) => {
       const scroller =

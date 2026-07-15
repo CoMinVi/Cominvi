@@ -52,6 +52,13 @@ async function createPage({ failAf = false, delayAf = 0 } = {}) {
     timeout: 120000,
   })
   await page.waitForFunction(() => window.lenis, null, { timeout: 30000 })
+  await page.waitForFunction(
+    () =>
+      typeof document.querySelector('[fc-image-scrubbing="component"]')
+        ?.__mineralsCanvasCleanup === 'function',
+    null,
+    { timeout: 30000 }
+  )
 
   return {
     browser,

@@ -13,7 +13,11 @@ function createDeferred() {
 export class ActiveFrame {
   constructor(
     file,
-    { process = () => {}, hardwareAcceleration = 'prefer-hardware' } = {}
+    {
+      process = () => {},
+      error = () => {},
+      hardwareAcceleration = 'prefer-hardware',
+    } = {}
   ) {
     const deferred = createDeferred()
     this.loading = deferred.promise
@@ -22,6 +26,7 @@ export class ActiveFrame {
 
     this.file = file
     this.process = process
+    this.error = error
     this.hardwareAcceleration = hardwareAcceleration
     this.manifest = null
     this.data = null
@@ -152,9 +157,7 @@ export class ActiveFrame {
 
     this.decoder = new VideoDecoderCtor({
       output: this.outputFrame.bind(this),
-      error: () => {
-        // Decoder error occurred
-      },
+      error: (decoderError) => this.handleDecoderError(decoderError),
     })
 
     this.decoder.configure(this.config)
@@ -183,6 +186,31 @@ export class ActiveFrame {
     frame.close()
   }
 
+  handleDecoderError(error) {
+    this._pendingFrame = null
+    try {
+      if (this.error) this.error(error)
+    } catch (e) {
+      // ignore consumer error handlers
+    }
+  }
+
+  decodeFrame(frameMeta) {
+    try {
+      this.decoder.decode(
+        new window.EncodedVideoChunk({
+          type: frameMeta.ty,
+          timestamp: frameMeta.t,
+          data: frameMeta.data,
+        })
+      )
+      return true
+    } catch (error) {
+      this.handleDecoderError(error)
+      return false
+    }
+  }
+
   redrawFrame(desideredFrame) {
     if (!this.manifest || !this.enabled || !this.decoder) return
     this.frame = null
@@ -192,7 +220,10 @@ export class ActiveFrame {
 
   setFrame(desideredFrame) {
     if (!this.manifest || !this.enabled || !this.decoder) return
-    const EncodedVideoChunkCtor = window.EncodedVideoChunk
+    if (this.decoder.state === 'closed') {
+      this.handleDecoderError(new Error('VideoDecoder is closed'))
+      return
+    }
 
     desideredFrame = Math.round(Number(desideredFrame))
     const maxFrame = Math.max(0, this.manifest.totalFrames - 1)
@@ -212,13 +243,7 @@ export class ActiveFrame {
       frameMeta.ty === 'delta'
 
     if (isSequential) {
-      this.decoder.decode(
-        new EncodedVideoChunkCtor({
-          type: frameMeta.ty,
-          timestamp: frameMeta.t,
-          data: frameMeta.data,
-        })
-      )
+      this.decodeFrame(frameMeta)
       return
     }
 
@@ -226,18 +251,17 @@ export class ActiveFrame {
       this.decoder.decodeQueueSize > 0 ||
       this.decoder.state !== 'configured'
     ) {
-      this.decoder.reset()
-      this.decoder.configure(this.config)
+      try {
+        this.decoder.reset()
+        this.decoder.configure(this.config)
+      } catch (error) {
+        this.handleDecoderError(error)
+        return
+      }
     }
 
     if (frameMeta.ty === 'key') {
-      this.decoder.decode(
-        new EncodedVideoChunkCtor({
-          type: frameMeta.ty,
-          timestamp: frameMeta.t,
-          data: frameMeta.data,
-        })
-      )
+      this.decodeFrame(frameMeta)
       return
     }
 
@@ -252,24 +276,12 @@ export class ActiveFrame {
 
     if (!keyFrame || !keyFrame.data) return
 
-    this.decoder.decode(
-      new EncodedVideoChunkCtor({
-        type: keyFrame.ty,
-        timestamp: keyFrame.t,
-        data: keyFrame.data,
-      })
-    )
+    if (!this.decodeFrame(keyFrame)) return
 
     for (let i = keyFrame.i + 1; i <= this.desideredFrame; i += 1) {
       const frame = this.manifest.frames[i]
       if (frame.ty !== 'delta') break
-      this.decoder.decode(
-        new EncodedVideoChunkCtor({
-          type: frame.ty,
-          timestamp: frame.t,
-          data: frame.data,
-        })
-      )
+      if (!this.decodeFrame(frame)) break
     }
   }
 
@@ -277,6 +289,7 @@ export class ActiveFrame {
     this.enabled = false
     this.framesByTimestamp.clear()
     this.process = null
+    this.error = null
     this.frameProcessed = null
     this.data = null
     this.manifest = null

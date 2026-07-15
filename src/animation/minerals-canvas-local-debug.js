@@ -259,6 +259,7 @@ export function initMineralsCanvas(root = document) {
       let fallbackImage = null
       let controller = null
       let hasRenderedAfFrame = false
+      let redrawFallbackTimer = null
       const state = { frame: 0 }
 
       const resizeCanvas = () => {
@@ -334,6 +335,10 @@ export function initMineralsCanvas(root = document) {
       }
 
       const drawAfFrame = (frame) => {
+        if (redrawFallbackTimer) {
+          clearTimeout(redrawFallbackTimer)
+          redrawFallbackTimer = null
+        }
         drawSource(
           frame,
           frame.displayWidth || frame.codedWidth,
@@ -409,6 +414,11 @@ export function initMineralsCanvas(root = document) {
           if (destroyed) return
           drawAfFrame(frame)
         },
+        error: () => {
+          if (destroyed) return
+          hasRenderedAfFrame = false
+          drawFallbackFrame()
+        },
       })
 
       activeFrame.loading
@@ -435,6 +445,13 @@ export function initMineralsCanvas(root = document) {
           } catch (e) {
             requestFrame(state.frame)
           }
+          if (redrawFallbackTimer) clearTimeout(redrawFallbackTimer)
+          redrawFallbackTimer = setTimeout(() => {
+            redrawFallbackTimer = null
+            if (canvas.__mineralsLastSource !== 'cleared') return
+            hasRenderedAfFrame = false
+            drawFallbackFrame()
+          }, 300)
         } else {
           drawFallbackFrame()
           requestFrame(state.frame)
@@ -476,6 +493,10 @@ export function initMineralsCanvas(root = document) {
         if (rafToken) {
           window.cancelAnimationFrame(rafToken)
           rafToken = 0
+        }
+        if (redrawFallbackTimer) {
+          clearTimeout(redrawFallbackTimer)
+          redrawFallbackTimer = null
         }
         try {
           if (tween && typeof tween.kill === 'function') tween.kill()

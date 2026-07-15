@@ -38,11 +38,20 @@ export class ActiveFrame {
   }
 
   async init() {
-    if (!cacheActiveFrameList.has(this.file)) {
-      cacheActiveFrameList.set(this.file, this.loadBinary(this.file))
+    const file = this.file
+    if (!cacheActiveFrameList.has(file)) {
+      let loadingPromise = null
+      loadingPromise = this.loadBinary(file).catch((error) => {
+        if (cacheActiveFrameList.get(file) === loadingPromise) {
+          cacheActiveFrameList.delete(file)
+        }
+        throw error
+      })
+      cacheActiveFrameList.set(file, loadingPromise)
     }
 
-    const loading = await cacheActiveFrameList.get(this.file)
+    const loading = await cacheActiveFrameList.get(file)
+    if (!this.enabled) throw new Error('ActiveFrame destroyed during loading')
     const { manifest, data } = loading
 
     this.manifest = manifest
@@ -54,6 +63,17 @@ export class ActiveFrame {
     })
 
     await this.initDecoder()
+    if (!this.enabled) {
+      try {
+        if (this.decoder && this.decoder.state !== 'closed') {
+          this.decoder.close()
+        }
+      } catch (e) {
+        // ignore
+      }
+      this.decoder = null
+      throw new Error('ActiveFrame destroyed during decoder initialization')
+    }
     this._resolveLoading()
   }
 
@@ -87,6 +107,7 @@ export class ActiveFrame {
   }
 
   async initDecoder() {
+    if (!this.enabled) throw new Error('ActiveFrame destroyed before decoder')
     const VideoDecoderCtor = window.VideoDecoder
     const baseConfig = {
       codec: this.manifest.codec,
@@ -115,6 +136,9 @@ export class ActiveFrame {
     this.config = null
     for (const candidate of candidates) {
       const support = await VideoDecoderCtor.isConfigSupported(candidate)
+      if (!this.enabled) {
+        throw new Error('ActiveFrame destroyed during decoder support check')
+      }
       if (support.supported) {
         this.config = candidate
         break
@@ -124,6 +148,7 @@ export class ActiveFrame {
     if (!this.config) {
       throw new Error('Decoder not supported')
     }
+    if (!this.enabled) throw new Error('ActiveFrame destroyed before configure')
 
     this.decoder = new VideoDecoderCtor({
       output: this.outputFrame.bind(this),
@@ -249,7 +274,6 @@ export class ActiveFrame {
   }
 
   destroy() {
-    cacheActiveFrameList.delete(this.file)
     this.enabled = false
     this.framesByTimestamp.clear()
     this.process = null

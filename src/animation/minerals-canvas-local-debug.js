@@ -258,6 +258,7 @@ export function initMineralsCanvas(root = document) {
       let resizeObserver = null
       let fallbackImage = null
       let controller = null
+      let hasRenderedAfFrame = false
       const state = { frame: 0 }
 
       const resizeCanvas = () => {
@@ -338,11 +339,16 @@ export function initMineralsCanvas(root = document) {
           frame.displayWidth || frame.codedWidth,
           frame.displayHeight || frame.codedHeight
         )
+        hasRenderedAfFrame = true
+        canvas.__mineralsLastSource = 'af'
+        canvas.__mineralsAfDrawCount =
+          (canvas.__mineralsAfDrawCount || 0) + 1
       }
 
       const drawFallbackFrame = () => {
         if (
           destroyed ||
+          hasRenderedAfFrame ||
           !fallbackImage ||
           !fallbackImage.complete ||
           !fallbackImage.naturalWidth
@@ -355,6 +361,9 @@ export function initMineralsCanvas(root = document) {
           fallbackImage.naturalHeight
         )
         canvas.__mineralsFallbackDrawn = true
+        canvas.__mineralsLastSource = 'fallback'
+        canvas.__mineralsFallbackDrawCount =
+          (canvas.__mineralsFallbackDrawCount || 0) + 1
         return true
       }
 
@@ -420,8 +429,17 @@ export function initMineralsCanvas(root = document) {
       const onResize = () => {
         resizeCanvas()
         canvas.__highResReady = true
-        drawFallbackFrame()
-        requestFrame(state.frame)
+        canvas.__mineralsLastSource = 'cleared'
+        if (hasRenderedAfFrame) {
+          try {
+            activeFrame.redrawFrame(state.frame)
+          } catch (e) {
+            requestFrame(state.frame)
+          }
+        } else {
+          drawFallbackFrame()
+          requestFrame(state.frame)
+        }
       }
 
       if ('ResizeObserver' in window) {
@@ -487,6 +505,7 @@ export function initMineralsCanvas(root = document) {
           component.__mineralsCanvasController = null
           component.__mineralsCanvasCleanup = null
         }
+        canvas.__mineralsLastSource = null
       }
 
       component.__mineralsCanvasCleanup = cleanup

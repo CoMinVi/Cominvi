@@ -2,6 +2,12 @@ import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 import Swiper from 'swiper'
 import { Mousewheel } from 'swiper/modules'
+
+import {
+  isNearViewport,
+  readMarkerRects,
+} from './scroll-performance.js'
+
 gsap.registerPlugin(CustomEase)
 
 const PROJECT_DESCRIPTION_SELECTOR =
@@ -259,6 +265,14 @@ function initProjectCardReadMore(root = document, options = {}) {
 export function initMap(root = document) {
   const scope = root || document
 
+  try {
+    if (typeof window.__mapMarkerSyncCleanup === 'function') {
+      window.__mapMarkerSyncCleanup()
+    }
+  } catch (e) {
+    // ignore stale page cleanup failures
+  }
+
   const getMarkerHitboxRoot = () => {
     try {
       if (
@@ -324,19 +338,21 @@ export function initMap(root = document) {
   const markerHitboxPaddingPx = 12
   const markerToButton = new Map()
   const markerHitboxRoot = getMarkerHitboxRoot()
-  const syncMarkerButton = (markerEl, btn) => {
+  const syncAllMarkerButtons = () => {
     try {
-      const rect = markerEl.getBoundingClientRect()
-      btn.style.left = `${rect.left - markerHitboxPaddingPx}px`
-      btn.style.top = `${rect.top - markerHitboxPaddingPx}px`
-      btn.style.width = `${rect.width + markerHitboxPaddingPx * 2}px`
-      btn.style.height = `${rect.height + markerHitboxPaddingPx * 2}px`
+      const measurements = readMarkerRects(
+        Array.from(markerToButton, ([marker, button]) => ({ marker, button })),
+        markerHitboxPaddingPx
+      )
+      measurements.forEach(({ button, left, top, width, height }) => {
+        button.style.left = `${left}px`
+        button.style.top = `${top}px`
+        button.style.width = `${width}px`
+        button.style.height = `${height}px`
+      })
     } catch (e) {
       // ignore
     }
-  }
-  const syncAllMarkerButtons = () => {
-    markerToButton.forEach((btn, markerEl) => syncMarkerButton(markerEl, btn))
   }
   try {
     markers.forEach((markerEl) => {
@@ -391,11 +407,31 @@ export function initMap(root = document) {
       })
       markerHitboxRoot.appendChild(btn)
       markerToButton.set(markerEl, btn)
-      syncMarkerButton(markerEl, btn)
     })
-    // Keep positions in sync on resize/scroll (coalesced to one layout pass per frame)
+
+    const mapSection =
+      scope.querySelector('.section_projects') ||
+      (markers[0] && markers[0].closest('.section_projects')) ||
+      null
+    let markerSyncActive = mapSection
+      ? isNearViewport(
+          mapSection.getBoundingClientRect(),
+          window.innerHeight || document.documentElement.clientHeight || 0,
+          0.5
+        )
+      : true
     let mapScrollRafId = null
+    let proximityObserver = null
+    const setMarkerSyncActive = (active) => {
+      markerSyncActive = !!active
+      markerToButton.forEach((button) => {
+        button.style.pointerEvents = markerSyncActive ? 'auto' : 'none'
+        button.style.visibility = markerSyncActive ? 'visible' : 'hidden'
+      })
+      if (markerSyncActive) syncAllMarkerButtons()
+    }
     const onResizeOrScroll = () => {
+      if (!markerSyncActive) return
       if (mapScrollRafId != null) return
       mapScrollRafId = requestAnimationFrame(() => {
         mapScrollRafId = null
@@ -403,8 +439,8 @@ export function initMap(root = document) {
       })
     }
     window.addEventListener('resize', onResizeOrScroll)
+    const wrapper = window.__lenisWrapper || null
     try {
-      const wrapper = window.__lenisWrapper || null
       if (wrapper && typeof wrapper.addEventListener === 'function') {
         wrapper.addEventListener('scroll', onResizeOrScroll, { passive: true })
       } else {
@@ -412,6 +448,36 @@ export function initMap(root = document) {
       }
     } catch (e) {
       // ignore
+    }
+
+    if (mapSection && 'IntersectionObserver' in window) {
+      proximityObserver = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[entries.length - 1]
+          setMarkerSyncActive(!!entry && entry.isIntersecting)
+        },
+        {
+          root: null,
+          rootMargin: '50% 0px 50% 0px',
+          threshold: 0,
+        }
+      )
+      proximityObserver.observe(mapSection)
+    }
+    setMarkerSyncActive(markerSyncActive)
+
+    window.__mapMarkerSyncCleanup = () => {
+      window.removeEventListener('resize', onResizeOrScroll)
+      if (wrapper && typeof wrapper.removeEventListener === 'function') {
+        wrapper.removeEventListener('scroll', onResizeOrScroll)
+      } else {
+        window.removeEventListener('scroll', onResizeOrScroll)
+      }
+      if (mapScrollRafId != null) cancelAnimationFrame(mapScrollRafId)
+      if (proximityObserver) proximityObserver.disconnect()
+      markerToButton.forEach((button) => button.remove())
+      markerToButton.clear()
+      window.__mapMarkerSyncCleanup = null
     }
   } catch (e) {
     // ignore

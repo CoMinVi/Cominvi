@@ -1,6 +1,8 @@
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
+import { isNearViewport } from './scroll-performance.js'
+
 const PROCESS_MOBILE_MAX = 767
 const processIndexOrigins = new WeakMap()
 
@@ -96,6 +98,7 @@ export function initProcessProgression(root = document) {
   const doInit = () => {
     buildVerticalTicks(track, sticky)
     let runTickUpdate = null
+    let runTickRefresh = null
 
     // De-dupe resize listener across transitions
     try {
@@ -115,6 +118,7 @@ export function initProcessProgression(root = document) {
       resizeTimer = setTimeout(() => {
         buildVerticalTicks(track, sticky)
         ScrollTrigger.refresh()
+        if (typeof runTickRefresh === 'function') runTickRefresh()
         if (typeof runTickUpdate === 'function') runTickUpdate()
       }, 150)
     }
@@ -127,6 +131,9 @@ export function initProcessProgression(root = document) {
     })
     if (controls && typeof controls.update === 'function') {
       runTickUpdate = controls.update
+    }
+    if (controls && typeof controls.refreshTicks === 'function') {
+      runTickRefresh = controls.refreshTicks
     }
 
     const cleanupMobileLayout = syncProcessMobileLayout(section)
@@ -202,10 +209,18 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
   const lastProcess = processes.length ? processes[processes.length - 1] : null
 
   const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v)
+  let ticks = Array.from(track.querySelectorAll('.scroll-tick.vertical'))
+  let activeTickIndex = -1
+  let lastProgressPx = null
+  let lastProgressPercent = null
+  let sectionIsNear = isNearViewport(
+    section.getBoundingClientRect(),
+    window.innerHeight || document.documentElement.clientHeight || 0,
+    0.5
+  )
 
   const update = () => {
-    const ticks = Array.from(track.querySelectorAll('.scroll-tick.vertical'))
-    if (!ticks.length) return
+    if (!sectionIsNear || !ticks.length) return
 
     const viewportH =
       window.innerHeight || document.documentElement.clientHeight || 0
@@ -225,26 +240,27 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
 
     // Progression basée sur la position actuelle du viewport (0)
     let progress = clamp01((0 - startRel) / (endRel - startRel))
-    // Lorsque le bas du dernier .process atteint (ou dépasse) le bas du viewport, verrouiller à 1
-    if (lastProcess) {
-      const r2 = lastProcess.getBoundingClientRect()
-      if (Math.round(r2.bottom - viewportH) <= 1) progress = 1
-    }
+    if (endRel <= 1) progress = 1
 
     // Highlight ticks around the current progress
     const exactIndex = progress * (ticks.length - 1)
     const activeIndex = Math.round(exactIndex)
-    ticks.forEach((t) => t.classList.remove('is-xxl', 'is-xl', 'is-l', 'is-m'))
-    const set = (i, cls) => {
-      if (i >= 0 && i < ticks.length) ticks[i].classList.add(cls)
+    if (activeIndex !== activeTickIndex) {
+      ticks.forEach((t) =>
+        t.classList.remove('is-xxl', 'is-xl', 'is-l', 'is-m')
+      )
+      const set = (i, cls) => {
+        if (i >= 0 && i < ticks.length) ticks[i].classList.add(cls)
+      }
+      set(activeIndex, 'is-xxl')
+      set(activeIndex - 1, 'is-xl')
+      set(activeIndex + 1, 'is-xl')
+      set(activeIndex - 2, 'is-l')
+      set(activeIndex + 2, 'is-l')
+      set(activeIndex - 3, 'is-m')
+      set(activeIndex + 3, 'is-m')
+      activeTickIndex = activeIndex
     }
-    set(activeIndex, 'is-xxl')
-    set(activeIndex - 1, 'is-xl')
-    set(activeIndex + 1, 'is-xl')
-    set(activeIndex - 2, 'is-l')
-    set(activeIndex + 2, 'is-l')
-    set(activeIndex - 3, 'is-m')
-    set(activeIndex + 3, 'is-m')
 
     // Drive the number indicator and textual %
     try {
@@ -258,12 +274,22 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
             0
           const iw = extras.numberInner.getBoundingClientRect().width || 0
           const travel = Math.max(0, cw - iw)
-          const posPx = Math.min(travel, Math.max(0, travel * progress))
-          extras.numberInner.style.left = `${posPx}px`
+          const posPx = Math.round(
+            Math.min(travel, Math.max(0, travel * progress)) * 10
+          ) / 10
+          if (posPx !== lastProgressPx) {
+            extras.numberInner.style.left = `${posPx}px`
+            lastProgressPx = posPx
+          }
         }
       }
-      if (extras && extras.progressReadout) {
+      if (
+        extras &&
+        extras.progressReadout &&
+        lastProgressPercent !== pct
+      ) {
         extras.progressReadout.textContent = String(pct)
+        lastProgressPercent = pct
       }
     } catch (e) {
       // ignore
@@ -281,10 +307,18 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
     // ignore
   }
 
-  const rafUpdate = () => requestAnimationFrame(update)
+  let rafId = null
+  let proximityObserver = null
+  const rafUpdate = () => {
+    if (!sectionIsNear || rafId != null) return
+    rafId = requestAnimationFrame(() => {
+      rafId = null
+      update()
+    })
+  }
   const bind = () => {
     if (window.lenis && typeof window.lenis.on === 'function') {
-      const handler = () => rafUpdate()
+      const handler = rafUpdate
       window.lenis.on('scroll', handler)
       return () => {
         try {
@@ -295,7 +329,7 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
         }
       }
     }
-    const handler = () => rafUpdate()
+    const handler = rafUpdate
     window.addEventListener('scroll', handler, { passive: true })
     return () => {
       try {
@@ -306,23 +340,43 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
     }
   }
 
+  const unbindScroll = bind()
+  if ('IntersectionObserver' in window) {
+    proximityObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[entries.length - 1]
+        sectionIsNear = !!entry && entry.isIntersecting
+        if (sectionIsNear) rafUpdate()
+      },
+      {
+        root: null,
+        rootMargin: '50% 0px 50% 0px',
+        threshold: 0,
+      }
+    )
+    proximityObserver.observe(section)
+  }
+
   try {
-    window.__processScrollListenerCleanup = bind()
+    window.__processScrollListenerCleanup = () => {
+      unbindScroll()
+      if (proximityObserver) proximityObserver.disconnect()
+      if (rafId != null) cancelAnimationFrame(rafId)
+      rafId = null
+    }
   } catch (e) {
     // ignore
   }
 
-  // Also listen to sticky position changes (smoother reaction when sticking/unsticking)
-  ScrollTrigger.create({
-    trigger: sticky,
-    start: 'top top',
-    end: () => 'bottom bottom',
-    onUpdate: () => update(),
-    pin: false,
-  })
-
   update()
-  return { update }
+  return {
+    update: rafUpdate,
+    refreshTicks() {
+      ticks = Array.from(track.querySelectorAll('.scroll-tick.vertical'))
+      activeTickIndex = -1
+      rafUpdate()
+    },
+  }
 }
 
 export function syncProcessMobileLayout(section) {

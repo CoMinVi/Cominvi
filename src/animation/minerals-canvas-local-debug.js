@@ -221,7 +221,13 @@ export function initMineralsCanvas(root = document) {
       return null
     }
 
-    // Evite les doublons lors des transitions Barba.
+    // Les hooks d'initialisation peuvent se chevaucher sur le même container.
+    // Réutiliser le contrôleur actif évite un second téléchargement de 4,9 Mo.
+    if (component.__mineralsCanvasController) {
+      return component.__mineralsCanvasController
+    }
+
+    // Nettoie uniquement un éventuel contrôleur d'une ancienne version.
     if (typeof component.__mineralsCanvasCleanup === 'function') {
       component.__mineralsCanvasCleanup()
     }
@@ -250,6 +256,10 @@ export function initMineralsCanvas(root = document) {
       let maxFrame = 0
       let tween = null
       let resizeObserver = null
+      let fallbackImage = null
+      let controller = null
+      let hasRenderedAfFrame = false
+      let redrawFallbackTimer = null
       const state = { frame: 0 }
 
       const resizeCanvas = () => {
@@ -277,15 +287,13 @@ export function initMineralsCanvas(root = document) {
         return fit.base || 'contain'
       }
 
-      const drawAfFrame = (frame) => {
+      const drawSource = (source, sourceWidth, sourceHeight) => {
         if (!canvas.__highResReady) {
           resizeCanvas()
           canvas.__highResReady = true
         }
         const canvasWidth = Math.max(canvas.clientWidth || 0, 1)
         const canvasHeight = Math.max(canvas.clientHeight || 0, 1)
-        const sourceWidth = frame.displayWidth || frame.codedWidth
-        const sourceHeight = frame.displayHeight || frame.codedHeight
         if (!sourceWidth || !sourceHeight) return
 
         const canvasRatio = canvasWidth / canvasHeight
@@ -314,7 +322,7 @@ export function initMineralsCanvas(root = document) {
         const offsetY = (canvasHeight - drawHeight) * 0.5
         ctx.clearRect(0, 0, canvasWidth, canvasHeight)
         ctx.drawImage(
-          frame,
+          source,
           0,
           0,
           sourceWidth,
@@ -325,6 +333,61 @@ export function initMineralsCanvas(root = document) {
           drawHeight
         )
       }
+
+      const drawAfFrame = (frame) => {
+        if (redrawFallbackTimer) {
+          clearTimeout(redrawFallbackTimer)
+          redrawFallbackTimer = null
+        }
+        drawSource(
+          frame,
+          frame.displayWidth || frame.codedWidth,
+          frame.displayHeight || frame.codedHeight
+        )
+        hasRenderedAfFrame = true
+        canvas.__mineralsLastSource = 'af'
+        canvas.__mineralsAfDrawCount = (canvas.__mineralsAfDrawCount || 0) + 1
+      }
+
+      const drawFallbackFrame = () => {
+        if (
+          destroyed ||
+          hasRenderedAfFrame ||
+          !fallbackImage ||
+          !fallbackImage.complete ||
+          !fallbackImage.naturalWidth
+        ) {
+          return false
+        }
+        drawSource(
+          fallbackImage,
+          fallbackImage.naturalWidth,
+          fallbackImage.naturalHeight
+        )
+        canvas.__mineralsFallbackDrawn = true
+        canvas.__mineralsLastSource = 'fallback'
+        canvas.__mineralsFallbackDrawCount =
+          (canvas.__mineralsFallbackDrawCount || 0) + 1
+        return true
+      }
+
+      const loadFallbackFrame = () => {
+        fallbackImage = new Image()
+        fallbackImage.crossOrigin = 'anonymous'
+        fallbackImage.decoding = 'async'
+        fallbackImage.onload = () => {
+          if (!drawFallbackFrame()) return
+          info('Frame statique Minerals affichee')
+        }
+        fallbackImage.onerror = () => {
+          err('Echec chargement frame statique Minerals')
+        }
+        fallbackImage.src = buildMineralsLocalUrls(1)[0]
+      }
+
+      // Affiche rapidement une image, puis la séquence AF la remplace lorsqu'elle
+      // est prête. Cette image reste visible si WebCodecs ou le réseau échoue.
+      loadFallbackFrame()
 
       const flushFrameRequest = () => {
         rafToken = 0
@@ -351,6 +414,11 @@ export function initMineralsCanvas(root = document) {
           if (destroyed) return
           drawAfFrame(frame)
         },
+        error: () => {
+          if (destroyed) return
+          hasRenderedAfFrame = false
+          drawFallbackFrame()
+        },
       })
 
       activeFrame.loading
@@ -360,19 +428,34 @@ export function initMineralsCanvas(root = document) {
           requestFrame(0)
         })
         .catch((error) => {
-          err(
-            'Echec chargement .af, fallback image possible via force-images',
-            {
-              afUrl,
-              error,
-            }
-          )
+          err('Echec chargement .af, frame statique conservee', {
+            afUrl,
+            error,
+          })
+          drawFallbackFrame()
         })
 
       const onResize = () => {
         resizeCanvas()
         canvas.__highResReady = true
-        requestFrame(state.frame)
+        canvas.__mineralsLastSource = 'cleared'
+        if (hasRenderedAfFrame) {
+          try {
+            activeFrame.redrawFrame(state.frame)
+          } catch (e) {
+            requestFrame(state.frame)
+          }
+          if (redrawFallbackTimer) clearTimeout(redrawFallbackTimer)
+          redrawFallbackTimer = setTimeout(() => {
+            redrawFallbackTimer = null
+            if (canvas.__mineralsLastSource !== 'cleared') return
+            hasRenderedAfFrame = false
+            drawFallbackFrame()
+          }, 300)
+        } else {
+          drawFallbackFrame()
+          requestFrame(state.frame)
+        }
       }
 
       if ('ResizeObserver' in window) {
@@ -411,6 +494,10 @@ export function initMineralsCanvas(root = document) {
           window.cancelAnimationFrame(rafToken)
           rafToken = 0
         }
+        if (redrawFallbackTimer) {
+          clearTimeout(redrawFallbackTimer)
+          redrawFallbackTimer = null
+        }
         try {
           if (tween && typeof tween.kill === 'function') tween.kill()
         } catch (e) {
@@ -429,11 +516,22 @@ export function initMineralsCanvas(root = document) {
         } catch (e) {
           // ignore
         }
-        component.__mineralsCanvasCleanup = null
+        if (fallbackImage) {
+          fallbackImage.onload = null
+          fallbackImage.onerror = null
+          fallbackImage = null
+        }
+        if (component.__mineralsCanvasController === controller) {
+          component.__mineralsCanvasController = null
+          component.__mineralsCanvasCleanup = null
+        }
+        canvas.__mineralsLastSource = null
       }
 
       component.__mineralsCanvasCleanup = cleanup
-      return { cleanup, component, canvas }
+      controller = { cleanup, component, canvas }
+      component.__mineralsCanvasController = controller
+      return controller
     }
 
     if (!urls.length) {
@@ -1033,10 +1131,15 @@ export function initMineralsCanvas(root = document) {
         }
       })
       cleanupCallbacks.length = 0
-      component.__mineralsCanvasCleanup = null
+      if (component.__mineralsCanvasController === controller) {
+        component.__mineralsCanvasController = null
+        component.__mineralsCanvasCleanup = null
+      }
     }
 
     component.__mineralsCanvasCleanup = cleanup
+    const controller = { cleanup, component, canvas }
+    component.__mineralsCanvasController = controller
 
     window.__mineralsCanvasDebug = {
       state,
@@ -1052,7 +1155,7 @@ export function initMineralsCanvas(root = document) {
       getLoadPlan: getMineralsFrameLoadPlan,
     }
 
-    return { cleanup, component, canvas }
+    return controller
   } catch (error) {
     err('Erreur fatale:', error)
     return null

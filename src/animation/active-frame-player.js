@@ -13,7 +13,11 @@ function createDeferred() {
 export class ActiveFrame {
   constructor(
     file,
-    { process = () => {}, hardwareAcceleration = 'prefer-hardware' } = {}
+    {
+      process = () => {},
+      error = () => {},
+      hardwareAcceleration = 'prefer-hardware',
+    } = {}
   ) {
     const deferred = createDeferred()
     this.loading = deferred.promise
@@ -22,6 +26,7 @@ export class ActiveFrame {
 
     this.file = file
     this.process = process
+    this.error = error
     this.hardwareAcceleration = hardwareAcceleration
     this.manifest = null
     this.data = null
@@ -38,11 +43,20 @@ export class ActiveFrame {
   }
 
   async init() {
-    if (!cacheActiveFrameList.has(this.file)) {
-      cacheActiveFrameList.set(this.file, this.loadBinary(this.file))
+    const file = this.file
+    if (!cacheActiveFrameList.has(file)) {
+      let loadingPromise = null
+      loadingPromise = this.loadBinary(file).catch((error) => {
+        if (cacheActiveFrameList.get(file) === loadingPromise) {
+          cacheActiveFrameList.delete(file)
+        }
+        throw error
+      })
+      cacheActiveFrameList.set(file, loadingPromise)
     }
 
-    const loading = await cacheActiveFrameList.get(this.file)
+    const loading = await cacheActiveFrameList.get(file)
+    if (!this.enabled) throw new Error('ActiveFrame destroyed during loading')
     const { manifest, data } = loading
 
     this.manifest = manifest
@@ -54,6 +68,17 @@ export class ActiveFrame {
     })
 
     await this.initDecoder()
+    if (!this.enabled) {
+      try {
+        if (this.decoder && this.decoder.state !== 'closed') {
+          this.decoder.close()
+        }
+      } catch (e) {
+        // ignore
+      }
+      this.decoder = null
+      throw new Error('ActiveFrame destroyed during decoder initialization')
+    }
     this._resolveLoading()
   }
 
@@ -87,6 +112,7 @@ export class ActiveFrame {
   }
 
   async initDecoder() {
+    if (!this.enabled) throw new Error('ActiveFrame destroyed before decoder')
     const VideoDecoderCtor = window.VideoDecoder
     const baseConfig = {
       codec: this.manifest.codec,
@@ -115,6 +141,9 @@ export class ActiveFrame {
     this.config = null
     for (const candidate of candidates) {
       const support = await VideoDecoderCtor.isConfigSupported(candidate)
+      if (!this.enabled) {
+        throw new Error('ActiveFrame destroyed during decoder support check')
+      }
       if (support.supported) {
         this.config = candidate
         break
@@ -124,12 +153,11 @@ export class ActiveFrame {
     if (!this.config) {
       throw new Error('Decoder not supported')
     }
+    if (!this.enabled) throw new Error('ActiveFrame destroyed before configure')
 
     this.decoder = new VideoDecoderCtor({
       output: this.outputFrame.bind(this),
-      error: () => {
-        // Decoder error occurred
-      },
+      error: (decoderError) => this.handleDecoderError(decoderError),
     })
 
     this.decoder.configure(this.config)
@@ -158,6 +186,31 @@ export class ActiveFrame {
     frame.close()
   }
 
+  handleDecoderError(error) {
+    this._pendingFrame = null
+    try {
+      if (this.error) this.error(error)
+    } catch (e) {
+      // ignore consumer error handlers
+    }
+  }
+
+  decodeFrame(frameMeta) {
+    try {
+      this.decoder.decode(
+        new window.EncodedVideoChunk({
+          type: frameMeta.ty,
+          timestamp: frameMeta.t,
+          data: frameMeta.data,
+        })
+      )
+      return true
+    } catch (error) {
+      this.handleDecoderError(error)
+      return false
+    }
+  }
+
   redrawFrame(desideredFrame) {
     if (!this.manifest || !this.enabled || !this.decoder) return
     this.frame = null
@@ -167,7 +220,10 @@ export class ActiveFrame {
 
   setFrame(desideredFrame) {
     if (!this.manifest || !this.enabled || !this.decoder) return
-    const EncodedVideoChunkCtor = window.EncodedVideoChunk
+    if (this.decoder.state === 'closed') {
+      this.handleDecoderError(new Error('VideoDecoder is closed'))
+      return
+    }
 
     desideredFrame = Math.round(Number(desideredFrame))
     const maxFrame = Math.max(0, this.manifest.totalFrames - 1)
@@ -187,13 +243,7 @@ export class ActiveFrame {
       frameMeta.ty === 'delta'
 
     if (isSequential) {
-      this.decoder.decode(
-        new EncodedVideoChunkCtor({
-          type: frameMeta.ty,
-          timestamp: frameMeta.t,
-          data: frameMeta.data,
-        })
-      )
+      this.decodeFrame(frameMeta)
       return
     }
 
@@ -201,18 +251,17 @@ export class ActiveFrame {
       this.decoder.decodeQueueSize > 0 ||
       this.decoder.state !== 'configured'
     ) {
-      this.decoder.reset()
-      this.decoder.configure(this.config)
+      try {
+        this.decoder.reset()
+        this.decoder.configure(this.config)
+      } catch (error) {
+        this.handleDecoderError(error)
+        return
+      }
     }
 
     if (frameMeta.ty === 'key') {
-      this.decoder.decode(
-        new EncodedVideoChunkCtor({
-          type: frameMeta.ty,
-          timestamp: frameMeta.t,
-          data: frameMeta.data,
-        })
-      )
+      this.decodeFrame(frameMeta)
       return
     }
 
@@ -227,32 +276,20 @@ export class ActiveFrame {
 
     if (!keyFrame || !keyFrame.data) return
 
-    this.decoder.decode(
-      new EncodedVideoChunkCtor({
-        type: keyFrame.ty,
-        timestamp: keyFrame.t,
-        data: keyFrame.data,
-      })
-    )
+    if (!this.decodeFrame(keyFrame)) return
 
     for (let i = keyFrame.i + 1; i <= this.desideredFrame; i += 1) {
       const frame = this.manifest.frames[i]
       if (frame.ty !== 'delta') break
-      this.decoder.decode(
-        new EncodedVideoChunkCtor({
-          type: frame.ty,
-          timestamp: frame.t,
-          data: frame.data,
-        })
-      )
+      if (!this.decodeFrame(frame)) break
     }
   }
 
   destroy() {
-    cacheActiveFrameList.delete(this.file)
     this.enabled = false
     this.framesByTimestamp.clear()
     this.process = null
+    this.error = null
     this.frameProcessed = null
     this.data = null
     this.manifest = null

@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   getCanvasPixelRatio,
+  getIntersectionObserverRoot,
   isNearViewport,
   readMarkerRects,
 } from './scroll-performance.js'
@@ -51,4 +52,17 @@ test('getCanvasPixelRatio plafonne uniquement les écrans mobiles', () => {
   assert.equal(getCanvasPixelRatio(1.5, true), 1.5)
   assert.equal(getCanvasPixelRatio(3, false), 3)
   assert.equal(getCanvasPixelRatio(0, true), 1)
+})
+
+test('getIntersectionObserverRoot utilise le wrapper qui contient la section', () => {
+  const target = {}
+  const wrapper = {
+    contains(node) {
+      return node === target
+    },
+  }
+
+  assert.equal(getIntersectionObserverRoot(wrapper, target), wrapper)
+  assert.equal(getIntersectionObserverRoot(wrapper, {}), null)
+  assert.equal(getIntersectionObserverRoot(null, target), null)
 })

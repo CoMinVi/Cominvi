@@ -8,7 +8,8 @@ import {
 
 test('active le reveal par ligne uniquement au breakpoint mobile', () => {
   assert.equal(shouldUseProcessLineReveal(390), true)
-  assert.equal(shouldUseProcessLineReveal(767), true)
+  assert.equal(shouldUseProcessLineReveal(766), true)
+  assert.equal(shouldUseProcessLineReveal(767), false)
   assert.equal(shouldUseProcessLineReveal(768), false)
   assert.equal(shouldUseProcessLineReveal(1200), false)
 })

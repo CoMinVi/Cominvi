@@ -255,7 +255,7 @@ export function initMineralsCanvas(root = document) {
       const resizeCanvas = () => {
         const dpr = getCanvasPixelRatio(
           window.devicePixelRatio,
-          bp !== 'desktop'
+          getBreakpoint() !== 'desktop'
         )
         const width = Math.max(canvas.clientWidth || 0, 1)
         const height = Math.max(canvas.clientHeight || 0, 1)
@@ -503,7 +503,10 @@ export function initMineralsCanvas(root = document) {
     let resizeObserver = null
 
     const resizeCanvas = () => {
-      const dpr = getCanvasPixelRatio(window.devicePixelRatio, bp !== 'desktop')
+      const dpr = getCanvasPixelRatio(
+        window.devicePixelRatio,
+        getBreakpoint() !== 'desktop'
+      )
       const width = Math.max(canvas.clientWidth || 0, 1)
       const height = Math.max(canvas.clientHeight || 0, 1)
 

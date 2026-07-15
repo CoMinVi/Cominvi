@@ -3,6 +3,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 import { ActiveFrame } from './active-frame-player.js'
 import { buildMineralsLocalUrls } from './minerals-frame-urls.js'
+import { getCanvasPixelRatio } from './scroll-performance.js'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -252,7 +253,10 @@ export function initMineralsCanvas(root = document) {
       const state = { frame: 0 }
 
       const resizeCanvas = () => {
-        const dpr = window.devicePixelRatio || 1
+        const dpr = getCanvasPixelRatio(
+          window.devicePixelRatio,
+          bp !== 'desktop'
+        )
         const width = Math.max(canvas.clientWidth || 0, 1)
         const height = Math.max(canvas.clientHeight || 0, 1)
         canvas.width = Math.round(width * dpr)
@@ -499,7 +503,10 @@ export function initMineralsCanvas(root = document) {
     let resizeObserver = null
 
     const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1
+      const dpr = getCanvasPixelRatio(
+        window.devicePixelRatio,
+        bp !== 'desktop'
+      )
       const width = Math.max(canvas.clientWidth || 0, 1)
       const height = Math.max(canvas.clientHeight || 0, 1)
 

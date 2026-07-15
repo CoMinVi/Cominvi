@@ -27,3 +27,11 @@ export function getCanvasPixelRatio(devicePixelRatio, isMobile) {
       : 1
   return isMobile ? Math.min(ratio, 2) : ratio
 }
+
+export function getIntersectionObserverRoot(wrapper, target) {
+  try {
+    return wrapper && target && wrapper.contains(target) ? wrapper : null
+  } catch (e) {
+    return null
+  }
+}

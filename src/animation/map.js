@@ -3,7 +3,11 @@ import { CustomEase } from 'gsap/CustomEase'
 import Swiper from 'swiper'
 import { Mousewheel } from 'swiper/modules'
 
-import { isNearViewport, readMarkerRects } from './scroll-performance.js'
+import {
+  getIntersectionObserverRoot,
+  isNearViewport,
+  readMarkerRects,
+} from './scroll-performance.js'
 
 gsap.registerPlugin(CustomEase)
 
@@ -259,9 +263,7 @@ function initProjectCardReadMore(root = document, options = {}) {
   }
 }
 
-export function initMap(root = document) {
-  const scope = root || document
-
+export function destroyMapMarkerSync() {
   try {
     if (typeof window.__mapMarkerSyncCleanup === 'function') {
       window.__mapMarkerSyncCleanup()
@@ -269,6 +271,12 @@ export function initMap(root = document) {
   } catch (e) {
     // ignore stale page cleanup failures
   }
+}
+
+export function initMap(root = document) {
+  const scope = root || document
+
+  destroyMapMarkerSync()
 
   const getMarkerHitboxRoot = () => {
     try {
@@ -454,7 +462,7 @@ export function initMap(root = document) {
           setMarkerSyncActive(!!entry && entry.isIntersecting)
         },
         {
-          root: null,
+          root: getIntersectionObserverRoot(wrapper, mapSection),
           rootMargin: '50% 0px 50% 0px',
           threshold: 0,
         }

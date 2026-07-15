@@ -1,16 +1,50 @@
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
-import { isNearViewport } from './scroll-performance.js'
+import {
+  getIntersectionObserverRoot,
+  isNearViewport,
+} from './scroll-performance.js'
 
 const PROCESS_MOBILE_MAX = 767
 const processIndexOrigins = new WeakMap()
+let processInitRafId = null
+let processInitInnerRafId = null
+let processResizeTimer = null
 
 const isProcessMobile = () => window.innerWidth < PROCESS_MOBILE_MAX
 
 gsap.registerPlugin(ScrollTrigger)
 
+export function destroyProcessProgression() {
+  if (processInitRafId != null) cancelAnimationFrame(processInitRafId)
+  if (processInitInnerRafId != null) cancelAnimationFrame(processInitInnerRafId)
+  if (processResizeTimer != null) clearTimeout(processResizeTimer)
+  processInitRafId = null
+  processInitInnerRafId = null
+  processResizeTimer = null
+
+  try {
+    if (window.__processResizeHandler) {
+      window.removeEventListener('resize', window.__processResizeHandler)
+      window.__processResizeHandler = null
+    }
+    if (window.__processScrollListenerCleanup) {
+      window.__processScrollListenerCleanup()
+      window.__processScrollListenerCleanup = null
+    }
+    if (window.__processCleanupMobile) {
+      window.__processCleanupMobile()
+      window.__processCleanupMobile = null
+    }
+    window.__processProgressionCleanup = null
+  } catch (e) {
+    // ignore cleanup failures from detached Barba containers
+  }
+}
+
 export function initProcessProgression(root = document) {
+  destroyProcessProgression()
   const section =
     root.querySelector('.section_process') ||
     document.querySelector('.section_process')
@@ -96,38 +130,40 @@ export function initProcessProgression(root = document) {
   }
 
   const doInit = () => {
+    processInitInnerRafId = null
     buildVerticalTicks(track, sticky)
     let runTickUpdate = null
     let runTickRefresh = null
+    let controls = null
+    let resizePending = false
 
-    // De-dupe resize listener across transitions
-    try {
-      if (window.__processResizeHandler) {
-        window.removeEventListener('resize', window.__processResizeHandler)
-      }
-      if (window.__processCleanupMobile) {
-        window.__processCleanupMobile()
-        window.__processCleanupMobile = null
-      }
-    } catch (e) {
-      // ignore
+    const rebuildForResize = () => {
+      resizePending = false
+      buildVerticalTicks(track, sticky)
+      ScrollTrigger.refresh()
+      if (typeof runTickRefresh === 'function') runTickRefresh()
+      if (typeof runTickUpdate === 'function') runTickUpdate()
     }
-    let resizeTimer
     window.__processResizeHandler = () => {
-      clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(() => {
-        buildVerticalTicks(track, sticky)
-        ScrollTrigger.refresh()
-        if (typeof runTickRefresh === 'function') runTickRefresh()
-        if (typeof runTickUpdate === 'function') runTickUpdate()
+      if (processResizeTimer != null) clearTimeout(processResizeTimer)
+      processResizeTimer = setTimeout(() => {
+        processResizeTimer = null
+        if (controls && !controls.isNear()) {
+          resizePending = true
+          return
+        }
+        rebuildForResize()
       }, 150)
     }
     window.addEventListener('resize', window.__processResizeHandler)
 
-    const controls = setupVerticalTickHighlighting(section, sticky, track, {
+    controls = setupVerticalTickHighlighting(section, sticky, track, {
       numberTrack,
       numberInner,
       progressReadout,
+      onNear: () => {
+        if (resizePending) rebuildForResize()
+      },
     })
     if (controls && typeof controls.update === 'function') {
       runTickUpdate = controls.update
@@ -148,7 +184,11 @@ export function initProcessProgression(root = document) {
   }
 
   // Defer initialization slightly to let the destination layout settle after transition-next
-  requestAnimationFrame(() => requestAnimationFrame(doInit))
+  window.__processProgressionCleanup = destroyProcessProgression
+  processInitRafId = requestAnimationFrame(() => {
+    processInitRafId = null
+    processInitInnerRafId = requestAnimationFrame(doInit)
+  })
 }
 
 function buildVerticalTicks(track, sticky) {
@@ -338,14 +378,18 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
 
   const unbindScroll = bind()
   if ('IntersectionObserver' in window) {
+    const wrapper = window.__lenisWrapper || null
     proximityObserver = new IntersectionObserver(
       (entries) => {
         const entry = entries[entries.length - 1]
         sectionIsNear = !!entry && entry.isIntersecting
-        if (sectionIsNear) rafUpdate()
+        if (sectionIsNear) {
+          if (typeof extras.onNear === 'function') extras.onNear()
+          rafUpdate()
+        }
       },
       {
-        root: null,
+        root: getIntersectionObserverRoot(wrapper, section),
         rootMargin: '50% 0px 50% 0px',
         threshold: 0,
       }
@@ -371,6 +415,9 @@ function setupVerticalTickHighlighting(section, sticky, track, extras = {}) {
       ticks = Array.from(track.querySelectorAll('.scroll-tick.vertical'))
       activeTickIndex = -1
       rafUpdate()
+    },
+    isNear() {
+      return sectionIsNear
     },
   }
 }

@@ -9,7 +9,7 @@ const STAGING_URL = 'https://cominvi-staging.webflow.io/our-services'
 const NETLIFY_ORIGIN = 'https://cominvi.netlify.app'
 const DIST_DIR = path.resolve('dist')
 
-async function createPage({ failAf = false } = {}) {
+async function createPage({ failAf = false, delayAf = 0 } = {}) {
   const browser = await chromium.launch({
     headless: true,
     executablePath: '/usr/local/bin/google-chrome',
@@ -23,6 +23,9 @@ async function createPage({ failAf = false } = {}) {
     if (url.pathname.endsWith('/minerals-sequence.af')) {
       afRequests += 1
       if (failAf) return route.abort('failed')
+      if (delayAf > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayAf))
+      }
       return route.continue()
     }
 
@@ -89,6 +92,69 @@ test('affiche une frame statique si la séquence AF échoue', async () => {
     )
     await session.page.waitForTimeout(4000)
     assert.ok((await readCanvasAlpha(session.page)) > 0)
+  } finally {
+    await session.browser.close()
+  }
+})
+
+test('conserve la frame AF après un resize tardif du fallback', async () => {
+  const session = await createPage()
+  try {
+    await session.page.evaluate(() =>
+      window.lenis.scrollTo(2800, { immediate: true })
+    )
+    await session.page.waitForFunction(
+      () =>
+        document.querySelector('.section_minerals canvas')
+          .__mineralsLastSource === 'af',
+      null,
+      { timeout: 20000 }
+    )
+    const drawsBefore = await session.page.evaluate(
+      () =>
+        document.querySelector('.section_minerals canvas')
+          .__mineralsAfDrawCount
+    )
+
+    await session.page.setViewportSize({ width: 400, height: 664 })
+    await session.page.waitForFunction(
+      (before) => {
+        const canvas = document.querySelector('.section_minerals canvas')
+        return (
+          canvas.__mineralsLastSource === 'af' &&
+          canvas.__mineralsAfDrawCount > before
+        )
+      },
+      drawsBefore,
+      { timeout: 10000 }
+    )
+  } finally {
+    await session.browser.close()
+  }
+})
+
+test('réutilise le chargement AF en cours après un cleanup', async () => {
+  const session = await createPage({ delayAf: 1500 })
+  try {
+    await session.page.evaluate(async () => {
+      const component = document.querySelector(
+        '[fc-image-scrubbing="component"]'
+      )
+      component.__mineralsCanvasCleanup()
+      const module = await import(
+        'https://cominvi.netlify.app/assets/minerals-canvas-local-debug.js'
+      )
+      module.initMineralsCanvas(document)
+      window.lenis.scrollTo(2800, { immediate: true })
+    })
+    await session.page.waitForFunction(
+      () =>
+        document.querySelector('.section_minerals canvas')
+          .__mineralsLastSource === 'af',
+      null,
+      { timeout: 20000 }
+    )
+    assert.equal(session.getAfRequests(), 1)
   } finally {
     await session.browser.close()
   }

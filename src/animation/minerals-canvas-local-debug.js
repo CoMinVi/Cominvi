@@ -341,8 +341,7 @@ export function initMineralsCanvas(root = document) {
         )
         hasRenderedAfFrame = true
         canvas.__mineralsLastSource = 'af'
-        canvas.__mineralsAfDrawCount =
-          (canvas.__mineralsAfDrawCount || 0) + 1
+        canvas.__mineralsAfDrawCount = (canvas.__mineralsAfDrawCount || 0) + 1
       }
 
       const drawFallbackFrame = () => {

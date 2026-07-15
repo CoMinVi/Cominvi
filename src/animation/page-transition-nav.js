@@ -32,6 +32,23 @@ import {
 import { nextLeave, nextEnter } from './transition-next.js'
 import { slideScaleLeave, slideScaleEnter } from './transition-slide-scale.js'
 
+function isLocaleSwitcherLink(el) {
+  try {
+    const anchor =
+      el && el.closest ? el.closest('a') : el && el.tagName === 'A' ? el : null
+    if (!anchor) return false
+    if (anchor.closest('.locale-switch')) return true
+    if (anchor.classList.contains('navlink-locale')) {
+      return !!(
+        anchor.closest('.locales-list') || anchor.closest('.w-locales-list')
+      )
+    }
+    return false
+  } catch (e) {
+    return false
+  }
+}
+
 // Minimal Barba setup that focuses only on nav-related transitions
 export function initializePageTransitionNav() {
   const reinitFsAttributes = () => {
@@ -437,11 +454,12 @@ export function initializePageTransitionNav() {
   barba.init({
     preventRunning: true,
     schema: { namespace: 'data-barba-namespace' },
-    // Prevent Barba transitions on load more anchor links
+    // Prevent Barba on load-more and locale switcher (full page reload instead)
     prevent: ({ el }) => {
       try {
         const anchor = el && el.closest ? el.closest('a.load-more') : null
-        return !!anchor
+        if (anchor) return true
+        return isLocaleSwitcherLink(el)
       } catch (e) {
         return false
       }

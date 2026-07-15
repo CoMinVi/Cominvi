@@ -832,6 +832,9 @@ export function initializePageTransitionNav() {
       if (typeof window.__processProgressionCleanup === 'function') {
         window.__processProgressionCleanup()
       }
+      if (typeof window.__textRevealCleanup === 'function') {
+        window.__textRevealCleanup()
+      }
     } catch (e) {
       /* ignore */
     }

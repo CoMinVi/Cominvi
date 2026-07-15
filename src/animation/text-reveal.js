@@ -12,6 +12,15 @@ gsap.registerPlugin(ScrollTrigger)
 let __textRevealResizeAttached = false
 let __textRevealResizeTimeout = null
 
+function registerTextRevealCleanup(root) {
+  try {
+    window.__textRevealCleanupRoot = root
+    window.__textRevealCleanup = () => destroyTextReveal(root)
+  } catch (e) {
+    // ignore
+  }
+}
+
 function attachTextRevealResizeHandler() {
   if (typeof window === 'undefined') return
   if (__textRevealResizeAttached) return
@@ -245,6 +254,7 @@ export function initTextReveal(root = document) {
 
   // Ensure the resize/orientationchange re-init is attached once
   attachTextRevealResizeHandler()
+  registerTextRevealCleanup(root)
 
   const timelines = []
   targets.forEach((el) => {
@@ -655,6 +665,14 @@ export function destroyTextReveal(root = document) {
         // ignore
       }
     })
+  } catch (e) {
+    // ignore
+  }
+  try {
+    if (window.__textRevealCleanupRoot === root) {
+      window.__textRevealCleanup = null
+      window.__textRevealCleanupRoot = null
+    }
   } catch (e) {
     // ignore
   }

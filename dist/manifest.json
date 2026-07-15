@@ -120,8 +120,12 @@
     "src": "src/animation/minerals-canvas-local-debug.js",
     "isDynamicEntry": true,
     "imports": [
-      "src/main.js"
+      "src/main.js",
+      "_scroll-performance.js"
     ]
+  },
+  "_scroll-performance.js": {
+    "file": "assets/scroll-performance.js"
   },
   "src/animation/scroll-list.js": {
     "file": "assets/scroll-list.js",
@@ -136,7 +140,8 @@
     "src": "src/animation/process-progression.js",
     "isDynamicEntry": true,
     "imports": [
-      "src/main.js"
+      "src/main.js",
+      "_scroll-performance.js"
     ]
   },
   "src/animation/testimonials.js": {
@@ -165,7 +170,8 @@
     "src": "src/animation/map.js",
     "isDynamicEntry": true,
     "imports": [
-      "src/main.js"
+      "src/main.js",
+      "_scroll-performance.js"
     ]
   },
   "src/animation/technology.js": {

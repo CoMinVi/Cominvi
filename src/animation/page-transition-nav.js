@@ -825,6 +825,16 @@ export function initializePageTransitionNav() {
     } catch (e) {
       /* ignore */
     }
+    try {
+      if (typeof window.__mapMarkerSyncCleanup === 'function') {
+        window.__mapMarkerSyncCleanup()
+      }
+      if (typeof window.__processProgressionCleanup === 'function') {
+        window.__processProgressionCleanup()
+      }
+    } catch (e) {
+      /* ignore */
+    }
     destroyContactIfNeeded(current && current.container)
   })
 

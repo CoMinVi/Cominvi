@@ -73,6 +73,11 @@ try {
         (entry) => !firstAbsolute || entry.time < firstAbsolute.time
       )
       .map((entry) => Math.round(entry.sectionTop))
+    const jumpsBeforeAbsolute = positionsBeforeAbsolute
+      .slice(1)
+      .map((position, index) =>
+        Math.abs(position - positionsBeforeAbsolute[index])
+      )
 
     return {
       firstAbsolute,
@@ -87,6 +92,7 @@ try {
           )
           .map((entry) => Math.abs(entry.teamHeight - samples[0].teamHeight))
       ),
+      maxFrameJump: Math.max(0, ...jumpsBeforeAbsolute),
     }
   })
 
@@ -109,6 +115,10 @@ try {
   assert.ok(
     result.maxTeamHeightDelta <= 1,
     `Our Team ne doit pas changer de hauteur pendant le scroll (${result.maxTeamHeightDelta}px)`
+  )
+  assert.ok(
+    result.maxFrameJump <= 50,
+    `Le scroll ne doit pas sauter entre deux frames (${result.maxFrameJump}px)`
   )
 } finally {
   await browser.close()

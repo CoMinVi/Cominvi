@@ -127,16 +127,25 @@ function bindHomeSequenceRefreshRepaint(repaintFn) {
   }
 }
 
-function beginScrollDrivenSequence(sequenceController) {
+function beginScrollDrivenSequence(sequenceController, opts = {}) {
   if (window.__homeSequenceScrollTrigger) return
+
+  const deferScrollTriggerRefresh = !!opts.deferScrollTriggerRefresh
 
   const startScrollDriver = () => {
     window.requestAnimationFrame(() => {
       initScrollDrivenSequence(sequenceController)
-      try {
-        ScrollTrigger.refresh()
-      } catch (e) {
-        // ignore
+      const refreshScrollTrigger = () => {
+        try {
+          ScrollTrigger.refresh()
+        } catch (e) {
+          // ignore
+        }
+      }
+      if (deferScrollTriggerRefresh) {
+        deferAfterHeroCardsSettled(refreshScrollTrigger)
+      } else {
+        refreshScrollTrigger()
       }
     })
   }
@@ -401,8 +410,8 @@ export function initLoader() {
       } catch (e) {
         // ignore
       }
-      deferAfterHeroCardsSettled(() => {
-        beginScrollDrivenSequence(sequenceController)
+      beginScrollDrivenSequence(sequenceController, {
+        deferScrollTriggerRefresh: isTabletOrBelowViewport(),
       })
     }
 
@@ -930,7 +939,9 @@ export function startHomeSequenceAfterTransition(scope = document, opts = {}) {
         deferScrollSequence: true,
       })
 
-      beginScrollDrivenSequence(sequenceController)
+      beginScrollDrivenSequence(sequenceController, {
+        deferScrollTriggerRefresh: isTabletOrBelowViewport(),
+      })
 
       window.__homeSequenceTransitionStarted = false
       window.__homeSequenceTransitionTimeline = null

@@ -170,10 +170,6 @@ export function nextLeave({ current, trigger, next }) {
     }
   }
 
-  if (current && current.container) {
-    gsap.set(current.container, { position: 'absolute', inset: 0, zIndex: 1 })
-  }
-
   tl.add(gsap.to({}, { duration: 0.001 }), 0)
   // Step 1: scroll (timeline waits for this tween)
   tl.add(scrollToSectionNext(current && current.container), '+=0')
@@ -181,6 +177,13 @@ export function nextLeave({ current, trigger, next }) {
   // Step 2: place next beneath, right after scroll completes
   tl.call(
     () => {
+      if (current && current.container) {
+        gsap.set(current.container, {
+          position: 'absolute',
+          inset: 0,
+          zIndex: 1,
+        })
+      }
       if (next && next.container) {
         gsap.set(next.container, {
           opacity: 1,

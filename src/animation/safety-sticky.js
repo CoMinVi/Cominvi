@@ -125,7 +125,7 @@ function bindSafetyStickyGlobalListeners() {
       try {
         const section = document.querySelector('.section_safety')
         const isEnabled = Boolean(section?.__safetyStickyST)
-        if (isEnabled !== shouldEnableSafetySticky()) {
+        if (section && isEnabled !== shouldEnableSafetySticky()) {
           refreshAll()
           return
         }

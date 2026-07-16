@@ -22,6 +22,25 @@ function cancelLifecycleFrames() {
   lifecycleRafs.clear()
 }
 
+function removeScrollerProxy(wrapper) {
+  if (!wrapper) return
+
+  try {
+    ScrollTrigger.scrollerProxy(wrapper)
+  } catch (err) {
+    // ignore
+  }
+
+  const proxies = ScrollTrigger.core?._proxies
+  if (!Array.isArray(proxies)) return
+
+  for (let index = proxies.length - 2; index >= 0; index -= 2) {
+    if (proxies[index] === wrapper) {
+      proxies.splice(index, 2)
+    }
+  }
+}
+
 export function usesNativeScroll(
   viewportMatcher = (query) => window.matchMedia(query).matches
 ) {
@@ -189,9 +208,7 @@ export function destroyLenis() {
     // ignore
   }
   try {
-    if (proxiedWrapper) {
-      ScrollTrigger.scrollerProxy(proxiedWrapper)
-    }
+    removeScrollerProxy(proxiedWrapper)
   } catch (err) {
     // ignore
   } finally {

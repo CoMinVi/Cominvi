@@ -166,7 +166,9 @@ async function checkLifecycleCleanup(browser) {
 
       try {
         const firstLenis = initLenis(document)
-        const wrapper = window.__lenisWrapper
+        const oldWrapper = window.__lenisWrapper
+        const replacementWrapper = oldWrapper.cloneNode(true)
+        const proxies = ScrollTrigger.core._proxies
         let staleScrollToCalls = 0
         const originalScrollTo = firstLenis.scrollTo.bind(firstLenis)
 
@@ -175,6 +177,7 @@ async function checkLifecycleCleanup(browser) {
           return originalScrollTo(...args)
         }
         proxyCalls.length = 0
+        oldWrapper.replaceWith(replacementWrapper)
 
         initLenis(document)
         await new Promise((resolve) =>
@@ -182,11 +185,22 @@ async function checkLifecycleCleanup(browser) {
         )
 
         const proxyRemovedDuringReinit = proxyCalls.some(
-          (args) => args.length === 1 && args[0] === wrapper
+          (args) => args.length === 1 && args[0] === oldWrapper
         )
+        const oldWrapperStillProxied = proxies.includes(oldWrapper)
+        const replacementWrapperProxied = proxies.includes(replacementWrapper)
         destroyLenis()
+        const replacementStillProxiedAfterDestroy =
+          proxies.includes(replacementWrapper)
 
-        return { proxyRemovedDuringReinit, staleScrollToCalls }
+        return {
+          oldWrapperStillProxied,
+          proxiesIsArray: Array.isArray(proxies),
+          proxyRemovedDuringReinit,
+          replacementStillProxiedAfterDestroy,
+          replacementWrapperProxied,
+          staleScrollToCalls,
+        }
       } finally {
         ScrollTrigger.scrollerProxy = originalScrollerProxy
         destroyLenis()
@@ -202,6 +216,26 @@ async function checkLifecycleCleanup(browser) {
       result.proxyRemovedDuringReinit,
       true,
       "le proxy de l'ancien wrapper doit être retiré pendant la réinitialisation"
+    )
+    assert.equal(
+      result.proxiesIsArray,
+      true,
+      'ScrollTrigger.core._proxies doit être un tableau inspectable'
+    )
+    assert.equal(
+      result.oldWrapperStillProxied,
+      false,
+      "l'ancien wrapper ne doit plus être présent dans core._proxies"
+    )
+    assert.equal(
+      result.replacementWrapperProxied,
+      true,
+      'le nouveau wrapper doit disposer de son propre proxy'
+    )
+    assert.equal(
+      result.replacementStillProxiedAfterDestroy,
+      false,
+      'le nouveau wrapper doit quitter core._proxies après destruction'
     )
   } finally {
     await page.close()

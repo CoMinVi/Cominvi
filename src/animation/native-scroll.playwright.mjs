@@ -15,39 +15,6 @@ async function useLocalApplicationSource(page) {
   )
 }
 
-async function trackWindowScrollListeners(page) {
-  await page.addInitScript(() => {
-    const activeScrollListeners = new Set()
-    const addEventListener = EventTarget.prototype.addEventListener
-    const removeEventListener = EventTarget.prototype.removeEventListener
-
-    EventTarget.prototype.addEventListener = function (
-      type,
-      listener,
-      options
-    ) {
-      if (this === window && type === 'scroll') {
-        activeScrollListeners.add(listener)
-      }
-      return addEventListener.call(this, type, listener, options)
-    }
-
-    EventTarget.prototype.removeEventListener = function (
-      type,
-      listener,
-      options
-    ) {
-      if (this === window && type === 'scroll') {
-        activeScrollListeners.delete(listener)
-      }
-      return removeEventListener.call(this, type, listener, options)
-    }
-
-    window.__getActiveWindowScrollListenerCount = () =>
-      activeScrollListeners.size
-  })
-}
-
 async function readScrollState(page) {
   await page.waitForFunction(() => window.__lenisWrapper !== undefined)
 
@@ -60,6 +27,122 @@ async function readScrollState(page) {
       .overflow,
     maxScroll: document.documentElement.scrollHeight - window.innerHeight,
   }))
+}
+
+async function navigateWithBarba(
+  page,
+  linkSelector,
+  expectedUrl,
+  expectedNamespace
+) {
+  await page.evaluate((selector) => {
+    window.__barbaContainerBeforeNavigation = document.querySelector(
+      '[data-barba="container"]'
+    )
+    document.querySelector(selector).click()
+  }, linkSelector)
+
+  await page.waitForURL(expectedUrl)
+  await page.waitForFunction((namespace) => {
+    const currentContainer = document.querySelector('[data-barba="container"]')
+    return (
+      currentContainer !== window.__barbaContainerBeforeNavigation &&
+      currentContainer?.getAttribute('data-barba-namespace') === namespace
+    )
+  }, expectedNamespace)
+}
+
+async function measureScrollRafCoalescing(page, consumer) {
+  return page.evaluate((consumerName) => {
+    const handlers = {
+      navbar: () =>
+        window.__navbarScrollTarget?.__navbarScrollListener ||
+        window.__navbarScrollLenisTarget?.__navbarScrollListener ||
+        null,
+      next: () => window.__nextButtonStickyLenisHandler || null,
+      theme: () => window.__themeScrollTarget?.__themeHandler || null,
+    }
+    const rafIds = {
+      navbar: '__navbarScrollRafId',
+      next: '__nextButtonStickyRafId',
+      theme: '__themeScrollRafId',
+    }
+    const handler = handlers[consumerName]()
+    assertHandler(handler)
+
+    const originalRequestAnimationFrame = window.requestAnimationFrame
+    const callbacks = []
+    let nextRafId = 10000
+    window.requestAnimationFrame = (callback) => {
+      callbacks.push(callback)
+      nextRafId += 1
+      return nextRafId
+    }
+
+    try {
+      for (let index = 0; index < 20; index += 1) {
+        handler()
+      }
+    } finally {
+      window.requestAnimationFrame = originalRequestAnimationFrame
+    }
+
+    const scheduledRafCount = callbacks.length
+    if (callbacks[0]) callbacks[0](performance.now())
+
+    return {
+      rafIdAfterUpdate: window[rafIds[consumerName]],
+      scheduledRafCount,
+    }
+
+    function assertHandler(value) {
+      if (typeof value !== 'function') {
+        throw new Error(`handler ${consumerName} introuvable`)
+      }
+    }
+  }, consumer)
+}
+
+async function measureRafCancellationOnReinit(page, consumer) {
+  return page.evaluate(async (consumerName) => {
+    const target =
+      consumerName === 'navbar'
+        ? window.__navbarScrollTarget || window.__navbarScrollLenisTarget
+        : window.__themeScrollTarget || window.__themeScrollLenisTarget
+    const handlerProperty =
+      consumerName === 'navbar' ? '__navbarScrollListener' : '__themeHandler'
+    const rafIdProperty =
+      consumerName === 'navbar' ? '__navbarScrollRafId' : '__themeScrollRafId'
+    const handler = target?.[handlerProperty]
+    if (typeof handler !== 'function') {
+      throw new Error(`handler ${consumerName} introuvable`)
+    }
+
+    const originalRequestAnimationFrame = window.requestAnimationFrame
+    const originalCancelAnimationFrame = window.cancelAnimationFrame
+    const pendingRafId = 424242
+    const cancelledRafIds = []
+    window.requestAnimationFrame = () => pendingRafId
+    window.cancelAnimationFrame = (rafId) => cancelledRafIds.push(rafId)
+
+    try {
+      handler()
+      if (consumerName === 'navbar') {
+        const { initializeNavbarScroll } = await import('/src/animation/nav.js')
+        initializeNavbarScroll(document)
+      } else {
+        window.__theme.bindScroll(document)
+      }
+    } finally {
+      window.requestAnimationFrame = originalRequestAnimationFrame
+      window.cancelAnimationFrame = originalCancelAnimationFrame
+    }
+
+    return {
+      cancelledPendingRaf: cancelledRafIds.includes(pendingRafId),
+      rafIdAfterReinit: window[rafIdProperty],
+    }
+  }, consumer)
 }
 
 async function assertSectionReachable(page, selector) {
@@ -112,7 +195,6 @@ async function checkNativeScroll(browser, width) {
   })
 
   try {
-    await trackWindowScrollListeners(page)
     await useLocalApplicationSource(page)
     await page.goto(BASE_URL, { waitUntil: 'networkidle' })
     const state = await readScrollState(page)
@@ -181,26 +263,17 @@ async function checkNativeScroll(browser, width) {
       'le bouton Next doit suivre le scroll natif'
     )
 
-    const listenerCountBeforeNavigation = await page.evaluate(() =>
-      window.__getActiveWindowScrollListenerCount()
+    await navigateWithBarba(
+      page,
+      '.nav-inner a[href="about-us.html"]',
+      /about-us\.html/,
+      'About us'
     )
-    await page.evaluate(() =>
-      document.querySelector('.nav-inner a[href="about-us.html"]').click()
-    )
-    await page.waitForURL(/about-us\.html/)
-    await page.evaluate(() =>
-      document.querySelector('.navbar > a[href="index.html"]').click()
-    )
-    await page.waitForURL((url) => url.pathname === '/index.html')
-    await page.waitForFunction(() => window.__lenisWrapper === window)
-
-    const listenerCountAfterNavigation = await page.evaluate(() =>
-      window.__getActiveWindowScrollListenerCount()
-    )
-    assert.equal(
-      listenerCountAfterNavigation,
-      listenerCountBeforeNavigation,
-      'un cycle Barba ne doit pas doubler les mises à jour RAF de scroll'
+    await navigateWithBarba(
+      page,
+      '.navbar > a[href="index.html"]',
+      (url) => url.pathname === '/index.html',
+      'home'
     )
 
     await page.evaluate(() => window.scrollTo(0, window.innerHeight * 2))
@@ -220,6 +293,53 @@ async function checkNativeScroll(browser, width) {
     )
 
     await page.evaluate(() => {
+      const wrapper = document.querySelector(
+        '.section_next .next-button-wrapper'
+      )
+      wrapper.style.transform = 'translateX(123px)'
+      window.dispatchEvent(new Event('scroll'))
+    })
+    await page.waitForTimeout(100)
+    const updatedNextTransformAfterNavigation = await page.evaluate(
+      () =>
+        document.querySelector('.section_next .next-button-wrapper')?.style
+          .transform || ''
+    )
+    assert.notEqual(
+      updatedNextTransformAfterNavigation,
+      'translateX(123px)',
+      'le bouton Next doit rester synchronisé après un cycle Barba'
+    )
+
+    for (const consumer of ['navbar', 'next']) {
+      const rafResult = await measureScrollRafCoalescing(page, consumer)
+      assert.equal(
+        rafResult.scheduledRafCount,
+        1,
+        `${consumer} doit coalescer une rafale de scroll dans un seul RAF`
+      )
+      assert.equal(
+        rafResult.rafIdAfterUpdate,
+        null,
+        `${consumer} doit libérer son RAF après la mise à jour`
+      )
+    }
+
+    if (width === NATIVE_WIDTHS[0]) {
+      const cleanupResult = await measureRafCancellationOnReinit(page, 'navbar')
+      assert.equal(
+        cleanupResult.cancelledPendingRaf,
+        true,
+        'la navbar doit annuler son RAF pendant la réinitialisation'
+      )
+      assert.equal(
+        cleanupResult.rafIdAfterReinit,
+        null,
+        'la navbar doit réinitialiser son ID RAF'
+      )
+    }
+
+    await page.evaluate(() => {
       window.scrollTo(0, document.documentElement.scrollHeight)
     })
     await page.waitForFunction(
@@ -229,6 +349,59 @@ async function checkNativeScroll(browser, width) {
 
     await assertSectionReachable(page, '.section_technology')
     await assertSectionReachable(page, '.section_partners')
+  } finally {
+    await page.close()
+  }
+}
+
+async function checkThemeScrollCoalescing(browser) {
+  const page = await browser.newPage({
+    viewport: { width: NATIVE_WIDTHS[0], height: VIEWPORT_HEIGHT },
+  })
+
+  try {
+    await page.route(/\/src\/animation\/nav\.js(?:\?.*)?$/, async (route) => {
+      const response = await route.fetch()
+      const source = await response.text()
+      const enabledSource = source.replace(
+        'const ENABLE_NAV_THEME_SWITCHER = false',
+        'const ENABLE_NAV_THEME_SWITCHER = true'
+      )
+      assert.notEqual(
+        enabledSource,
+        source,
+        'le scénario doit activer le contrôleur de thème complet'
+      )
+      await route.fulfill({ response, body: enabledSource })
+    })
+    await useLocalApplicationSource(page)
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' })
+    await page.waitForFunction(
+      () => typeof window.__themeScrollTarget?.__themeHandler === 'function'
+    )
+
+    const rafResult = await measureScrollRafCoalescing(page, 'theme')
+    assert.equal(
+      rafResult.scheduledRafCount,
+      1,
+      'le thème doit coalescer une rafale de scroll dans un seul RAF'
+    )
+    assert.equal(
+      rafResult.rafIdAfterUpdate,
+      null,
+      'le thème doit libérer son RAF après la mise à jour'
+    )
+    const cleanupResult = await measureRafCancellationOnReinit(page, 'theme')
+    assert.equal(
+      cleanupResult.cancelledPendingRaf,
+      true,
+      'le thème doit annuler son RAF pendant la réinitialisation'
+    )
+    assert.equal(
+      cleanupResult.rafIdAfterReinit,
+      null,
+      'le thème doit réinitialiser son ID RAF'
+    )
   } finally {
     await page.close()
   }
@@ -250,6 +423,17 @@ async function checkDesktopScroll(browser) {
       state.sharedScrollerIsWindow,
       false,
       'le scroller partagé doit être le wrapper Lenis'
+    )
+    const rafResult = await measureScrollRafCoalescing(page, 'navbar')
+    assert.equal(
+      rafResult.scheduledRafCount,
+      1,
+      'la navbar Lenis doit coalescer une rafale dans un seul RAF'
+    )
+    assert.equal(
+      await page.evaluate(() => window.__navbarScrollTarget),
+      null,
+      'la cible native navbar doit rester nulle avec Lenis'
     )
   } finally {
     await page.close()
@@ -374,6 +558,14 @@ async function main() {
         hasFailure = true
         console.error(`FAIL native @ ${width}px: ${error.message}`)
       }
+    }
+
+    try {
+      await checkThemeScrollCoalescing(browser)
+      console.log('PASS theme RAF coalescing')
+    } catch (error) {
+      hasFailure = true
+      console.error(`FAIL theme RAF coalescing: ${error.message}`)
     }
 
     try {

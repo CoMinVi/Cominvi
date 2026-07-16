@@ -1039,6 +1039,8 @@ export function initWorkshopsStickyImages(root = document) {
   }
   state.resizeHandler = (() => {
     let timer
+    let viewportWidth =
+      window.innerWidth || document.documentElement.clientWidth || 0
     const resyncAfterResize = (currIsHandheld) => {
       try {
         const st = ensureState()
@@ -1109,6 +1111,12 @@ export function initWorkshopsStickyImages(root = document) {
       }
     }
     return () => {
+      const nextWidth =
+        window.innerWidth || document.documentElement.clientWidth || 0
+      const widthChanged = Math.abs(nextWidth - viewportWidth) > 1
+      viewportWidth = nextWidth
+      if (!widthChanged && state.lastIsHandheld === true) return
+
       clearTimeout(timer)
       timer = setTimeout(() => {
         // Detect breakpoint change and re-initialize accordingly

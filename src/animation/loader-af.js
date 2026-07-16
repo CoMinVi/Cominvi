@@ -850,6 +850,10 @@ export function showHomeSequenceFirstFrame(scope = document) {
 
     const sequenceController =
       getOrCreateHomeSequenceController(backgroundInner)
+    if (document.querySelector('.loader') && window.__loaderDone !== true) {
+      afResizeLog('showHomeSequenceFirstFrame:skipped-during-loader')
+      return sequenceController
+    }
     let painted = false
 
     const paintFrame0 = (reason = 'transition-first-frame') => {

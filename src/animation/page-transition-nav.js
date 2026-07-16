@@ -366,19 +366,6 @@ export function initializePageTransitionNav() {
       // ignore
     }
   }
-  const destroyAboutIfNeeded = (container) => {
-    try {
-      const ns = (getNamespaceFromContainer(container) || '')
-        .trim()
-        .toLowerCase()
-      if (ns !== 'about us') return
-      if (typeof window.__aboutTeardown === 'function') {
-        window.__aboutTeardown()
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
 
   const scheduleAfterHero = (fn) => {
     requestAnimationFrame(() => {
@@ -821,7 +808,6 @@ export function initializePageTransitionNav() {
   // Ensure icon teardown on every transition
   barba.hooks.beforeLeave(({ current }) => {
     setTransitionBackground('var(--accent)', current && current.container)
-    destroyAboutIfNeeded(current && current.container)
     try {
       destroyIcons(current && current.container)
     } catch (e) {

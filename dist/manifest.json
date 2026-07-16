@@ -29,6 +29,14 @@
       "src/animation/join-the-team.js"
     ]
   },
+  "src/animation/cylinder.js": {
+    "file": "assets/cylinder.js",
+    "src": "src/animation/cylinder.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
   "src/animation/safety-sticky.js": {
     "file": "assets/safety-sticky.js",
     "src": "src/animation/safety-sticky.js",
@@ -147,14 +155,6 @@
   "src/animation/text-display-reveal.js": {
     "file": "assets/text-display-reveal.js",
     "src": "src/animation/text-display-reveal.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/main.js"
-    ]
-  },
-  "src/animation/cylinder.js": {
-    "file": "assets/cylinder.js",
-    "src": "src/animation/cylinder.js",
     "isDynamicEntry": true,
     "imports": [
       "src/main.js"

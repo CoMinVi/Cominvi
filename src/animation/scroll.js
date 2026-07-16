@@ -4,57 +4,8 @@ import Lenis from 'lenis'
 
 gsap.registerPlugin(ScrollTrigger)
 
-export const NATIVE_SCROLL_QUERY = '(max-width: 991px)'
-
-const lifecycleRafs = new Set()
-let proxiedWrapper = null
-
-function scheduleLifecycleFrame(callback) {
-  const rafId = requestAnimationFrame(() => {
-    lifecycleRafs.delete(rafId)
-    callback()
-  })
-  lifecycleRafs.add(rafId)
-}
-
-function cancelLifecycleFrames() {
-  lifecycleRafs.forEach((rafId) => cancelAnimationFrame(rafId))
-  lifecycleRafs.clear()
-}
-
-function removeScrollerProxy(wrapper) {
-  if (!wrapper) return
-
-  try {
-    ScrollTrigger.scrollerProxy(wrapper)
-  } catch (err) {
-    // ignore
-  }
-
-  const proxies = ScrollTrigger.core?._proxies
-  if (!Array.isArray(proxies)) return
-
-  for (let index = proxies.length - 2; index >= 0; index -= 2) {
-    if (proxies[index] === wrapper) {
-      proxies.splice(index, 2)
-    }
-  }
-}
-
-export function usesNativeScroll(
-  viewportMatcher = (query) => window.matchMedia(query).matches
-) {
-  try {
-    return Boolean(viewportMatcher(NATIVE_SCROLL_QUERY))
-  } catch (e) {
-    return false
-  }
-}
-
 // Minimal Lenis + ScrollTrigger setup using .page-wrap and .content-wrap
 export function initLenis(root = document) {
-  destroyLenis()
-
   const wrapper =
     root.querySelector('.page-wrap') || document.querySelector('.page-wrap')
   const content =
@@ -64,19 +15,6 @@ export function initLenis(root = document) {
   if (!wrapper || !content) {
     return null
   }
-
-  if (usesNativeScroll()) {
-    document.documentElement.classList.add('is-native-scroll')
-    window.lenis = null
-    window.__lenisWrapper = window
-    ScrollTrigger.defaults({ scroller: window })
-    wrapper.scrollTop = 0
-    window.scrollTo(0, 0)
-    scheduleLifecycleFrame(() => ScrollTrigger.refresh())
-    return null
-  }
-
-  document.documentElement.classList.remove('is-native-scroll')
 
   const prefersCoarsePointer = (() => {
     try {
@@ -155,7 +93,6 @@ export function initLenis(root = document) {
     // by the menu, and "fixed" pinning breaks inside transformed ancestors.
     pinType: 'transform',
   })
-  proxiedWrapper = wrapper
 
   // Default all ScrollTriggers to use the Lenis wrapper as scroller
   ScrollTrigger.defaults({ scroller: wrapper })
@@ -178,7 +115,7 @@ export function initLenis(root = document) {
     // ignore
   }
   // Some browsers (iOS/Safari) need a second frame to settle layout before refresh
-  scheduleLifecycleFrame(() => {
+  requestAnimationFrame(() => {
     try {
       if (typeof lenis.scrollTo === 'function') {
         lenis.scrollTo(0, { immediate: true })
@@ -197,8 +134,6 @@ export function initLenis(root = document) {
 }
 
 export function destroyLenis() {
-  cancelLifecycleFrames()
-
   try {
     if (window.__lenisTickerRaf) {
       gsap.ticker.remove(window.__lenisTickerRaf)
@@ -208,14 +143,6 @@ export function destroyLenis() {
     // ignore
   }
   try {
-    removeScrollerProxy(proxiedWrapper)
-  } catch (err) {
-    // ignore
-  } finally {
-    proxiedWrapper = null
-  }
-  try {
-    window.__lenisTickerRaf = null
     if (window.lenis && typeof window.lenis.destroy === 'function') {
       window.lenis.destroy()
     }
@@ -224,8 +151,6 @@ export function destroyLenis() {
   }
   try {
     window.lenis = null
-    window.__lenisWrapper = null
-    document.documentElement.classList.remove('is-native-scroll')
   } catch (err) {
     // ignore
   }

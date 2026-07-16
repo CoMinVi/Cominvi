@@ -15,6 +15,7 @@ const ENABLE_FRAME_BLEND = false
 const DEFAULT_MINERALS_AF_PATH =
   'https://cominvi.netlify.app/minerals/minerals-sequence.af'
 const DEFAULT_MINERALS_TOTAL_FRAMES = 600
+const MINERALS_DISPLAY_SCALE = 0.85
 const DEFAULT_INITIAL_PRELOAD = 40
 const DEFAULT_PRELOAD_AHEAD = 6
 const DEFAULT_PRELOAD_BEHIND = 2
@@ -176,6 +177,14 @@ function getBreakpoint() {
   return 'desktop'
 }
 
+function applyMineralsDisplayScale(drawWidth, drawHeight) {
+  const scale = MINERALS_DISPLAY_SCALE
+  return {
+    drawWidth: drawWidth * scale,
+    drawHeight: drawHeight * scale,
+  }
+}
+
 export function initMineralsCanvas(root = document) {
   try {
     if (!isAllowedPage(root)) return null
@@ -318,8 +327,9 @@ export function initMineralsCanvas(root = document) {
           drawWidth = canvasHeight * sourceRatio
         }
 
-        const offsetX = (canvasWidth - drawWidth) * 0.5
-        const offsetY = (canvasHeight - drawHeight) * 0.5
+        const scaled = applyMineralsDisplayScale(drawWidth, drawHeight)
+        const scaledOffsetX = (canvasWidth - scaled.drawWidth) * 0.5
+        const scaledOffsetY = (canvasHeight - scaled.drawHeight) * 0.5
         ctx.clearRect(0, 0, canvasWidth, canvasHeight)
         ctx.drawImage(
           source,
@@ -327,10 +337,10 @@ export function initMineralsCanvas(root = document) {
           0,
           sourceWidth,
           sourceHeight,
-          offsetX,
-          offsetY,
-          drawWidth,
-          drawHeight
+          scaledOffsetX,
+          scaledOffsetY,
+          scaled.drawWidth,
+          scaled.drawHeight
         )
       }
 
@@ -662,13 +672,20 @@ export function initMineralsCanvas(root = document) {
         drawWidth = canvasHeight * imageRatio
       }
 
-      const offsetX = (canvasWidth - drawWidth) / 2
-      const offsetY = (canvasHeight - drawHeight) / 2
+      const scaled = applyMineralsDisplayScale(drawWidth, drawHeight)
+      const scaledOffsetX = (canvasWidth - scaled.drawWidth) / 2
+      const scaledOffsetY = (canvasHeight - scaled.drawHeight) / 2
 
       if (!options.skipClear) {
         ctx.clearRect(0, 0, canvasWidth, canvasHeight)
       }
-      ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight)
+      ctx.drawImage(
+        image,
+        scaledOffsetX,
+        scaledOffsetY,
+        scaled.drawWidth,
+        scaled.drawHeight
+      )
       return true
     }
 

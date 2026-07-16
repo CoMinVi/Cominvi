@@ -598,6 +598,17 @@ export function initNextBackgroundParallax(root = document) {
       }
       window.__nextBgParallaxRafId = null
     }
+    if (Array.isArray(window.__nextBgParallaxCallbacks)) {
+      window.__nextBgParallaxCallbacks.forEach(({ lenis, callback }) => {
+        try {
+          if (lenis && typeof lenis.off === 'function') {
+            lenis.off('scroll', callback)
+          }
+        } catch (e) {
+          // ignore
+        }
+      })
+    }
     window.__nextBgParallaxCallbacks = []
   } catch (e) {
     // ignore
@@ -629,6 +640,7 @@ export function initNextBackgroundParallax(root = document) {
     return []
   }
   const tweens = []
+  const callbacks = []
 
   const layoutWrapper = (bg) => {
     try {
@@ -660,11 +672,12 @@ export function initNextBackgroundParallax(root = document) {
   wrappers.forEach((bg) => {
     try {
       const triggerEl = ensureLaidOut(bg) || bg
+      const section = bg.closest('.section_next') || triggerEl
       const amplitudePx = 40
       const setY = gsap.quickSetter(bg, 'y', 'px')
       const updateY = () => {
         try {
-          const rect = bg.getBoundingClientRect()
+          const rect = section.getBoundingClientRect()
           const centerY = rect.top + rect.height / 2
           const viewportCenterY = window.innerHeight / 2
           const denom = Math.max(1, rect.height / 2 + window.innerHeight / 2)
@@ -687,6 +700,10 @@ export function initNextBackgroundParallax(root = document) {
         onUpdate: updateY,
       })
       tweens.push(st)
+      if (window.lenis && typeof window.lenis.on === 'function') {
+        window.lenis.on('scroll', updateY)
+        callbacks.push({ lenis: window.lenis, callback: updateY })
+      }
     } catch (err) {
       // ignore per-image failure
     }
@@ -704,6 +721,7 @@ export function initNextBackgroundParallax(root = document) {
   window.addEventListener('resize', window.__nextBgParallaxResizeHandler)
 
   window.__nextBgParallaxTweens = tweens
+  window.__nextBgParallaxCallbacks = callbacks
   ScrollTrigger.refresh()
   return tweens
 }

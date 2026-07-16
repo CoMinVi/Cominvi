@@ -52,55 +52,169 @@ async function navigateWithBarba(
   }, expectedNamespace)
 }
 
-async function measureScrollRafCoalescing(page, consumer) {
+async function countTrackedWindowScrollListeners(page) {
+  const session = await page.context().newCDPSession(page)
+  const scriptUrls = new Map()
+  session.on('Debugger.scriptParsed', ({ scriptId, url }) => {
+    scriptUrls.set(scriptId, url)
+  })
+
+  try {
+    await session.send('Debugger.enable')
+    const { result } = await session.send('Runtime.evaluate', {
+      expression: 'window',
+    })
+    const { listeners } = await session.send('DOMDebugger.getEventListeners', {
+      objectId: result.objectId,
+    })
+    return listeners.filter(({ scriptId, type }) => {
+      const scriptUrl = scriptUrls.get(scriptId) || ''
+      return (
+        type === 'scroll' &&
+        (scriptUrl.includes('/src/animation/nav.js') ||
+          scriptUrl.includes('/src/animation/parallax.js'))
+      )
+    }).length
+  } finally {
+    await session.detach()
+  }
+}
+
+async function measureScrollEventRafCoalescing(page, consumer) {
   return page.evaluate((consumerName) => {
-    const handlers = {
-      navbar: () =>
-        window.__navbarScrollTarget?.__navbarScrollListener ||
-        window.__navbarScrollLenisTarget?.__navbarScrollListener ||
-        null,
-      next: () => window.__nextButtonStickyLenisHandler || null,
-      theme: () => window.__themeScrollTarget?.__themeHandler || null,
+    const consumers = {
+      navbar: {
+        handler:
+          window.__navbarScrollTarget?.__navbarScrollListener ||
+          window.__navbarScrollLenisTarget?.__navbarScrollListener ||
+          null,
+        target:
+          window.__navbarScrollTarget ||
+          window.__navbarScrollLenisTarget ||
+          null,
+      },
+      next: {
+        handler: window.__nextButtonStickyLenisHandler || null,
+        target:
+          window.__nextButtonStickyScrollTarget ||
+          (window.lenis ? window.lenis : null),
+      },
+      theme: {
+        handler: window.__themeScrollTarget?.__themeHandler || null,
+        target:
+          window.__themeScrollTarget || window.__themeScrollLenisTarget || null,
+      },
     }
     const rafIds = {
       navbar: '__navbarScrollRafId',
       next: '__nextButtonStickyRafId',
       theme: '__themeScrollRafId',
     }
-    const handler = handlers[consumerName]()
-    assertHandler(handler)
+    const selectedConsumer = consumers[consumerName]
+    assertConsumer(selectedConsumer)
+    const mutedConsumers = Object.entries(consumers)
+      .filter(
+        ([name, entry]) =>
+          name !== consumerName &&
+          entry.handler &&
+          entry.target === selectedConsumer.target
+      )
+      .map(([, entry]) => entry)
 
     const originalRequestAnimationFrame = window.requestAnimationFrame
-    const callbacks = []
     let nextRafId = 10000
-    window.requestAnimationFrame = (callback) => {
-      callbacks.push(callback)
-      nextRafId += 1
-      return nextRafId
+    const setListenerEnabled = ({ handler, target }, enabled) => {
+      if (target instanceof EventTarget) {
+        if (enabled) {
+          target.addEventListener('scroll', handler, { passive: true })
+        } else {
+          target.removeEventListener('scroll', handler)
+        }
+      } else if (enabled) {
+        target.on('scroll', handler)
+      } else {
+        target.off('scroll', handler)
+      }
+    }
+    const dispatchScrollBurst = () => {
+      const callbacks = []
+      window.requestAnimationFrame = (callback) => {
+        callbacks.push(callback)
+        nextRafId += 1
+        return nextRafId
+      }
+      try {
+        for (let index = 0; index < 20; index += 1) {
+          if (selectedConsumer.target instanceof EventTarget) {
+            selectedConsumer.target.dispatchEvent(new Event('scroll'))
+          } else {
+            selectedConsumer.target.emitter.emit(
+              'scroll',
+              selectedConsumer.target
+            )
+          }
+        }
+      } finally {
+        window.requestAnimationFrame = originalRequestAnimationFrame
+      }
+      return callbacks
     }
 
+    let selectedConsumerIsAttached = true
+    let baselineCallbacks = []
+    let measuredCallbacks = []
     try {
-      for (let index = 0; index < 20; index += 1) {
-        handler()
-      }
+      mutedConsumers.forEach((entry) => setListenerEnabled(entry, false))
+      setListenerEnabled(selectedConsumer, false)
+      selectedConsumerIsAttached = false
+      baselineCallbacks = dispatchScrollBurst()
+      setListenerEnabled(selectedConsumer, true)
+      selectedConsumerIsAttached = true
+      baselineCallbacks.forEach((callback) => callback(performance.now()))
+      measuredCallbacks = dispatchScrollBurst()
     } finally {
       window.requestAnimationFrame = originalRequestAnimationFrame
+      if (!selectedConsumerIsAttached) {
+        setListenerEnabled(selectedConsumer, true)
+      }
+      mutedConsumers.forEach((entry) => setListenerEnabled(entry, true))
     }
 
-    const scheduledRafCount = callbacks.length
-    if (callbacks[0]) callbacks[0](performance.now())
+    const scheduledRafCount =
+      measuredCallbacks.length - baselineCallbacks.length
+    measuredCallbacks.forEach((callback) => callback(performance.now()))
 
     return {
       rafIdAfterUpdate: window[rafIds[consumerName]],
       scheduledRafCount,
     }
 
-    function assertHandler(value) {
-      if (typeof value !== 'function') {
+    function assertConsumer(value) {
+      if (
+        !value ||
+        typeof value.handler !== 'function' ||
+        (!value.target?.dispatchEvent && !value.target?.emitter?.emit)
+      ) {
         throw new Error(`handler ${consumerName} introuvable`)
       }
     }
   }, consumer)
+}
+
+async function reinitializeNativeScrollConsumers(page, times = 3) {
+  await page.evaluate(async (repeatCount) => {
+    const [{ initializeNavbarScroll }, { initNextButtonSticky }] =
+      await Promise.all([
+        import('/src/animation/nav.js'),
+        import('/src/animation/parallax.js'),
+      ])
+
+    for (let index = 0; index < repeatCount; index += 1) {
+      initializeNavbarScroll(document)
+      initNextButtonSticky(document)
+      window.__theme?.bindScroll(document)
+    }
+  }, times)
 }
 
 async function measureRafCancellationOnReinit(page, consumer) {
@@ -263,6 +377,11 @@ async function checkNativeScroll(browser, width) {
       'le bouton Next doit suivre le scroll natif'
     )
 
+    const windowScrollListenersBeforeNavigation =
+      width === NATIVE_WIDTHS[0]
+        ? await countTrackedWindowScrollListeners(page)
+        : null
+
     await navigateWithBarba(
       page,
       '.nav-inner a[href="about-us.html"]',
@@ -312,7 +431,7 @@ async function checkNativeScroll(browser, width) {
     )
 
     for (const consumer of ['navbar', 'next']) {
-      const rafResult = await measureScrollRafCoalescing(page, consumer)
+      const rafResult = await measureScrollEventRafCoalescing(page, consumer)
       assert.equal(
         rafResult.scheduledRafCount,
         1,
@@ -326,6 +445,22 @@ async function checkNativeScroll(browser, width) {
     }
 
     if (width === NATIVE_WIDTHS[0]) {
+      const windowScrollListenersAfterNavigation =
+        await countTrackedWindowScrollListeners(page)
+      assert.equal(
+        windowScrollListenersAfterNavigation,
+        windowScrollListenersBeforeNavigation,
+        'le cycle Barba ne doit conserver aucun listener scroll obsolète'
+      )
+      await reinitializeNativeScrollConsumers(page)
+      const windowScrollListenersAfterReinitializations =
+        await countTrackedWindowScrollListeners(page)
+      assert.equal(
+        windowScrollListenersAfterReinitializations,
+        windowScrollListenersAfterNavigation,
+        'les réinitialisations ne doivent pas multiplier les listeners scroll'
+      )
+
       const cleanupResult = await measureRafCancellationOnReinit(page, 'navbar')
       assert.equal(
         cleanupResult.cancelledPendingRaf,
@@ -380,7 +515,7 @@ async function checkThemeScrollCoalescing(browser) {
       () => typeof window.__themeScrollTarget?.__themeHandler === 'function'
     )
 
-    const rafResult = await measureScrollRafCoalescing(page, 'theme')
+    const rafResult = await measureScrollEventRafCoalescing(page, 'theme')
     assert.equal(
       rafResult.scheduledRafCount,
       1,
@@ -424,7 +559,144 @@ async function checkDesktopScroll(browser) {
       false,
       'le scroller partagé doit être le wrapper Lenis'
     )
-    const rafResult = await measureScrollRafCoalescing(page, 'navbar')
+
+    const initialLifecycle = await page.evaluate(async () => {
+      const scrollTriggerUrl = performance
+        .getEntriesByType('resource')
+        .map(({ name }) => name)
+        .find((url) => url.includes('gsap_ScrollTrigger'))
+      const { ScrollTrigger } = await import(scrollTriggerUrl)
+      const proxies = ScrollTrigger.core._proxies
+      const oldLenis = window.lenis
+      const oldWrapper = window.__lenisWrapper
+      const oldProxyIndex = proxies.indexOf(oldWrapper)
+      const oldProxy = oldProxyIndex >= 0 ? proxies[oldProxyIndex + 1] : null
+
+      window.__desktopLenisLifecycleSnapshot = {
+        oldLenis,
+        oldProxy,
+        oldWrapper,
+      }
+
+      return {
+        oldProxyPresent: oldProxy != null && proxies.includes(oldProxy),
+        oldWrapperConnected: oldWrapper.isConnected,
+        oldWrapperProxied: proxies.includes(oldWrapper),
+      }
+    })
+    assert.equal(
+      initialLifecycle.oldWrapperConnected,
+      true,
+      'le wrapper Lenis initial doit être connecté'
+    )
+    assert.equal(
+      initialLifecycle.oldWrapperProxied,
+      true,
+      'le wrapper Lenis initial doit avoir un proxy'
+    )
+    assert.equal(
+      initialLifecycle.oldProxyPresent,
+      true,
+      'le proxy Lenis initial doit être inspectable'
+    )
+
+    await navigateWithBarba(
+      page,
+      '.nav-inner a[href="about-us.html"]',
+      /about-us\.html/,
+      'About us'
+    )
+    await navigateWithBarba(
+      page,
+      '.navbar > a[href="index.html"]',
+      (url) => url.pathname === '/index.html',
+      'home'
+    )
+
+    const lifecycleAfterNavigation = await page.evaluate(async () => {
+      const scrollTriggerUrl = performance
+        .getEntriesByType('resource')
+        .map(({ name }) => name)
+        .find((url) => url.includes('gsap_ScrollTrigger'))
+      const { ScrollTrigger } = await import(scrollTriggerUrl)
+      const proxies = ScrollTrigger.core._proxies
+      const snapshot = window.__desktopLenisLifecycleSnapshot
+      delete window.__desktopLenisLifecycleSnapshot
+
+      const newLenis = window.lenis
+      const newWrapper = window.__lenisWrapper
+      const newProxyIndex = proxies.indexOf(newWrapper)
+      const newProxy = newProxyIndex >= 0 ? proxies[newProxyIndex + 1] : null
+      const staleGlobalReferences = Object.getOwnPropertyNames(window).filter(
+        (propertyName) => {
+          try {
+            const value = window[propertyName]
+            return value === snapshot.oldLenis || value === snapshot.oldWrapper
+          } catch {
+            return false
+          }
+        }
+      )
+
+      return {
+        newLenisCreated: newLenis !== snapshot.oldLenis,
+        newProxyCreated: newProxy != null && newProxy !== snapshot.oldProxy,
+        newProxyPresent: newProxy != null && proxies.includes(newProxy),
+        newWrapperCreated: newWrapper !== snapshot.oldWrapper,
+        newWrapperProxied: proxies.includes(newWrapper),
+        oldProxyStillPresent: proxies.includes(snapshot.oldProxy),
+        oldWrapperConnected: snapshot.oldWrapper.isConnected,
+        oldWrapperStillProxied: proxies.includes(snapshot.oldWrapper),
+        staleGlobalReferences,
+      }
+    })
+    assert.equal(
+      lifecycleAfterNavigation.newLenisCreated,
+      true,
+      'Barba doit créer une nouvelle instance Lenis au retour'
+    )
+    assert.equal(
+      lifecycleAfterNavigation.newWrapperCreated,
+      true,
+      'Barba doit partager le nouveau conteneur comme wrapper Lenis'
+    )
+    assert.equal(
+      lifecycleAfterNavigation.newWrapperProxied,
+      true,
+      'le nouveau wrapper doit être enregistré dans les proxies'
+    )
+    assert.equal(
+      lifecycleAfterNavigation.newProxyCreated,
+      true,
+      'le nouveau wrapper doit recevoir un nouveau proxy'
+    )
+    assert.equal(
+      lifecycleAfterNavigation.newProxyPresent,
+      true,
+      'le nouveau proxy doit rester actif'
+    )
+    assert.equal(
+      lifecycleAfterNavigation.oldWrapperConnected,
+      false,
+      "l'ancien wrapper doit être retiré du DOM"
+    )
+    assert.equal(
+      lifecycleAfterNavigation.oldWrapperStillProxied,
+      false,
+      "l'ancien wrapper doit être retiré des proxies"
+    )
+    assert.equal(
+      lifecycleAfterNavigation.oldProxyStillPresent,
+      false,
+      "l'ancien proxy ne doit plus être référencé"
+    )
+    assert.deepEqual(
+      lifecycleAfterNavigation.staleGlobalReferences,
+      [],
+      "aucune globale ne doit référencer l'ancien moteur ou wrapper"
+    )
+
+    const rafResult = await measureScrollEventRafCoalescing(page, 'navbar')
     assert.equal(
       rafResult.scheduledRafCount,
       1,

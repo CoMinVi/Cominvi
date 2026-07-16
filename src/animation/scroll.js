@@ -6,6 +6,22 @@ gsap.registerPlugin(ScrollTrigger)
 
 export const NATIVE_SCROLL_QUERY = '(max-width: 991px)'
 
+const lifecycleRafs = new Set()
+let proxiedWrapper = null
+
+function scheduleLifecycleFrame(callback) {
+  const rafId = requestAnimationFrame(() => {
+    lifecycleRafs.delete(rafId)
+    callback()
+  })
+  lifecycleRafs.add(rafId)
+}
+
+function cancelLifecycleFrames() {
+  lifecycleRafs.forEach((rafId) => cancelAnimationFrame(rafId))
+  lifecycleRafs.clear()
+}
+
 export function usesNativeScroll(
   viewportMatcher = (query) => window.matchMedia(query).matches
 ) {
@@ -37,7 +53,7 @@ export function initLenis(root = document) {
     ScrollTrigger.defaults({ scroller: window })
     wrapper.scrollTop = 0
     window.scrollTo(0, 0)
-    requestAnimationFrame(() => ScrollTrigger.refresh())
+    scheduleLifecycleFrame(() => ScrollTrigger.refresh())
     return null
   }
 
@@ -120,6 +136,7 @@ export function initLenis(root = document) {
     // by the menu, and "fixed" pinning breaks inside transformed ancestors.
     pinType: 'transform',
   })
+  proxiedWrapper = wrapper
 
   // Default all ScrollTriggers to use the Lenis wrapper as scroller
   ScrollTrigger.defaults({ scroller: wrapper })
@@ -142,7 +159,7 @@ export function initLenis(root = document) {
     // ignore
   }
   // Some browsers (iOS/Safari) need a second frame to settle layout before refresh
-  requestAnimationFrame(() => {
+  scheduleLifecycleFrame(() => {
     try {
       if (typeof lenis.scrollTo === 'function') {
         lenis.scrollTo(0, { immediate: true })
@@ -161,6 +178,8 @@ export function initLenis(root = document) {
 }
 
 export function destroyLenis() {
+  cancelLifecycleFrames()
+
   try {
     if (window.__lenisTickerRaf) {
       gsap.ticker.remove(window.__lenisTickerRaf)
@@ -168,6 +187,15 @@ export function destroyLenis() {
     }
   } catch (err) {
     // ignore
+  }
+  try {
+    if (proxiedWrapper) {
+      ScrollTrigger.scrollerProxy(proxiedWrapper)
+    }
+  } catch (err) {
+    // ignore
+  } finally {
+    proxiedWrapper = null
   }
   try {
     window.__lenisTickerRaf = null

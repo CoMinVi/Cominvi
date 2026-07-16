@@ -29,6 +29,50 @@ async function readScrollState(page) {
   }))
 }
 
+async function assertSectionReachable(page, selector) {
+  const exists = await page.evaluate(
+    (sectionSelector) => Boolean(document.querySelector(sectionSelector)),
+    selector
+  )
+  assert.equal(exists, true, `${selector} doit exister`)
+
+  await page.evaluate((sectionSelector) => {
+    document.querySelector(sectionSelector).scrollIntoView({ block: 'start' })
+  }, selector)
+  await page.waitForFunction(
+    ({ sectionSelector, viewportHeight }) => {
+      const rect = document
+        .querySelector(sectionSelector)
+        .getBoundingClientRect()
+      return (
+        window.scrollY > viewportHeight &&
+        rect.top < window.innerHeight &&
+        rect.bottom > 0
+      )
+    },
+    { sectionSelector: selector, viewportHeight: VIEWPORT_HEIGHT }
+  )
+
+  const position = await page.evaluate((sectionSelector) => {
+    const rect = document.querySelector(sectionSelector).getBoundingClientRect()
+    return {
+      scrollY: window.scrollY,
+      top: rect.top,
+      bottom: rect.bottom,
+      viewportHeight: window.innerHeight,
+    }
+  }, selector)
+
+  assert.ok(
+    position.scrollY > VIEWPORT_HEIGHT,
+    `${selector} doit nécessiter un scroll vertical`
+  )
+  assert.ok(
+    position.top < position.viewportHeight && position.bottom > 0,
+    `${selector} doit être visible après scroll`
+  )
+}
+
 async function checkNativeScroll(browser, width) {
   const page = await browser.newPage({
     viewport: { width, height: VIEWPORT_HEIGHT },
@@ -63,6 +107,9 @@ async function checkNativeScroll(browser, width) {
       (height) => window.scrollY > height,
       VIEWPORT_HEIGHT
     )
+
+    await assertSectionReachable(page, '.section_technology')
+    await assertSectionReachable(page, '.section_partners')
   } finally {
     await page.close()
   }
@@ -90,6 +137,77 @@ async function checkDesktopScroll(browser) {
   }
 }
 
+async function checkLifecycleCleanup(browser) {
+  const page = await browser.newPage({
+    viewport: { width: DESKTOP_WIDTH, height: VIEWPORT_HEIGHT },
+  })
+
+  try {
+    await useLocalApplicationSource(page)
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' })
+
+    const result = await page.evaluate(async () => {
+      const scrollTriggerUrl = performance
+        .getEntriesByType('resource')
+        .map(({ name }) => name)
+        .find((url) => url.includes('gsap_ScrollTrigger'))
+      const [{ initLenis, destroyLenis }, { ScrollTrigger }] =
+        await Promise.all([
+          import('/src/animation/scroll.js'),
+          import(scrollTriggerUrl),
+        ])
+      const originalScrollerProxy = ScrollTrigger.scrollerProxy
+      const proxyCalls = []
+
+      ScrollTrigger.scrollerProxy = function (...args) {
+        proxyCalls.push(args)
+        return originalScrollerProxy.apply(this, args)
+      }
+
+      try {
+        const firstLenis = initLenis(document)
+        const wrapper = window.__lenisWrapper
+        let staleScrollToCalls = 0
+        const originalScrollTo = firstLenis.scrollTo.bind(firstLenis)
+
+        firstLenis.scrollTo = (...args) => {
+          staleScrollToCalls += 1
+          return originalScrollTo(...args)
+        }
+        proxyCalls.length = 0
+
+        initLenis(document)
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve))
+        )
+
+        const proxyRemovedDuringReinit = proxyCalls.some(
+          (args) => args.length === 1 && args[0] === wrapper
+        )
+        destroyLenis()
+
+        return { proxyRemovedDuringReinit, staleScrollToCalls }
+      } finally {
+        ScrollTrigger.scrollerProxy = originalScrollerProxy
+        destroyLenis()
+      }
+    })
+
+    assert.equal(
+      result.staleScrollToCalls,
+      0,
+      "le RAF d'une ancienne instance ne doit pas appeler scrollTo"
+    )
+    assert.equal(
+      result.proxyRemovedDuringReinit,
+      true,
+      "le proxy de l'ancien wrapper doit être retiré pendant la réinitialisation"
+    )
+  } finally {
+    await page.close()
+  }
+}
+
 async function main() {
   const browser = await chromium.launch()
   let hasFailure = false
@@ -111,6 +229,14 @@ async function main() {
     } catch (error) {
       hasFailure = true
       console.error(`FAIL Lenis @ ${DESKTOP_WIDTH}px: ${error.message}`)
+    }
+
+    try {
+      await checkLifecycleCleanup(browser)
+      console.log('PASS lifecycle cleanup')
+    } catch (error) {
+      hasFailure = true
+      console.error(`FAIL lifecycle cleanup: ${error.message}`)
     }
   } finally {
     await browser.close()

@@ -587,7 +587,10 @@ export function initServiceCards(root = document) {
     if (!isTabletOrBelowNow()) {
       try {
         if (!textEl.__splitLines) {
-          const split = new SplitType(textEl, { types: 'lines', tagName: 'span' })
+          const split = new SplitType(textEl, {
+            types: 'lines',
+            tagName: 'span',
+          })
           textEl.__splitLines = split
           textEl.__lines = split.lines || []
         }

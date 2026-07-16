@@ -32,7 +32,7 @@ async function inspectMobileScrollWork(browser) {
   await serveLocalBuild(page)
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => window.lenis)
-  await page.waitForTimeout(1500)
+  await page.waitForTimeout(2300)
 
   const result = await page.evaluate(async () => {
     window.lenis.scrollTo(9000, { immediate: true })

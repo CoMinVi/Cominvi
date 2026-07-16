@@ -16,9 +16,70 @@ function getNavbarBaseOffset() {
   }
 }
 
+function isTabletOrBelowViewport() {
+  try {
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 991px)').matches
+    )
+  } catch (e) {
+    return false
+  }
+}
+
 gsap.registerPlugin(CustomEase)
 
 const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
+
+export const HERO_CARDS_REVEAL_DELAY = 0.5
+export const HERO_CARDS_REVEAL_DURATION = 1.2
+export const HERO_CARDS_MOBILE_SETTLE_MS = 200
+
+export function getHeroCardsRevealEndTime(opts = {}) {
+  const duration =
+    typeof opts.duration === 'number'
+      ? opts.duration
+      : HERO_CARDS_REVEAL_DURATION
+  return HERO_CARDS_REVEAL_DELAY + duration
+}
+
+export function deferAfterHeroCardsSettled(callback) {
+  if (typeof callback !== 'function') return
+
+  if (!isTabletOrBelowViewport()) {
+    callback()
+    return
+  }
+
+  window.setTimeout(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(callback)
+    })
+  }, HERO_CARDS_MOBILE_SETTLE_MS)
+}
+
+function prepareHeroCardWrappers(scope) {
+  if (!isTabletOrBelowViewport()) return
+
+  scope.querySelectorAll('.hero-bottom_cards-wrapper').forEach((wrapper) => {
+    wrapper.style.overflow = 'hidden'
+  })
+}
+
+function finalizeHeroCardTransform(card) {
+  if (!card) return
+
+  try {
+    gsap.set(card, {
+      yPercent: 0,
+      force3D: false,
+      clearProps: 'willChange',
+    })
+  } catch (e) {
+    // ignore
+  }
+}
 
 // Fait slider les .is-h1-span de y:110% à y:0 avec la même durée/ease que le dé-scale
 export function heroAnimation(root = document, opts = {}) {
@@ -48,9 +109,16 @@ export function heroAnimation(root = document, opts = {}) {
     scope.querySelectorAll('.section_hero .body-xl, .eyebrow-l')
   )
   const elements = [...spans, ...bodies]
-  if (!elements.length) return
-  const duration = typeof opts.duration === 'number' ? opts.duration : 1.2
+  const cards = Array.from(scope.querySelectorAll('.section_hero .card'))
+  const duration =
+    typeof opts.duration === 'number'
+      ? opts.duration
+      : HERO_CARDS_REVEAL_DURATION
   const ease = opts.ease || gsap.parseEase(`custom(${easeCurve})`)
+
+  if (!elements.length && !cards.length) return null
+
+  prepareHeroCardWrappers(scope)
 
   // Timeline par élément pour remonter l'opacité à 1 juste au démarrage, puis slider
   const tl = gsap.timeline()
@@ -88,22 +156,42 @@ export function heroAnimation(root = document, opts = {}) {
     )
   })
 
-  // Cartes du hero: première depuis 120%, seconde depuis 100%
-  const cards = Array.from(scope.querySelectorAll('.section_hero .card'))
+  // Cartes du hero: première depuis 110%, seconde depuis 120%
   if (cards.length) {
     const starts = [110, 120]
-    // Démarrer les cartes 500ms après le début des animations de texte
-    const base = 0.5
+    const base = HERO_CARDS_REVEAL_DELAY
+    const useForce3D = isTabletOrBelowViewport()
+
     cards.forEach((card, i) => {
       const startPercent = starts[i] != null ? starts[i] : 100
       const pos = base
+
+      if (useForce3D) {
+        card.style.willChange = 'transform'
+      }
+
       tl.set(card, { autoAlpha: 1 }, pos)
       tl.fromTo(
         card,
-        { yPercent: startPercent, y: 0 },
-        { yPercent: 0, y: 0, duration, ease, overwrite: 'auto' },
+        { yPercent: startPercent },
+        {
+          yPercent: 0,
+          duration,
+          ease,
+          overwrite: 'auto',
+          force3D: useForce3D,
+          onComplete: () => finalizeHeroCardTransform(card),
+        },
         pos
       )
     })
   }
+
+  try {
+    window.__heroAnimationTimeline = tl
+  } catch (e) {
+    // ignore
+  }
+
+  return tl
 }

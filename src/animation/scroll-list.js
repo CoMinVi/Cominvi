@@ -24,13 +24,7 @@ export function initScrollList(root = document) {
 
       // Rebuild on resize/orientation changes
       let resizeTimer
-      let viewportWidth =
-        window.innerWidth || document.documentElement.clientWidth || 0
       const handleRebuild = () => {
-        const nextWidth =
-          window.innerWidth || document.documentElement.clientWidth || 0
-        if (nextWidth === viewportWidth) return
-        viewportWidth = nextWidth
         clearTimeout(resizeTimer)
         resizeTimer = setTimeout(() => {
           buildAllIndicators(indicators)
@@ -247,13 +241,7 @@ function setupTickHighlighting(section, indicators) {
 
   if (isTabletOrMobile) {
     refreshSVH()
-    let viewportWidth =
-      window.innerWidth || document.documentElement.clientWidth || 0
     const svhResizeHandler = () => {
-      const nextWidth =
-        window.innerWidth || document.documentElement.clientWidth || 0
-      if (nextWidth === viewportWidth) return
-      viewportWidth = nextWidth
       // Debounce to avoid excessive recalcs
       clearTimeout(svhResizeHandler._t)
       svhResizeHandler._t = setTimeout(refreshSVH, 100)

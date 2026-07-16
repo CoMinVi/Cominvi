@@ -380,13 +380,7 @@ export function initParallax(root = document) {
   }
   // Debounce a bit to avoid thrashing
   let resizeTimer
-  let viewportWidth =
-    window.innerWidth || document.documentElement.clientWidth || 0
   window.__parallaxResizeHandler = () => {
-    const nextWidth =
-      window.innerWidth || document.documentElement.clientWidth || 0
-    if (nextWidth === viewportWidth) return
-    viewportWidth = nextWidth
     clearTimeout(resizeTimer)
     resizeTimer = setTimeout(resizeHandler, 100)
   }
@@ -703,13 +697,7 @@ export function initNextBackgroundParallax(root = document) {
     ScrollTrigger.refresh()
   }
   let resizeTimer
-  let viewportWidth =
-    window.innerWidth || document.documentElement.clientWidth || 0
   window.__nextBgParallaxResizeHandler = () => {
-    const nextWidth =
-      window.innerWidth || document.documentElement.clientWidth || 0
-    if (nextWidth === viewportWidth) return
-    viewportWidth = nextWidth
     clearTimeout(resizeTimer)
     resizeTimer = setTimeout(resizeHandler, 100)
   }

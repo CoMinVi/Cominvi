@@ -537,15 +537,16 @@ export function initCylinder(root = document) {
       updateTickHighlight()
     },
   })
+  // Also tick on every RAF to keep highlight smooth while pinned
+  const tickerFn = () => updateTickHighlight()
+  try {
+    gsap.ticker.add(tickerFn)
+  } catch (e) {
+    // ignore
+  }
   updateTickHighlight()
 
-  let viewportWidth =
-    window.innerWidth || document.documentElement.clientWidth || 0
   const onResizeWithApproachReset = () => {
-    const nextWidth =
-      window.innerWidth || document.documentElement.clientWidth || 0
-    if (nextWidth === viewportWidth) return
-    viewportWidth = nextWidth
     didRefreshOnCylinderApproach = false
     scheduleRecalc()
   }
@@ -565,6 +566,7 @@ export function initCylinder(root = document) {
         'resize',
         onResizeWithApproachReset
       )
+      window.visualViewport.addEventListener('scroll', scheduleRecalc)
     }
   } catch (e) {
     // ignore
@@ -627,6 +629,7 @@ export function initCylinder(root = document) {
           'resize',
           onResizeWithApproachReset
         )
+        window.visualViewport.removeEventListener('scroll', scheduleRecalc)
       }
     } catch (e) {
       // ignore
@@ -680,6 +683,11 @@ export function initCylinder(root = document) {
     try {
       wrapper.style.removeProperty('--cylinder-viewport-height')
       wrapper.style.removeProperty('--cylinder-visual-offset')
+    } catch (e) {
+      // ignore
+    }
+    try {
+      if (tickerFn && gsap && gsap.ticker) gsap.ticker.remove(tickerFn)
     } catch (e) {
       // ignore
     }

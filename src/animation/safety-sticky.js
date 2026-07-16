@@ -111,9 +111,6 @@ function scheduleSafetyStickyReflow() {
 function bindSafetyStickyGlobalListeners() {
   if (window.__safetyStickyGlobalsBound) return
   window.__safetyStickyGlobalsBound = true
-  let viewportWidth =
-    window.innerWidth || document.documentElement.clientWidth || 0
-  let resizeTimer = null
 
   const refreshAll = () => {
     try {
@@ -125,29 +122,22 @@ function bindSafetyStickyGlobalListeners() {
 
   try {
     window.addEventListener('resize', () => {
-      const nextWidth =
-        window.innerWidth || document.documentElement.clientWidth || 0
-      if (nextWidth === viewportWidth) return
-      viewportWidth = nextWidth
-      clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(() => {
-        try {
-          const section = document.querySelector('.section_safety')
-          const isEnabled = Boolean(section?.__safetyStickyST)
-          if (section && isEnabled !== shouldEnableSafetySticky()) {
-            refreshAll()
-            return
-          }
-          if (
-            window.ScrollTrigger &&
-            typeof window.ScrollTrigger.refresh === 'function'
-          ) {
-            window.ScrollTrigger.refresh()
-          }
-        } catch (e) {
-          // ignore
+      try {
+        const section = document.querySelector('.section_safety')
+        const isEnabled = Boolean(section?.__safetyStickyST)
+        if (section && isEnabled !== shouldEnableSafetySticky()) {
+          refreshAll()
+          return
         }
-      }, 120)
+        if (
+          window.ScrollTrigger &&
+          typeof window.ScrollTrigger.refresh === 'function'
+        ) {
+          window.ScrollTrigger.refresh()
+        }
+      } catch (e) {
+        // ignore
+      }
     })
     window.addEventListener('page:transition:after', refreshAll)
     document.addEventListener('menu:close-end', () => {

@@ -77,10 +77,13 @@ const initMachineCardImagesPreload = (root = document) => {
       }
 
       if (typeof image.decode === 'function') {
-        image.decode().then(markResult).catch(() => {
-          image.addEventListener('load', markResult, { once: true })
-          image.addEventListener('error', markResult, { once: true })
-        })
+        image
+          .decode()
+          .then(markResult)
+          .catch(() => {
+            image.addEventListener('load', markResult, { once: true })
+            image.addEventListener('error', markResult, { once: true })
+          })
       } else if (image.complete) {
         markResult()
       } else {
@@ -91,7 +94,9 @@ const initMachineCardImagesPreload = (root = document) => {
   }
 
   const wrapper =
-    section.closest('.page-wrap') || document.querySelector('.page-wrap') || null
+    section.closest('.page-wrap') ||
+    document.querySelector('.page-wrap') ||
+    null
   const preloadDistance = Math.max(1, Math.round(window.innerHeight * 3))
   const observer = new IntersectionObserver(
     (entries) => {

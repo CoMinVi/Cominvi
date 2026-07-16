@@ -1363,14 +1363,3 @@ svg.is-map g.region[id] {
   max-width: 100%;
   max-height: 100%;
 }
-
-/* Keep upstream home heights stable when mobile browser chrome expands/collapses. */
-@media screen and (max-width: 991px) {
-  .section_hero {
-    min-height: 100svh;
-  }
-
-  .minerals-stage {
-    height: 270svh;
-  }
-}

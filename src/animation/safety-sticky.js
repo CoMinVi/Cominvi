@@ -3,8 +3,18 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 gsap.registerPlugin(ScrollTrigger)
 
+const SAFETY_STICKY_MEDIA_QUERY = '(min-width: 992px)'
+
 function getScope(root = document) {
   return root && root.querySelector ? root : document
+}
+
+function shouldEnableSafetySticky() {
+  try {
+    return window.matchMedia(SAFETY_STICKY_MEDIA_QUERY).matches
+  } catch (e) {
+    return true
+  }
 }
 
 function getScroller() {
@@ -113,6 +123,12 @@ function bindSafetyStickyGlobalListeners() {
   try {
     window.addEventListener('resize', () => {
       try {
+        const section = document.querySelector('.section_safety')
+        const isEnabled = Boolean(section?.__safetyStickyST)
+        if (section && isEnabled !== shouldEnableSafetySticky()) {
+          refreshAll()
+          return
+        }
         if (
           window.ScrollTrigger &&
           typeof window.ScrollTrigger.refresh === 'function'
@@ -160,6 +176,8 @@ export function initSafetySticky(root = document) {
   const scope = getScope(root)
   destroySafetySticky(scope)
   bindSafetyStickyGlobalListeners()
+
+  if (!shouldEnableSafetySticky()) return
 
   const scroller = getScroller()
   if (!scroller) return

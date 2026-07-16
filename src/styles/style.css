@@ -8,6 +8,16 @@
   overflow: hidden;
 }
 
+html.is-native-scroll .page-wrap {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+html.is-native-scroll .content-wrap {
+  will-change: auto;
+}
+
 .navbar {
   mix-blend-mode: difference;
 }

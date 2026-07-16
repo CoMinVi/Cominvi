@@ -4,8 +4,22 @@ import Lenis from 'lenis'
 
 gsap.registerPlugin(ScrollTrigger)
 
+export const NATIVE_SCROLL_QUERY = '(max-width: 991px)'
+
+export function usesNativeScroll(
+  viewportMatcher = (query) => window.matchMedia(query).matches
+) {
+  try {
+    return Boolean(viewportMatcher(NATIVE_SCROLL_QUERY))
+  } catch (e) {
+    return false
+  }
+}
+
 // Minimal Lenis + ScrollTrigger setup using .page-wrap and .content-wrap
 export function initLenis(root = document) {
+  destroyLenis()
+
   const wrapper =
     root.querySelector('.page-wrap') || document.querySelector('.page-wrap')
   const content =
@@ -15,6 +29,19 @@ export function initLenis(root = document) {
   if (!wrapper || !content) {
     return null
   }
+
+  if (usesNativeScroll()) {
+    document.documentElement.classList.add('is-native-scroll')
+    window.lenis = null
+    window.__lenisWrapper = window
+    ScrollTrigger.defaults({ scroller: window })
+    wrapper.scrollTop = 0
+    window.scrollTo(0, 0)
+    requestAnimationFrame(() => ScrollTrigger.refresh())
+    return null
+  }
+
+  document.documentElement.classList.remove('is-native-scroll')
 
   const prefersCoarsePointer = (() => {
     try {
@@ -143,6 +170,7 @@ export function destroyLenis() {
     // ignore
   }
   try {
+    window.__lenisTickerRaf = null
     if (window.lenis && typeof window.lenis.destroy === 'function') {
       window.lenis.destroy()
     }
@@ -151,6 +179,8 @@ export function destroyLenis() {
   }
   try {
     window.lenis = null
+    window.__lenisWrapper = null
+    document.documentElement.classList.remove('is-native-scroll')
   } catch (err) {
     // ignore
   }

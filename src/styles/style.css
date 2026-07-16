@@ -1318,3 +1318,38 @@ svg.is-map g.marker[id],
 svg.is-map g.region[id] {
   pointer-events: all;
 }
+
+/* Minerals canvas: masquer le slider statique et centrer la séquence */
+.section_minerals:has(.minerals-slider_sequence canvas) .minerals-slider_inner {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+.section_minerals:has(.minerals-slider_sequence canvas)
+  .minerals-slider:has(.minerals-slider_sequence canvas) {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+}
+
+.section_minerals:has(.minerals-slider_sequence canvas)
+  .minerals-slider_sequence:has(canvas) {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 70%;
+  max-height: 70%;
+}
+
+.section_minerals:has(.minerals-slider_sequence canvas)
+  .minerals-slider_sequence:has(canvas)
+  .minerals_canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}

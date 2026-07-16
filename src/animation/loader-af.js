@@ -455,17 +455,13 @@ export function initLoader() {
       (!!supportsTouchCallout && !!isMacPlatform) ||
       (isMacPlatform && (isSafariUA || isSafariVendor))
 
-    const heroScaleTween = {
-      scale: 1.2,
-      transformOrigin: '50% 50%',
+    const heroIntroPlayback = {
       duration: HERO_INTRO_SCALE_DURATION,
       ease: loaderEase,
-      force3D: true,
-      overwrite: 'auto',
       onStart: () => {
         sequenceController.startIntroPlayback?.(HERO_INTRO_SCALE_DURATION)
       },
-      onUpdate: function onHeroScaleUpdate() {
+      onUpdate: function onHeroIntroUpdate() {
         if (!isSafariBrowser()) return
         sequenceController.setIntroProgress?.(this.progress())
       },
@@ -486,7 +482,7 @@ export function initLoader() {
         })
       }, '>')
       tl.addLabel('heroIntro', '<')
-      tl.to(backgroundInner, heroScaleTween, '<')
+      tl.to({}, heroIntroPlayback, '<')
       tl.to(
         loader,
         { opacity: 0, duration: HERO_INTRO_SCALE_DURATION, ease: loaderEase },
@@ -618,7 +614,7 @@ export function initLoader() {
         })
       }, '<')
       tl.addLabel('heroIntro', '<')
-      tl.to(backgroundInner, heroScaleTween, '<')
+      tl.to({}, heroIntroPlayback, '<')
       tl.to(
         logoText,
         { opacity: 0, duration: HERO_INTRO_SCALE_DURATION, ease: loaderEase },

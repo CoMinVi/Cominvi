@@ -1302,6 +1302,16 @@ button.maplibregl-ctrl-compass {
   margin-bottom: -0.5em;
 }
 
+@media screen and (max-width: 991px) {
+  .section_hero .hero-bottom_cards-wrapper {
+    overflow: hidden;
+  }
+
+  .section_hero .hero-bottom .card {
+    transition: none !important;
+  }
+}
+
 /* Fix MIS-302: Hide any visible text from SVG groups/titles in the map */
 svg.is-map title,
 svg.is-map text {

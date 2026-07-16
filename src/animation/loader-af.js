@@ -17,7 +17,7 @@ import {
   createHeroSequenceController,
   bindHeroBackgroundOverlayGuard,
 } from './hero-sequence-controller.js'
-import { heroAnimation } from './landing.js'
+import { deferAfterHeroCardsSettled, heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
 const SCROLL_RANGE_VH = 100
@@ -385,7 +385,9 @@ export function initLoader() {
       } catch (e) {
         // ignore
       }
-      beginScrollDrivenSequence(sequenceController)
+      deferAfterHeroCardsSettled(() => {
+        beginScrollDrivenSequence(sequenceController)
+      })
     }
 
     const tl = gsap.timeline({ paused: true, defaults: { ease: loaderEase } })

@@ -155,8 +155,8 @@ const getButtonSmParts = (card) => ({
 
 const setButtonSmBaseState = ({ inner, buttonSm }) => {
   if (!isMainBreakpoint()) {
-    if (inner) gsap.set(inner, { clearProps: 'transform' })
-    if (buttonSm) gsap.set(buttonSm, { clearProps: 'backgroundColor' })
+    // Conserver le transform CSS Webflow sur .button-sm_inner (translate).
+    // clearProps provoquait un flash compositor quand l'anim GSAP du parent .card se terminait.
     return
   }
   if (inner) gsap.set(inner, { x: '-0.75em' })

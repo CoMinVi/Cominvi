@@ -27,6 +27,9 @@ const defaultLinkBaseMargins = [
 ]
 // Récupération de la position du scroll
 function getCurrentScrollPosition(contentEl) {
+  if (window.__lenisWrapper === window) {
+    return window.scrollY
+  }
   if (window.lenis && typeof window.lenis.scroll === 'number') {
     return window.lenis.scroll
   }
@@ -1327,33 +1330,44 @@ export function initializeNavbarScroll(root = document) {
   const wrapperElement = root.querySelector('.page-wrap')
   const contentElement = root.querySelector('.content-wrap')
   const navbarElement = root.querySelector('.navbar')
+  const scrollTarget = window.__lenisWrapper || wrapperElement
 
-  if (!wrapperElement || !navbarElement) {
+  if (!wrapperElement || !navbarElement || !scrollTarget) {
     return
   }
 
   // Cleanup previous listeners
   try {
-    if (wrapperElement.__navbarScrollListener) {
-      wrapperElement.removeEventListener(
+    const previousTarget = window.__navbarScrollTarget
+    if (previousTarget?.__navbarScrollListener) {
+      previousTarget.removeEventListener(
         'scroll',
-        wrapperElement.__navbarScrollListener
+        previousTarget.__navbarScrollListener
       )
+      previousTarget.__navbarScrollListener = null
     }
   } catch (err) {
     // ignore
   }
+  window.__navbarScrollTarget = null
   try {
+    const previousLenis = window.__navbarScrollLenisTarget
     if (
-      window.lenis &&
-      window.lenis.__navbarScrollListener &&
-      typeof window.lenis.off === 'function'
+      previousLenis &&
+      previousLenis.__navbarScrollListener &&
+      typeof previousLenis.off === 'function'
     ) {
-      window.lenis.off('scroll', window.lenis.__navbarScrollListener)
+      previousLenis.off('scroll', previousLenis.__navbarScrollListener)
+      previousLenis.__navbarScrollListener = null
     }
   } catch (err) {
     // ignore
   }
+  window.__navbarScrollLenisTarget = null
+  if (window.__navbarScrollRafId != null) {
+    cancelAnimationFrame(window.__navbarScrollRafId)
+  }
+  window.__navbarScrollRafId = null
 
   let previousScrollTop = getCurrentScrollPosition(
     contentElement || wrapperElement
@@ -1387,20 +1401,34 @@ export function initializeNavbarScroll(root = document) {
     previousScrollTop = currentScrollTop
   }
 
+  let pendingLenisScroll = previousScrollTop
+  const lenisHandle = () => {
+    const delta = pendingLenisScroll - previousScrollTop
+    applyNavbarByDelta(delta)
+    previousScrollTop = pendingLenisScroll
+  }
+  const scheduleNavbarUpdate = (update) => {
+    if (window.__navbarScrollRafId != null) return
+    window.__navbarScrollRafId = requestAnimationFrame(() => {
+      window.__navbarScrollRafId = null
+      update()
+    })
+  }
+
   if (window.lenis && typeof window.lenis.on === 'function') {
     const lenisHandler = (e) => {
-      const current =
+      pendingLenisScroll =
         e && typeof e.scroll === 'number' ? e.scroll : previousScrollTop
-      const delta = current - previousScrollTop
-      applyNavbarByDelta(delta)
-      previousScrollTop = current
+      scheduleNavbarUpdate(lenisHandle)
     }
+    window.__navbarScrollLenisTarget = window.lenis
     window.lenis.__navbarScrollListener = lenisHandler
     window.lenis.on('scroll', window.lenis.__navbarScrollListener)
   } else {
-    const onScroll = () => requestAnimationFrame(nativeHandle)
-    wrapperElement.__navbarScrollListener = onScroll
-    wrapperElement.addEventListener('scroll', onScroll)
+    const onScroll = () => scheduleNavbarUpdate(nativeHandle)
+    window.__navbarScrollTarget = scrollTarget
+    scrollTarget.__navbarScrollListener = onScroll
+    scrollTarget.addEventListener('scroll', onScroll, { passive: true })
   }
 }
 
@@ -2016,27 +2044,56 @@ export function initializeThemeController() {
     },
     bindScroll: (root = document) => {
       const scroller =
-        root.querySelector && root.querySelector('.page-wrap')
-          ? root.querySelector('.page-wrap')
-          : window
-      const handler = () => requestAnimationFrame(onScrollThemeUpdate)
+        window.__lenisWrapper ||
+        (root.querySelector && root.querySelector('.page-wrap')) ||
+        window
       try {
-        if (scroller.removeEventListener && scroller.__themeHandler) {
-          scroller.removeEventListener('scroll', scroller.__themeHandler)
+        const previousTarget = window.__themeScrollTarget
+        if (
+          previousTarget?.removeEventListener &&
+          previousTarget.__themeHandler
+        ) {
+          previousTarget.removeEventListener(
+            'scroll',
+            previousTarget.__themeHandler
+          )
+          previousTarget.__themeHandler = null
         }
       } catch (err) {
         // ignore
       }
+      window.__themeScrollTarget = null
+      try {
+        const previousLenis = window.__themeScrollLenisTarget
+        if (
+          previousLenis?.__themeHandler &&
+          typeof previousLenis.off === 'function'
+        ) {
+          previousLenis.off('scroll', previousLenis.__themeHandler)
+          previousLenis.__themeHandler = null
+        }
+      } catch (err) {
+        // ignore
+      }
+      window.__themeScrollLenisTarget = null
+      if (window.__themeScrollRafId != null) {
+        cancelAnimationFrame(window.__themeScrollRafId)
+      }
+      window.__themeScrollRafId = null
+      const handler = () => {
+        if (window.__themeScrollRafId != null) return
+        window.__themeScrollRafId = requestAnimationFrame(() => {
+          window.__themeScrollRafId = null
+          onScrollThemeUpdate()
+        })
+      }
+      window.__themeScrollTarget = scroller
       scroller.__themeHandler = handler
       if (scroller.addEventListener) {
         scroller.addEventListener('scroll', handler, { passive: true })
       }
       if (window.lenis && typeof window.lenis.on === 'function') {
-        try {
-          window.lenis.off('scroll', window.lenis.__themeHandler)
-        } catch (err) {
-          // ignore
-        }
+        window.__themeScrollLenisTarget = window.lenis
         window.lenis.__themeHandler = handler
         window.lenis.on('scroll', window.lenis.__themeHandler)
       }

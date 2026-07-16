@@ -207,6 +207,8 @@ function ensureState() {
       lastIsHandheld: null,
       handheldScrollHandler: null,
       handheldScrollRafId: null,
+      handheldScrollTarget: null,
+      handheldLenisTarget: null,
     }
   }
   return window.__workshopsSticky
@@ -610,20 +612,28 @@ function updateHandheldWorkshops(state) {
 
 function stopHandheldScrollDriver() {
   const state = ensureState()
-  if (state.handheldScrollHandler) {
-    const scroller = window.__lenisWrapper
+  const handler = state.handheldScrollHandler
+  const scrollTarget = state.handheldScrollTarget
+  const lenisTarget = state.handheldLenisTarget
+  if (handler) {
     try {
-      if (scroller && scroller.removeEventListener) {
-        scroller.removeEventListener('scroll', state.handheldScrollHandler)
+      if (scrollTarget && scrollTarget.removeEventListener) {
+        scrollTarget.removeEventListener('scroll', handler)
       }
-      if (window.lenis && typeof window.lenis.off === 'function') {
-        window.lenis.off('scroll', state.handheldScrollHandler)
-      }
-    } catch (e) {
+    } catch (error) {
       // ignore
     }
-    state.handheldScrollHandler = null
+    try {
+      if (lenisTarget && typeof lenisTarget.off === 'function') {
+        lenisTarget.off('scroll', handler)
+      }
+    } catch (error) {
+      // ignore
+    }
   }
+  state.handheldScrollHandler = null
+  state.handheldScrollTarget = null
+  state.handheldLenisTarget = null
   if (state.handheldScrollRafId != null) {
     try {
       cancelAnimationFrame(state.handheldScrollRafId)
@@ -648,10 +658,13 @@ function startHandheldScrollDriver() {
   state.handheldScrollHandler = onScroll
   const scroller = window.__lenisWrapper
   if (scroller && scroller.addEventListener) {
+    state.handheldScrollTarget = scroller
     scroller.addEventListener('scroll', onScroll, { passive: true })
   }
-  if (window.lenis && typeof window.lenis.on === 'function') {
-    window.lenis.on('scroll', onScroll)
+  const lenis = window.lenis
+  if (lenis && typeof lenis.on === 'function') {
+    state.handheldLenisTarget = lenis
+    lenis.on('scroll', onScroll)
   }
   run()
 }
@@ -1258,11 +1271,16 @@ export function destroyWorkshopsStickyImages() {
   try {
     if (state.resizeHandler) {
       window.removeEventListener('resize', state.resizeHandler)
-      state.resizeHandler = null
     }
   } catch (e) {
     // ignore
   }
+  state.resizeHandler = null
   stopHandheldScrollDriver()
   stopLoopIfIdle()
+  state.scope = null
+  state.titles = []
+  state.descs = []
+  state.currentTextIndex = -1
+  state.lastIsHandheld = null
 }

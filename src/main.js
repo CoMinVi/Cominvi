@@ -6,7 +6,6 @@ import {
 import { initLoader as initDefaultLoader } from './animation/loader-save.js'
 import { initializeNav2 } from './animation/nav.js'
 import { initializePageTransitionNav } from './animation/page-transition-nav.js'
-import { initParallax } from './animation/parallax.js'
 import { initLenis } from './animation/scroll.js'
 import { createViewportClipOverlay } from './animation/svg-clip-overlay.js'
 import { prepareHeroMedia } from './app/hero-media.js'
@@ -112,26 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   initLenis()
   initializeNav2()
-  // Priorité home: initialiser d'abord le hero.
-  initParallax()
   try {
     prepareIcons(document)
   } catch {
-    // ignore
-  }
-  try {
-    if (document.querySelector('.cylindar__wrapper')) {
-      import('./animation/cylinder.js')
-        .then(({ initCylinder }) => {
-          try {
-            initCylinder(document)
-          } catch (e) {
-            // ignore
-          }
-        })
-        .catch(() => {})
-    }
-  } catch (e) {
     // ignore
   }
   const runNonCriticalInitializers = () => {

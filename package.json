@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "clean": "rimraf -rf dist",
     "lint:fix": "eslint ./src --ext .js,.jsx --fix",
+    "test:native-scroll": "node src/animation/native-scroll.playwright.mjs",
     "test:navlink-alignment": "node src/animation/navlink-alignment.playwright.mjs"
   },
   "devDependencies": {

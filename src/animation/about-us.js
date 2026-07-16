@@ -1,7 +1,29 @@
 import SplitType from 'split-type'
 
-import { initWorkshopsStickyImages } from './workshops.js'
+import {
+  destroyWorkshopsStickyImages,
+  initWorkshopsStickyImages,
+} from './workshops.js'
+
+let activeAboutTeardown = null
+
+export function destroyAbout() {
+  const teardown = activeAboutTeardown
+  activeAboutTeardown = null
+  if (
+    typeof window !== 'undefined' &&
+    window.__aboutTeardown === destroyAbout
+  ) {
+    window.__aboutTeardown = null
+  }
+  if (typeof teardown === 'function') {
+    teardown()
+  }
+}
+
 export function initAbout(root = document) {
+  destroyAbout()
+
   // Scope to About Us page
   try {
     const container = root && root.nodeType === 1 ? root : document
@@ -724,27 +746,56 @@ export function initAbout(root = document) {
       window.addEventListener('scroll', onScroll, { passive: true })
     }
 
+    let isDestroyed = false
     return () => {
+      if (isDestroyed) return
+      isDestroyed = true
       window.removeEventListener('resize', onResize)
       if (scroller && scroller.removeEventListener) {
         scroller.removeEventListener('scroll', onScroll)
       } else {
         window.removeEventListener('scroll', onScroll)
       }
-      if (scrollRafId != null) cancelAnimationFrame(scrollRafId)
+      if (scrollRafId != null) {
+        cancelAnimationFrame(scrollRafId)
+        scrollRafId = null
+      }
       cancelDateOverlayAnimation()
     }
   }
 
+  let cleanupVideos = null
   try {
-    initVideos()
-    // Initialize workshops sticky images/texts like workshops.js
-    try {
-      initWorkshopsStickyImages(root)
-    } catch (e2) {
-      // ignore
-    }
+    cleanupVideos = initVideos()
   } catch (e) {
     // ignore
   }
+
+  let isDestroyed = false
+  activeAboutTeardown = () => {
+    if (isDestroyed) return
+    isDestroyed = true
+    try {
+      if (typeof cleanupVideos === 'function') cleanupVideos()
+    } catch (e) {
+      // ignore
+    }
+    try {
+      destroyWorkshopsStickyImages()
+    } catch (e) {
+      // ignore
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.__aboutTeardown = destroyAbout
+  }
+
+  // Initialize workshops sticky images/texts like workshops.js
+  try {
+    initWorkshopsStickyImages(root)
+  } catch (e) {
+    // ignore
+  }
+
+  return destroyAbout
 }

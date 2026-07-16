@@ -52,11 +52,29 @@ export function deferAfterHeroCardsSettled(callback) {
     return
   }
 
-  window.setTimeout(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(callback)
-    })
-  }, HERO_CARDS_MOBILE_SETTLE_MS)
+  const runAfterSettle = () => {
+    window.setTimeout(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(callback)
+      })
+    }, HERO_CARDS_MOBILE_SETTLE_MS)
+  }
+
+  try {
+    const tl = window.__heroAnimationTimeline
+    const endTime = getHeroCardsRevealEndTime()
+    if (tl && typeof tl.time === 'function') {
+      const remainingMs = Math.max(0, endTime - tl.time()) * 1000
+      if (remainingMs > 0) {
+        window.setTimeout(runAfterSettle, remainingMs)
+        return
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  runAfterSettle()
 }
 
 function prepareHeroCardWrappers(scope) {
@@ -67,11 +85,35 @@ function prepareHeroCardWrappers(scope) {
   })
 }
 
-function finalizeHeroCardTransform(card) {
-  if (!card) return
+function ensureCardRevealInner(card) {
+  if (!card) return null
+
+  const existing = card.querySelector(':scope > .card-reveal-inner')
+  if (existing) return existing
+
+  const inner = document.createElement('div')
+  inner.className = 'card-reveal-inner'
+  const children = Array.from(card.childNodes)
+  children.forEach((node) => {
+    inner.appendChild(node)
+  })
+  card.appendChild(inner)
+  return inner
+}
+
+function getCardRevealTarget(card) {
+  if (!card) return null
+  if (isTabletOrBelowViewport()) {
+    return ensureCardRevealInner(card)
+  }
+  return card
+}
+
+function finalizeHeroCardRevealTarget(target) {
+  if (!target) return
 
   try {
-    gsap.set(card, {
+    gsap.set(target, {
       yPercent: 0,
       force3D: false,
       clearProps: 'willChange',
@@ -160,27 +202,33 @@ export function heroAnimation(root = document, opts = {}) {
   if (cards.length) {
     const starts = [110, 120]
     const base = HERO_CARDS_REVEAL_DELAY
-    const useForce3D = isTabletOrBelowViewport()
+    const useInnerReveal = isTabletOrBelowViewport()
 
     cards.forEach((card, i) => {
       const startPercent = starts[i] != null ? starts[i] : 100
       const pos = base
+      const revealTarget = getCardRevealTarget(card)
+      if (!revealTarget) return
 
-      if (useForce3D) {
-        card.style.willChange = 'transform'
+      if (useInnerReveal) {
+        revealTarget.style.willChange = 'transform'
       }
 
       tl.set(card, { autoAlpha: 1 }, pos)
       tl.fromTo(
-        card,
+        revealTarget,
         { yPercent: startPercent },
         {
           yPercent: 0,
           duration,
           ease,
           overwrite: 'auto',
-          force3D: useForce3D,
-          onComplete: () => finalizeHeroCardTransform(card),
+          force3D: useInnerReveal,
+          onComplete: () => {
+            if (!useInnerReveal) {
+              finalizeHeroCardRevealTarget(revealTarget)
+            }
+          },
         },
         pos
       )

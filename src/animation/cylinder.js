@@ -571,8 +571,8 @@ export function initCylinder(root = document) {
         activationObserver = null
       }
       didRefreshOnCylinderApproach = true
-      trigger.enable(false, false)
-      highlightTrigger.enable(false, false)
+      trigger.enable(false, true)
+      highlightTrigger.enable(false, true)
       syncCylinderTimeline(trigger)
       updateTickHighlight()
     }

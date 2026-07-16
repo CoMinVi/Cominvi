@@ -16,6 +16,21 @@ export function initTextDisplayReveal(root = document) {
     )
     if (!gradients.length) return
 
+    const isTabletOrBelow =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 991px)').matches
+    const isNarrowMobile =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 478px)').matches
+    const targetWidth = isNarrowMobile ? '130%' : '100%'
+
+    if (isTabletOrBelow && section.closest('.section_technology')) {
+      gsap.set(gradients, { width: targetWidth })
+      return
+    }
+
     // Start collapsed
     gsap.set(gradients, { width: '0%' })
 
@@ -41,13 +56,6 @@ export function initTextDisplayReveal(root = document) {
         transformOrigin: 'left bottom',
       })
     }
-
-    // Determine target width based on viewport (<479px => 130%)
-    const isNarrowMobile =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(max-width: 478px)').matches
-    const targetWidth = isNarrowMobile ? '130%' : '100%'
 
     const tl = gsap.timeline({
       paused: true,

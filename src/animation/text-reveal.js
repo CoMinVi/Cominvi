@@ -13,6 +13,14 @@ let __textRevealResizeAttached = false
 let __textRevealResizeTimeout = null
 let __textRevealActive = false
 
+function isTabletOrBelowViewport() {
+  try {
+    return window.matchMedia('(max-width: 991px)').matches
+  } catch (e) {
+    return false
+  }
+}
+
 function registerTextRevealCleanup(root) {
   try {
     __textRevealActive = true
@@ -187,6 +195,7 @@ export function initTextReveal(root = document) {
   const useMobileProcessLines = shouldUseProcessLineReveal(
     window.innerWidth || document.documentElement.clientWidth || 0
   )
+  const useStaticTechnologyText = isTabletOrBelowViewport()
 
   // Ensure process section texts also get the same opacity animation as .intro
   try {
@@ -262,6 +271,7 @@ export function initTextReveal(root = document) {
   const timelines = []
   targets.forEach((el) => {
     if (useMobileProcessLines && el.closest('.section_process')) return
+    if (useStaticTechnologyText && el.closest('.section_technology')) return
     const tl = createLetterRevealTimeline(el)
     if (tl) timelines.push(tl)
   })

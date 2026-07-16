@@ -110,6 +110,38 @@ export function initCylinder(root = document) {
     return gsap.utils.clamp(0, 1, (safeProgress - delay) / (1 - delay))
   }
 
+  if (isMobileViewport() && !wrapper.__cylinderInitAllowed) {
+    if (wrapper.__cylinderDeferredObserver) {
+      return wrapper.__cylinderDeferredObserver
+    }
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      const preloadDistance = Math.max(
+        1,
+        Math.round(getViewportHeight() * 2.5)
+      )
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return
+          observer.disconnect()
+          wrapper.__cylinderDeferredObserver = null
+          wrapper.__cylinderInitAllowed = true
+          requestAnimationFrame(() => initCylinder(scope))
+        },
+        {
+          root: null,
+          rootMargin: `${preloadDistance}px 0px`,
+          threshold: 0,
+        }
+      )
+      wrapper.__cylinderDeferredObserver = observer
+      observer.observe(wrapper)
+      return observer
+    }
+
+    wrapper.__cylinderInitAllowed = true
+  }
+
   try {
     if (wrapper.__cylinderCleanup) wrapper.__cylinderCleanup()
   } catch (e) {

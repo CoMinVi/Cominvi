@@ -72,7 +72,9 @@ async function countTrackedWindowScrollListeners(page) {
       return (
         type === 'scroll' &&
         (scriptUrl.includes('/src/animation/nav.js') ||
-          scriptUrl.includes('/src/animation/parallax.js'))
+          scriptUrl.includes('/src/animation/parallax.js') ||
+          scriptUrl.includes('/src/animation/about-us.js') ||
+          scriptUrl.includes('/src/animation/workshops.js'))
       )
     }).length
   } finally {
@@ -387,6 +389,11 @@ async function checkNativeScroll(browser, width) {
       '.nav-inner a[href="about-us.html"]',
       /about-us\.html/,
       'About us'
+    )
+    await page.waitForFunction(
+      () =>
+        typeof window.__aboutTeardown === 'function' &&
+        typeof window.__workshopsSticky?.handheldScrollHandler === 'function'
     )
     await navigateWithBarba(
       page,

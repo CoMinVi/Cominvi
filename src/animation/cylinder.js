@@ -570,9 +570,11 @@ export function initCylinder(root = document) {
         activationObserver.disconnect()
         activationObserver = null
       }
-      trigger.enable(false, true)
-      highlightTrigger.enable(false, true)
-      scheduleRecalc()
+      didRefreshOnCylinderApproach = true
+      trigger.enable(false, false)
+      highlightTrigger.enable(false, false)
+      syncCylinderTimeline(trigger)
+      updateTickHighlight()
     }
 
     if (typeof IntersectionObserver !== 'undefined') {

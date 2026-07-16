@@ -50,6 +50,69 @@ const isServiceCardHovered = (card) => {
   }
 }
 
+const initMachineCardImagesPreload = (root = document) => {
+  if (!isTabletOrBelowNow() || typeof IntersectionObserver === 'undefined') {
+    return
+  }
+
+  const section = root.querySelector('.section_technology')
+  if (!section || section.__machineImagesPreloadObserver) return
+
+  const images = Array.from(section.querySelectorAll('.machine-card img'))
+  if (!images.length) return
+
+  const preloadImages = () => {
+    section.__machineImagesPreloadObserver?.disconnect()
+    section.__machineImagesPreloadObserver = null
+
+    images.forEach((image) => {
+      if (image.dataset.machinePreloadState === 'ready') return
+      image.loading = 'eager'
+      image.decoding = 'async'
+      image.dataset.machinePreloadState = 'loading'
+
+      const markResult = () => {
+        image.dataset.machinePreloadState =
+          image.complete && image.naturalWidth > 0 ? 'ready' : 'error'
+      }
+
+      if (typeof image.decode === 'function') {
+        image
+          .decode()
+          .then(markResult)
+          .catch(() => {
+            image.addEventListener('load', markResult, { once: true })
+            image.addEventListener('error', markResult, { once: true })
+          })
+      } else if (image.complete) {
+        markResult()
+      } else {
+        image.addEventListener('load', markResult, { once: true })
+        image.addEventListener('error', markResult, { once: true })
+      }
+    })
+  }
+
+  const wrapper =
+    section.closest('.page-wrap') ||
+    document.querySelector('.page-wrap') ||
+    null
+  const preloadDistance = Math.max(1, Math.round(window.innerHeight * 3))
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) preloadImages()
+    },
+    {
+      root: wrapper,
+      rootMargin: `${preloadDistance}px 0px`,
+      threshold: 0,
+    }
+  )
+
+  section.__machineImagesPreloadObserver = observer
+  observer.observe(section)
+}
+
 const SVC_EASING = 'cubic-bezier(0.5, 0, 0, 1)'
 const SVC_DURATION = '0.8s'
 const SVC_STAGGER_S = 0.03
@@ -361,6 +424,7 @@ if (!gsap.parseEase('machinesStep')) {
 }
 export function initServiceCards(root = document) {
   const scope = root && root.querySelector ? root : document
+  initMachineCardImagesPreload(scope)
   const cards = scope.querySelectorAll('.service-card')
   const resetServiceCardsHoverState = (targetScope = scope) => {
     const target =

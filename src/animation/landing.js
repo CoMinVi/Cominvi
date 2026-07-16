@@ -90,13 +90,6 @@ function getHeroCardRevealDistance(card, startPercent) {
   return height * (startPercent / 100)
 }
 
-function getHeroCardRevealParts(card) {
-  if (!card) return []
-  return Array.from(card.children).filter(
-    (node) => node && node.nodeType === Node.ELEMENT_NODE
-  )
-}
-
 // Fait slider les .is-h1-span de y:110% à y:0 avec la même durée/ease que le dé-scale
 export function heroAnimation(root = document, opts = {}) {
   const scope = root && root.querySelector ? root : document
@@ -184,20 +177,11 @@ export function heroAnimation(root = document, opts = {}) {
       tl.set(card, { autoAlpha: 1 }, pos)
 
       if (useMobileCardReveal) {
-        const parts = getHeroCardRevealParts(card)
-        const targets = parts.length ? parts : [card]
-        // Animer les enfants dans .card (overflow:hidden) pour ne pas
-        // composer le transform CSS de .button-sm_inner avec celui du parent.
+        // y en pixels: évite les arrondis yPercent + ne touche pas au DOM/layout
         tl.fromTo(
-          targets,
+          card,
           { y: startY },
-          {
-            y: 0,
-            duration,
-            ease,
-            overwrite: 'auto',
-            autoRound: false,
-          },
+          { y: 0, duration, ease, overwrite: 'auto' },
           pos
         )
       } else {

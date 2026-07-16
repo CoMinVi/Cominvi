@@ -271,6 +271,13 @@ export function createHeroIntroVideo({ host, src, durationSec = 3.6 }) {
       paintToken += 1
       try {
         video.pause()
+        if (
+          video.duration &&
+          Number.isFinite(video.duration) &&
+          video.duration > 0
+        ) {
+          video.currentTime = Math.max(0, video.duration - 0.001)
+        }
       } catch (e) {
         // ignore
       }

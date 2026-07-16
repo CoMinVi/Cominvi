@@ -131,6 +131,8 @@ function beginScrollDrivenSequence(sequenceController, opts = {}) {
   if (window.__homeSequenceScrollTrigger) return
 
   const deferScrollTriggerRefresh = !!opts.deferScrollTriggerRefresh
+  const onHandoffComplete =
+    typeof opts.onHandoffComplete === 'function' ? opts.onHandoffComplete : null
 
   const startScrollDriver = () => {
     window.requestAnimationFrame(() => {
@@ -146,6 +148,9 @@ function beginScrollDrivenSequence(sequenceController, opts = {}) {
         deferAfterHeroCardsSettled(refreshScrollTrigger)
       } else {
         refreshScrollTrigger()
+      }
+      if (onHandoffComplete) {
+        onHandoffComplete()
       }
     })
   }
@@ -397,6 +402,15 @@ export function initLoader() {
       }
     }
 
+    const dispatchLoaderDone = () => {
+      try {
+        window.__loaderDone = true
+        document.dispatchEvent(new CustomEvent('loader:done'))
+      } catch (e) {
+        // ignore
+      }
+    }
+
     const finishLoader = () => {
       cleanupOutlineOverlay()
       try {
@@ -404,15 +418,17 @@ export function initLoader() {
       } catch (e) {
         // ignore
       }
-      try {
-        window.__loaderDone = true
-        document.dispatchEvent(new CustomEvent('loader:done'))
-      } catch (e) {
-        // ignore
-      }
+
+      const isMobileHandoff = isTabletOrBelowViewport()
       beginScrollDrivenSequence(sequenceController, {
-        deferScrollTriggerRefresh: isTabletOrBelowViewport(),
+        deferScrollTriggerRefresh: isMobileHandoff,
+        // Mobile: handoff AF→scroll avant loader:done pour éviter un
+        // ScrollTrigger.refresh (cards-reveal) pendant le swap visuel.
+        onHandoffComplete: isMobileHandoff ? dispatchLoaderDone : null,
       })
+      if (!isMobileHandoff) {
+        dispatchLoaderDone()
+      }
     }
 
     const tl = gsap.timeline({ paused: true, defaults: { ease: loaderEase } })
@@ -925,11 +941,13 @@ export function startHomeSequenceAfterTransition(scope = document, opts = {}) {
       if (started || !window.__homeSequenceTransitionStarted) return
       started = true
 
-      try {
-        window.__loaderDone = true
-        document.dispatchEvent(new CustomEvent('loader:done'))
-      } catch (e) {
-        // ignore
+      const dispatchLoaderDone = () => {
+        try {
+          window.__loaderDone = true
+          document.dispatchEvent(new CustomEvent('loader:done'))
+        } catch (e) {
+          // ignore
+        }
       }
 
       startHeroAfterLogo(loaderEase, sequenceController, {
@@ -939,9 +957,14 @@ export function startHomeSequenceAfterTransition(scope = document, opts = {}) {
         deferScrollSequence: true,
       })
 
+      const isMobileHandoff = isTabletOrBelowViewport()
       beginScrollDrivenSequence(sequenceController, {
-        deferScrollTriggerRefresh: isTabletOrBelowViewport(),
+        deferScrollTriggerRefresh: isMobileHandoff,
+        onHandoffComplete: isMobileHandoff ? dispatchLoaderDone : null,
       })
+      if (!isMobileHandoff) {
+        dispatchLoaderDone()
+      }
 
       window.__homeSequenceTransitionStarted = false
       window.__homeSequenceTransitionTimeline = null

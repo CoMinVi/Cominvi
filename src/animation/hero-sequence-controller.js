@@ -258,10 +258,18 @@ export function createHeroSequenceController(backgroundInner) {
       hidePosterOnce()
       scroll?.setProgress(0)
 
+      // Verrouiller l'intro sur sa dernière frame avant le swap.
+      intro?.setProgress?.(1)
+      intro?.show?.()
+
       const revealScroll = () => {
-        intro?.hide()
         scroll?.show()
-        afResizeLog('hero-intro:handoff')
+        // Afficher le canvas avant de masquer la vidéo pour éviter un flash
+        // du poster (z-index inférieur) entre les deux couches.
+        window.requestAnimationFrame(() => {
+          intro?.hide()
+          afResizeLog('hero-intro:handoff')
+        })
       }
 
       if (!scroll) {
@@ -274,11 +282,6 @@ export function createHeroSequenceController(backgroundInner) {
         revealScroll()
         return Promise.resolve(true)
       }
-
-      // Garder la dernière frame vidéo tant que le canvas n'est pas peint
-      // (layout Safari / suppression du loader).
-      intro?.setProgress?.(1)
-      intro?.show?.()
 
       if (typeof scroll.ensureFramePainted === 'function') {
         return scroll.ensureFramePainted(0, 'intro-handoff').then((painted) => {

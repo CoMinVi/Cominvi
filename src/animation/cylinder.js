@@ -116,10 +116,11 @@ export function initCylinder(root = document) {
     }
 
     if (typeof IntersectionObserver !== 'undefined') {
-      const preloadDistance = Math.max(
-        1,
-        Math.round(getViewportHeight() * 2.5)
-      )
+      const preloadDistance = Math.max(1, Math.round(getViewportHeight() * 2.5))
+      const observerRoot =
+        wrapper.closest('.page-wrap') ||
+        document.querySelector('.page-wrap') ||
+        null
       const observer = new IntersectionObserver(
         (entries) => {
           if (!entries.some((entry) => entry.isIntersecting)) return
@@ -129,7 +130,7 @@ export function initCylinder(root = document) {
           requestAnimationFrame(() => initCylinder(scope))
         },
         {
-          root: null,
+          root: observerRoot,
           rootMargin: `${preloadDistance}px 0px`,
           threshold: 0,
         }

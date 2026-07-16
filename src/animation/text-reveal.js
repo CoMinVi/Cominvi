@@ -12,6 +12,7 @@ gsap.registerPlugin(ScrollTrigger)
 let __textRevealResizeAttached = false
 let __textRevealResizeTimeout = null
 let __textRevealActive = false
+let __textRevealViewportWidth = null
 
 function isTabletOrBelowViewport() {
   try {
@@ -34,8 +35,14 @@ function registerTextRevealCleanup(root) {
 function attachTextRevealResizeHandler() {
   if (typeof window === 'undefined') return
   if (__textRevealResizeAttached) return
+  __textRevealViewportWidth =
+    window.innerWidth || document.documentElement.clientWidth || 0
   const handler = () => {
     if (!__textRevealActive) return
+    const nextWidth =
+      window.innerWidth || document.documentElement.clientWidth || 0
+    if (nextWidth === __textRevealViewportWidth) return
+    __textRevealViewportWidth = nextWidth
     if (__textRevealResizeTimeout) clearTimeout(__textRevealResizeTimeout)
     __textRevealResizeTimeout = setTimeout(() => {
       try {

@@ -92,12 +92,12 @@ try {
 
   assert.equal(
     result.initializedAtCards,
-    false,
-    'Le pin Partners ne doit pas être initialisé au niveau des cards'
+    true,
+    'Le pin Partners doit être préparé pendant le loader'
   )
   assert.ok(
     result.offscreenMutations < 50,
-    `Partners ne doit pas muter avant son approche (${result.offscreenMutations} mutations)`
+    `Le pin Partners préparé doit rester inactif avant son approche (${result.offscreenMutations} mutations)`
   )
   assert.equal(
     result.initializedNearPartners,

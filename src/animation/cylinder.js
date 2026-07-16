@@ -110,38 +110,7 @@ export function initCylinder(root = document) {
     return gsap.utils.clamp(0, 1, (safeProgress - delay) / (1 - delay))
   }
 
-  if (isMobileViewport() && !wrapper.__cylinderInitAllowed) {
-    if (wrapper.__cylinderDeferredObserver) {
-      return wrapper.__cylinderDeferredObserver
-    }
-
-    if (typeof IntersectionObserver !== 'undefined') {
-      const preloadDistance = Math.max(1, Math.round(getViewportHeight() * 2.5))
-      const observerRoot =
-        wrapper.closest('.page-wrap') ||
-        document.querySelector('.page-wrap') ||
-        null
-      const observer = new IntersectionObserver(
-        (entries) => {
-          if (!entries.some((entry) => entry.isIntersecting)) return
-          observer.disconnect()
-          wrapper.__cylinderDeferredObserver = null
-          wrapper.__cylinderInitAllowed = true
-          requestAnimationFrame(() => initCylinder(scope))
-        },
-        {
-          root: observerRoot,
-          rootMargin: `${preloadDistance}px 0px`,
-          threshold: 0,
-        }
-      )
-      wrapper.__cylinderDeferredObserver = observer
-      observer.observe(wrapper)
-      return observer
-    }
-
-    wrapper.__cylinderInitAllowed = true
-  }
+  const deferMobileActivation = isMobileViewport()
 
   try {
     if (wrapper.__cylinderCleanup) wrapper.__cylinderCleanup()
@@ -369,6 +338,7 @@ export function initCylinder(root = document) {
 
   const cylinderScroller = getCylinderScroller()
   const usesWindowScroller = cylinderScroller === window
+  let cylinderActivated = !deferMobileActivation
   const syncCylinderTimeline = (self) => {
     const progress =
       self && Number.isFinite(self.progress) ? self.progress : trigger?.progress
@@ -416,9 +386,13 @@ export function initCylinder(root = document) {
     // ignore
   }
   enforceSpacerHeight()
+  if (deferMobileActivation) {
+    trigger.disable(false)
+  }
   // Handle device orientation toggles explicitly
   let recalcRaf = null
   const scheduleRecalc = () => {
+    if (!cylinderActivated) return
     if (recalcRaf !== null) return
     recalcRaf = requestAnimationFrame(() => {
       recalcRaf = null
@@ -470,6 +444,8 @@ export function initCylinder(root = document) {
   }
 
   // Highlight: enlarge ticks closest to viewport center (like scroll-list)
+  let lastTextHighlightIndex = -1
+  const lastTickHighlightIndexes = new WeakMap()
   const updateTickHighlight = () => {
     // Freeze highlighting when the menu is open to keep the current active item
     try {
@@ -498,21 +474,24 @@ export function initCylinder(root = document) {
             Math.round(rotationProgress * (textSpans.length - 1))
           )
         )
-        textSpans.forEach(
-          (s) => s && s.classList && s.classList.remove('is-active')
-        )
-        const active = textSpans[closestIdx]
-        if (active) {
-          active.classList.add('is-active')
-          // Remove dimming combos if present when active
-          active.classList.remove('is-o-15', 'is-o-20')
+        if (closestIdx !== lastTextHighlightIndex) {
+          lastTextHighlightIndex = closestIdx
+          textSpans.forEach(
+            (s) => s && s.classList && s.classList.remove('is-active')
+          )
+          const active = textSpans[closestIdx]
+          if (active) {
+            active.classList.add('is-active')
+            // Remove dimming combos if present when active
+            active.classList.remove('is-o-15', 'is-o-20')
+          }
+          // Re-apply dim class to non-active items
+          textSpans.forEach((s, idx) => {
+            if (!s || idx === closestIdx) return
+            s.classList.remove('is-active')
+            if (!s.classList.contains('is-o-20')) s.classList.add('is-o-20')
+          })
         }
-        // Re-apply dim class to non-active items
-        textSpans.forEach((s, idx) => {
-          if (!s || idx === closestIdx) return
-          s.classList.remove('is-active')
-          if (!s.classList.contains('is-o-20')) s.classList.add('is-o-20')
-        })
       }
     } catch (e) {
       // ignore
@@ -530,6 +509,17 @@ export function initCylinder(root = document) {
           Math.round(rotationProgress * (ticks.length - 1))
         )
       )
+      const previousHighlight = lastTickHighlightIndexes.get(indicator)
+      if (
+        previousHighlight?.index === closestIndex &&
+        previousHighlight?.firstTick === ticks[0]
+      ) {
+        return
+      }
+      lastTickHighlightIndexes.set(indicator, {
+        index: closestIndex,
+        firstTick: ticks[0],
+      })
       // Reset classes
       ticks.forEach((t) => {
         t.classList.remove('is-xxl', 'is-xl', 'is-l', 'is-m')
@@ -570,6 +560,43 @@ export function initCylinder(root = document) {
       updateTickHighlight()
     },
   })
+  let activationObserver = null
+  if (deferMobileActivation) {
+    highlightTrigger.disable(false)
+    const activateCylinder = () => {
+      if (cylinderActivated) return
+      cylinderActivated = true
+      if (activationObserver) {
+        activationObserver.disconnect()
+        activationObserver = null
+      }
+      trigger.enable(false, true)
+      highlightTrigger.enable(false, true)
+      scheduleRecalc()
+    }
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      const preloadDistance = Math.max(1, Math.round(getViewportHeight() * 2.5))
+      const observerRoot =
+        wrapper.closest('.page-wrap') ||
+        document.querySelector('.page-wrap') ||
+        null
+      activationObserver = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return
+          requestAnimationFrame(activateCylinder)
+        },
+        {
+          root: observerRoot,
+          rootMargin: `${preloadDistance}px 0px`,
+          threshold: 0,
+        }
+      )
+      activationObserver.observe(wrapper)
+    } else {
+      requestAnimationFrame(activateCylinder)
+    }
+  }
   // Also tick on every RAF to keep highlight smooth while pinned
   const tickerFn = () => updateTickHighlight()
   try {
@@ -633,6 +660,14 @@ export function initCylinder(root = document) {
   scheduleDelayedRecalc(1800)
 
   wrapper.__cylinderCleanup = () => {
+    try {
+      if (activationObserver) {
+        activationObserver.disconnect()
+        activationObserver = null
+      }
+    } catch (e) {
+      // ignore
+    }
     try {
       if (trigger && typeof trigger.kill === 'function') trigger.kill()
     } catch (e) {

@@ -23,7 +23,6 @@ import { initHeroBackgroundParallax } from './parallax.js'
 const SCROLL_RANGE_VH = 100
 const HERO_INTRO_SCALE_DURATION = 1.8
 const HERO_REVEAL_MASK_BG_FADE_DURATION = HERO_INTRO_SCALE_DURATION * 0.5
-const HERO_INTRO_SCALE_TARGET = 1.2
 export const HOME_AF_SEQUENCE_URL =
   'https://cominvi.netlify.app/cave-scene/cave-scene-full-sequence.af'
 export { HOME_HERO_MANIFEST_URL }
@@ -103,19 +102,6 @@ function cleanupHomeSequenceBindings({ destroyController = true } = {}) {
 function getBackgroundInner(scope = document) {
   const root = scope && scope.querySelector ? scope : document
   return root.querySelector('.hero-background .background-inner')
-}
-
-function resetHeroBackgroundScale(backgroundInner) {
-  if (!backgroundInner) return
-  try {
-    gsap.set(backgroundInner, {
-      scale: 1,
-      transformOrigin: '50% 50%',
-      overwrite: 'auto',
-    })
-  } catch (e) {
-    // ignore
-  }
 }
 
 function bindHomeSequenceRefreshRepaint(repaintFn) {
@@ -387,7 +373,6 @@ export function initLoader() {
     }
 
     const finishLoader = () => {
-      resetHeroBackgroundScale(backgroundInner)
       cleanupOutlineOverlay()
       try {
         loader.remove()
@@ -470,22 +455,17 @@ export function initLoader() {
       (!!supportsTouchCallout && !!isMacPlatform) ||
       (isMacPlatform && (isSafariUA || isSafariVendor))
 
-    const heroScaleTween = {
-      scale: HERO_INTRO_SCALE_TARGET,
-      transformOrigin: '50% 50%',
+    const heroIntroPlayback = {
       duration: HERO_INTRO_SCALE_DURATION,
       ease: loaderEase,
-      force3D: true,
-      overwrite: 'auto',
       onStart: () => {
         sequenceController.startIntroPlayback?.(HERO_INTRO_SCALE_DURATION)
       },
-      onUpdate: function onHeroScaleUpdate() {
+      onUpdate: function onHeroIntroUpdate() {
         if (!isSafariBrowser()) return
         sequenceController.setIntroProgress?.(this.progress())
       },
       onComplete: () => {
-        resetHeroBackgroundScale(backgroundInner)
         try {
           initHeroBackgroundParallax(document)
         } catch (e) {
@@ -502,7 +482,7 @@ export function initLoader() {
         })
       }, '>')
       tl.addLabel('heroIntro', '<')
-      tl.to(backgroundInner, heroScaleTween, '<')
+      tl.to({}, heroIntroPlayback, '<')
       tl.to(
         loader,
         { opacity: 0, duration: HERO_INTRO_SCALE_DURATION, ease: loaderEase },
@@ -634,7 +614,7 @@ export function initLoader() {
         })
       }, '<')
       tl.addLabel('heroIntro', '<')
-      tl.to(backgroundInner, heroScaleTween, '<')
+      tl.to({}, heroIntroPlayback, '<')
       tl.to(
         logoText,
         { opacity: 0, duration: HERO_INTRO_SCALE_DURATION, ease: loaderEase },

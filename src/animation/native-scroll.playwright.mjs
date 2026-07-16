@@ -15,6 +15,39 @@ async function useLocalApplicationSource(page) {
   )
 }
 
+async function trackWindowScrollListeners(page) {
+  await page.addInitScript(() => {
+    const activeScrollListeners = new Set()
+    const addEventListener = EventTarget.prototype.addEventListener
+    const removeEventListener = EventTarget.prototype.removeEventListener
+
+    EventTarget.prototype.addEventListener = function (
+      type,
+      listener,
+      options
+    ) {
+      if (this === window && type === 'scroll') {
+        activeScrollListeners.add(listener)
+      }
+      return addEventListener.call(this, type, listener, options)
+    }
+
+    EventTarget.prototype.removeEventListener = function (
+      type,
+      listener,
+      options
+    ) {
+      if (this === window && type === 'scroll') {
+        activeScrollListeners.delete(listener)
+      }
+      return removeEventListener.call(this, type, listener, options)
+    }
+
+    window.__getActiveWindowScrollListenerCount = () =>
+      activeScrollListeners.size
+  })
+}
+
 async function readScrollState(page) {
   await page.waitForFunction(() => window.__lenisWrapper !== undefined)
 
@@ -79,6 +112,7 @@ async function checkNativeScroll(browser, width) {
   })
 
   try {
+    await trackWindowScrollListeners(page)
     await useLocalApplicationSource(page)
     await page.goto(BASE_URL, { waitUntil: 'networkidle' })
     const state = await readScrollState(page)
@@ -98,6 +132,91 @@ async function checkNativeScroll(browser, width) {
     assert.ok(
       state.maxScroll > VIEWPORT_HEIGHT,
       'la page doit dépasser une hauteur de viewport'
+    )
+
+    const initialNavbarLeft = await page.evaluate(
+      () => getComputedStyle(document.querySelector('.navbar')).left
+    )
+    await page.evaluate(() => window.scrollTo(0, window.innerHeight * 2))
+    await page.waitForTimeout(700)
+    const nativeEffects = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      navbarLeft: getComputedStyle(document.querySelector('.navbar')).left,
+    }))
+
+    assert.ok(
+      nativeEffects.scrollY >= VIEWPORT_HEIGHT * 2,
+      'le scroll natif doit progresser'
+    )
+    assert.notEqual(
+      nativeEffects.navbarLeft,
+      initialNavbarLeft,
+      'la navbar doit recevoir un décalage après le scroll'
+    )
+
+    const initialNextTransform = await page.evaluate(
+      () =>
+        document.querySelector('.section_next .next-button-wrapper')?.style
+          .transform || ''
+    )
+    await page.evaluate(() => {
+      const section = document.querySelector('.section_next')
+      const sectionTop = section.getBoundingClientRect().top + window.scrollY
+      window.scrollTo(0, sectionTop + window.innerHeight / 2)
+    })
+    await page.waitForTimeout(100)
+    const nextTransform = await page.evaluate(
+      () =>
+        document.querySelector('.section_next .next-button-wrapper')?.style
+          .transform || ''
+    )
+    assert.notEqual(
+      nextTransform,
+      '',
+      'le bouton Next doit être repositionné après le scroll'
+    )
+    assert.notEqual(
+      nextTransform,
+      initialNextTransform,
+      'le bouton Next doit suivre le scroll natif'
+    )
+
+    const listenerCountBeforeNavigation = await page.evaluate(() =>
+      window.__getActiveWindowScrollListenerCount()
+    )
+    await page.evaluate(() =>
+      document.querySelector('.nav-inner a[href="about-us.html"]').click()
+    )
+    await page.waitForURL(/about-us\.html/)
+    await page.evaluate(() =>
+      document.querySelector('.navbar > a[href="index.html"]').click()
+    )
+    await page.waitForURL((url) => url.pathname === '/index.html')
+    await page.waitForFunction(() => window.__lenisWrapper === window)
+
+    const listenerCountAfterNavigation = await page.evaluate(() =>
+      window.__getActiveWindowScrollListenerCount()
+    )
+    assert.equal(
+      listenerCountAfterNavigation,
+      listenerCountBeforeNavigation,
+      'un cycle Barba ne doit pas doubler les mises à jour RAF de scroll'
+    )
+
+    await page.evaluate(() => window.scrollTo(0, window.innerHeight * 2))
+    await page.waitForTimeout(700)
+    const effectsAfterNavigation = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      navbarLeft: getComputedStyle(document.querySelector('.navbar')).left,
+    }))
+    assert.ok(
+      effectsAfterNavigation.scrollY >= VIEWPORT_HEIGHT * 2,
+      'le scroll natif doit rester actif après un cycle Barba'
+    )
+    assert.notEqual(
+      effectsAfterNavigation.navbarLeft,
+      initialNavbarLeft,
+      'la navbar doit rester synchronisée après un cycle Barba'
     )
 
     await page.evaluate(() => {

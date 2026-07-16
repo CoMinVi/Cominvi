@@ -27,6 +27,9 @@ const defaultLinkBaseMargins = [
 ]
 // Récupération de la position du scroll
 function getCurrentScrollPosition(contentEl) {
+  if (window.__lenisWrapper === window) {
+    return window.scrollY
+  }
   if (window.lenis && typeof window.lenis.scroll === 'number') {
     return window.lenis.scroll
   }
@@ -1327,18 +1330,21 @@ export function initializeNavbarScroll(root = document) {
   const wrapperElement = root.querySelector('.page-wrap')
   const contentElement = root.querySelector('.content-wrap')
   const navbarElement = root.querySelector('.navbar')
+  const scrollTarget = window.__lenisWrapper || wrapperElement
 
-  if (!wrapperElement || !navbarElement) {
+  if (!wrapperElement || !navbarElement || !scrollTarget) {
     return
   }
 
   // Cleanup previous listeners
   try {
-    if (wrapperElement.__navbarScrollListener) {
-      wrapperElement.removeEventListener(
+    const previousTarget = window.__navbarScrollTarget
+    if (previousTarget?.__navbarScrollListener) {
+      previousTarget.removeEventListener(
         'scroll',
-        wrapperElement.__navbarScrollListener
+        previousTarget.__navbarScrollListener
       )
+      previousTarget.__navbarScrollListener = null
     }
   } catch (err) {
     // ignore
@@ -1399,8 +1405,9 @@ export function initializeNavbarScroll(root = document) {
     window.lenis.on('scroll', window.lenis.__navbarScrollListener)
   } else {
     const onScroll = () => requestAnimationFrame(nativeHandle)
-    wrapperElement.__navbarScrollListener = onScroll
-    wrapperElement.addEventListener('scroll', onScroll)
+    window.__navbarScrollTarget = scrollTarget
+    scrollTarget.__navbarScrollListener = onScroll
+    scrollTarget.addEventListener('scroll', onScroll, { passive: true })
   }
 }
 
@@ -2016,17 +2023,26 @@ export function initializeThemeController() {
     },
     bindScroll: (root = document) => {
       const scroller =
-        root.querySelector && root.querySelector('.page-wrap')
-          ? root.querySelector('.page-wrap')
-          : window
+        window.__lenisWrapper ||
+        (root.querySelector && root.querySelector('.page-wrap')) ||
+        window
       const handler = () => requestAnimationFrame(onScrollThemeUpdate)
       try {
-        if (scroller.removeEventListener && scroller.__themeHandler) {
-          scroller.removeEventListener('scroll', scroller.__themeHandler)
+        const previousTarget = window.__themeScrollTarget
+        if (
+          previousTarget?.removeEventListener &&
+          previousTarget.__themeHandler
+        ) {
+          previousTarget.removeEventListener(
+            'scroll',
+            previousTarget.__themeHandler
+          )
+          previousTarget.__themeHandler = null
         }
       } catch (err) {
         // ignore
       }
+      window.__themeScrollTarget = scroller
       scroller.__themeHandler = handler
       if (scroller.addEventListener) {
         scroller.addEventListener('scroll', handler, { passive: true })

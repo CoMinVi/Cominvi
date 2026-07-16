@@ -713,6 +713,15 @@ export function destroyNextButtonSticky(root = document) {
     if (window.__nextButtonStickyLenisHandler && window.lenis?.off) {
       window.lenis.off('scroll', window.__nextButtonStickyLenisHandler)
     }
+    if (
+      window.__nextButtonStickyScrollTarget &&
+      window.__nextButtonStickyLenisHandler
+    ) {
+      window.__nextButtonStickyScrollTarget.removeEventListener(
+        'scroll',
+        window.__nextButtonStickyLenisHandler
+      )
+    }
     if (window.__nextButtonStickyOnTransition) {
       window.removeEventListener(
         'page:transition:after',
@@ -730,6 +739,7 @@ export function destroyNextButtonSticky(root = document) {
   }
 
   window.__nextButtonStickyLenisHandler = null
+  window.__nextButtonStickyScrollTarget = null
   window.__nextButtonStickyOnTransition = null
   window.__nextButtonStickyOnResize = null
   window.__nextButtonStickyRafId = null
@@ -765,17 +775,21 @@ export function initNextButtonSticky(root = document) {
 
   updateAll()
 
-  let scrollRafId = null
   const onScroll = () => {
-    if (scrollRafId != null) return
-    scrollRafId = requestAnimationFrame(() => {
-      scrollRafId = null
+    if (window.__nextButtonStickyRafId != null) return
+    window.__nextButtonStickyRafId = requestAnimationFrame(() => {
+      window.__nextButtonStickyRafId = null
       updateAll()
     })
   }
   window.__nextButtonStickyLenisHandler = onScroll
   if (window.lenis && typeof window.lenis.on === 'function') {
     window.lenis.on('scroll', onScroll)
+  } else {
+    window.__nextButtonStickyScrollTarget = window.__lenisWrapper || window
+    window.__nextButtonStickyScrollTarget.addEventListener('scroll', onScroll, {
+      passive: true,
+    })
   }
 
   window.__nextButtonStickyOnTransition = () => {

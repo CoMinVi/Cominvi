@@ -537,8 +537,11 @@ export function initCylinder(root = document) {
       updateTickHighlight()
     },
   })
-  // Also tick on every RAF to keep highlight smooth while pinned
-  const tickerFn = () => updateTickHighlight()
+  // Keep highlight smooth while Partners is visible without mutating it offscreen.
+  const tickerFn = () => {
+    if (!highlightTrigger || !highlightTrigger.isActive) return
+    updateTickHighlight()
+  }
   try {
     gsap.ticker.add(tickerFn)
   } catch (e) {

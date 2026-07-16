@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { chromium } from 'playwright'
+import { chromium, devices } from 'playwright'
 
 const BASE_URL =
   process.env.BASE_URL || 'https://cominvi-staging.webflow.io/'
@@ -25,7 +25,7 @@ async function serveLocalBuild(page) {
 }
 
 const browser = await chromium.launch()
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+const page = await browser.newPage({ ...devices['iPhone 13'] })
 
 try {
   await serveLocalBuild(page)
@@ -36,8 +36,15 @@ try {
     const section = document.querySelector('.section_next')
     const anchor = section.querySelector('[pt-next]')
     const container = document.querySelector('[data-barba="container"]')
+    const team = document.querySelector('.section_teams')
+    const initialDocumentTop =
+      section.getBoundingClientRect().top + window.lenis.scroll
+    window.lenis.scrollTo(Math.max(0, initialDocumentTop - 1200), {
+      immediate: true,
+    })
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 1000))
     const target =
-      window.lenis.scroll + section.getBoundingClientRect().top - 180
+      window.lenis.scroll + section.getBoundingClientRect().top - 200
     window.lenis.scrollTo(target, { immediate: true })
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 150))
 
@@ -48,6 +55,7 @@ try {
         time: performance.now() - start,
         sectionTop: section.getBoundingClientRect().top,
         containerPosition: getComputedStyle(container).position,
+        teamHeight: team.getBoundingClientRect().height,
       })
       if (performance.now() - start < 650) requestAnimationFrame(sample)
     }
@@ -65,11 +73,26 @@ try {
         (entry) => !firstAbsolute || entry.time < firstAbsolute.time
       )
       .map((entry) => Math.round(entry.sectionTop))
+    const jumpsBeforeAbsolute = positionsBeforeAbsolute
+      .slice(1)
+      .map((position, index) =>
+        Math.abs(position - positionsBeforeAbsolute[index])
+      )
 
     return {
       firstAbsolute,
       distinctScrollPositions: new Set(positionsBeforeAbsolute).size,
       initialTop: samples[0]?.sectionTop,
+      initialTeamHeight: samples[0]?.teamHeight,
+      maxTeamHeightDelta: Math.max(
+        0,
+        ...samples
+          .filter(
+            (entry) => !firstAbsolute || entry.time < firstAbsolute.time
+          )
+          .map((entry) => Math.abs(entry.teamHeight - samples[0].teamHeight))
+      ),
+      maxFrameJump: Math.max(0, ...jumpsBeforeAbsolute),
     }
   })
 
@@ -84,6 +107,18 @@ try {
   assert.ok(
     result.distinctScrollPositions >= 5,
     'La section doit progresser sur plusieurs frames avant le placement absolu'
+  )
+  assert.ok(
+    Math.abs(result.firstAbsolute.sectionTop) <= 1,
+    `Next doit être alignée au viewport avant le placement absolu (${result.firstAbsolute.sectionTop}px)`
+  )
+  assert.ok(
+    result.maxTeamHeightDelta <= 1,
+    `Our Team ne doit pas changer de hauteur pendant le scroll (${result.maxTeamHeightDelta}px)`
+  )
+  assert.ok(
+    result.maxFrameJump <= 50,
+    `Le scroll ne doit pas sauter entre deux frames (${result.maxFrameJump}px)`
   )
 } finally {
   await browser.close()

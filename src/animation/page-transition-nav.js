@@ -478,12 +478,6 @@ export function initializePageTransitionNav() {
           }
         },
         leave: (data) => {
-          try {
-            const current = data && data.current && data.current.container
-            destroyIcons(current || document)
-          } catch (e) {
-            /* ignore */
-          }
           // Ensure page-info/mask behavior mirrors inner on pt-next clicks
           performPreInnerUI()
           try {
@@ -500,7 +494,20 @@ export function initializePageTransitionNav() {
           } catch (e) {
             /* ignore */
           }
-          return nextLeave(data)
+          const leaveTimeline = nextLeave(data)
+          leaveTimeline.call(
+            () => {
+              try {
+                const current = data && data.current && data.current.container
+                destroyIcons(current || document)
+              } catch (e) {
+                /* ignore */
+              }
+            },
+            [],
+            'sync+=1.4'
+          )
+          return leaveTimeline
         },
         enter: (data) => {
           try {
@@ -806,10 +813,14 @@ export function initializePageTransitionNav() {
   })
 
   // Ensure icon teardown on every transition
-  barba.hooks.beforeLeave(({ current }) => {
+  barba.hooks.beforeLeave(({ current, trigger }) => {
     setTransitionBackground('var(--accent)', current && current.container)
     try {
-      destroyIcons(current && current.container)
+      const isNextTransition =
+        trigger?.closest && trigger.closest('[pt-next]') !== null
+      if (!isNextTransition) {
+        destroyIcons(current && current.container)
+      }
     } catch (e) {
       /* ignore */
     }

@@ -52,6 +52,7 @@ try {
 
     const initializedAtCards =
       cylinder.parentElement?.classList.contains('pin-spacer') || false
+    const preparedAtCards = Boolean(cylinder.__cylinderCleanup)
     const partnersTop =
       partners.getBoundingClientRect().top + window.lenis.scroll
 
@@ -84,6 +85,7 @@ try {
     return {
       offscreenMutations,
       initializedAtCards,
+      preparedAtCards,
       initializedNearPartners,
       firstState,
       secondState,
@@ -91,9 +93,14 @@ try {
   })
 
   assert.equal(
-    result.initializedAtCards,
+    result.preparedAtCards,
     true,
-    'Le pin Partners doit être préparé pendant le loader'
+    'Le cylindre Partners doit être préparé pendant le loader'
+  )
+  assert.equal(
+    result.initializedAtCards,
+    false,
+    'Le pin Partners doit rester désactivé au niveau des cards'
   )
   assert.ok(
     result.offscreenMutations < 50,

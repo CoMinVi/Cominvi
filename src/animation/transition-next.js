@@ -36,7 +36,7 @@ function scrollToSectionNext(root) {
       (container.querySelector && container.querySelector('.section_next')) ||
       document.querySelector('.section_next')
     const duration = 0.5
-    const easing = gsap.parseEase(`custom(${easeCurve})`)
+    const easing = gsap.parseEase('power1.inOut')
     if (!section) return gsap.to({}, { duration: 0 })
 
     const alignToViewportTop = () => {

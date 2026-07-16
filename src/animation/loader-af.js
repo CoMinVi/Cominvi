@@ -395,15 +395,25 @@ export function initLoader() {
       } catch (e) {
         // ignore
       }
-      try {
-        window.__loaderDone = true
-        document.dispatchEvent(new CustomEvent('loader:done'))
-      } catch (e) {
-        // ignore
-      }
-      deferAfterHeroCardsSettled(() => {
+
+      const notifyLoaderDoneAndStartScroll = () => {
+        try {
+          window.__loaderDone = true
+          document.dispatchEvent(new CustomEvent('loader:done'))
+        } catch (e) {
+          // ignore
+        }
         beginScrollDrivenSequence(sequenceController)
-      })
+      }
+
+      if (isTabletOrBelowViewport()) {
+        // loader:done déclenche ScrollTrigger.refresh (cards-reveal, etc.)
+        // — on le retarde après la fin des cartes hero pour éviter la saccade.
+        deferAfterHeroCardsSettled(notifyLoaderDoneAndStartScroll)
+        return
+      }
+
+      notifyLoaderDoneAndStartScroll()
     }
 
     const tl = gsap.timeline({ paused: true, defaults: { ease: loaderEase } })

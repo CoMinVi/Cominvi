@@ -17,6 +17,10 @@ let __svcMenuStateResetBound = false
 let __svcMenuTransitionActive = false
 let __svcMenuTransitionUnlockTimer = null
 let __svcPageRefreshBound = false
+let __svcViewportWidth = null
+
+const getViewportWidth = () =>
+  window.innerWidth || document.documentElement.clientWidth || 0
 
 const isTabletOrBelowNow = () => {
   try {
@@ -579,39 +583,44 @@ export function initServiceCards(root = document) {
     // Find the primary text element inside the bloc
     const textEl = bloc.querySelector('p, .body-s, .body-m, .body-l') || bloc
 
-    // Split text into visual lines (using SplitType) and prepare wrappers
-    try {
-      if (!textEl.__splitLines) {
-        const split = new SplitType(textEl, { types: 'lines', tagName: 'span' })
-        textEl.__splitLines = split
-        textEl.__lines = split.lines || []
-      }
-      const lines = textEl.__lines || []
-      const inners = []
-      lines.forEach((line) => {
-        // Ensure outer line wrapper constrains overflow
-        line.style.display = 'block'
-        line.style.overflow = 'hidden'
-        if (!line.__inner) {
-          const inner = document.createElement('span')
-          inner.className = 'line-inner'
-          inner.style.display = 'inline-block'
-          // Move existing children into inner once
-          while (line.firstChild) inner.appendChild(line.firstChild)
-          line.appendChild(inner)
-          line.__inner = inner
+    // Desktop-only hover content: avoid creating hidden line layers on touch devices.
+    if (!isTabletOrBelowNow()) {
+      try {
+        if (!textEl.__splitLines) {
+          const split = new SplitType(textEl, {
+            types: 'lines',
+            tagName: 'span',
+          })
+          textEl.__splitLines = split
+          textEl.__lines = split.lines || []
         }
-        inners.push(line.__inner)
-      })
-      // Initial state: lines hidden below
-      inners.forEach((el) => {
-        el.style.transform = 'translateY(100%)'
-        el.style.willChange = 'transform'
-        el.style.transition = 'transform 0.4s ease'
-      })
-      bloc.__lineInners = inners
-    } catch (err) {
-      // ignore
+        const lines = textEl.__lines || []
+        const inners = []
+        lines.forEach((line) => {
+          // Ensure outer line wrapper constrains overflow
+          line.style.display = 'block'
+          line.style.overflow = 'hidden'
+          if (!line.__inner) {
+            const inner = document.createElement('span')
+            inner.className = 'line-inner'
+            inner.style.display = 'inline-block'
+            // Move existing children into inner once
+            while (line.firstChild) inner.appendChild(line.firstChild)
+            line.appendChild(inner)
+            line.__inner = inner
+          }
+          inners.push(line.__inner)
+        })
+        // Initial state: lines hidden below
+        inners.forEach((el) => {
+          el.style.transform = 'translateY(100%)'
+          el.style.willChange = 'transform'
+          el.style.transition = 'transform 0.4s ease'
+        })
+        bloc.__lineInners = inners
+      } catch (err) {
+        // ignore
+      }
     }
 
     const STAGGER_S = 0.03
@@ -712,6 +721,26 @@ export function initServiceCards(root = document) {
         const textEl =
           bloc.querySelector('p, .body-s, .body-m, .body-l') || bloc
 
+        if (isTabletOrBelowNow()) {
+          try {
+            if (
+              textEl.__splitLines &&
+              typeof textEl.__splitLines.revert === 'function'
+            ) {
+              textEl.__splitLines.revert()
+            }
+          } catch (e) {
+            // ignore
+          }
+          textEl.__splitLines = null
+          textEl.__lines = null
+          bloc.__lineInners = null
+          if (typeof card.__ensureMachineMobileState === 'function') {
+            card.__ensureMachineMobileState()
+          }
+          return
+        }
+
         try {
           if (
             textEl.__splitLines &&
@@ -750,6 +779,9 @@ export function initServiceCards(root = document) {
         } catch (e) {
           // ignore
         }
+        if (typeof card.__ensureMachineMobileState === 'function') {
+          card.__ensureMachineMobileState()
+        }
       })
 
       // Refresh viewer bindings/state according to viewport
@@ -760,7 +792,13 @@ export function initServiceCards(root = document) {
   }
 
   if (!__svcResizeBound) {
-    __svcResizeHandler = debounce(recalcOnResize, 150)
+    __svcViewportWidth = getViewportWidth()
+    __svcResizeHandler = debounce(() => {
+      const nextWidth = getViewportWidth()
+      if (nextWidth === __svcViewportWidth) return
+      __svcViewportWidth = nextWidth
+      recalcOnResize()
+    }, 150)
     window.addEventListener('resize', __svcResizeHandler)
     __svcResizeBound = true
   }
@@ -961,12 +999,7 @@ export function initServiceCards(root = document) {
       card.__machineMobileClickBound = true
     }
 
-    const onResize = () => ensureMobileState()
-    if (!card.__machineMobileResizeBound) {
-      window.addEventListener('resize', onResize)
-      card.__machineMobileResizeBound = true
-    }
-
+    card.__ensureMachineMobileState = ensureMobileState
     ensureMobileState()
     card.__machineMobileBound = true
   })

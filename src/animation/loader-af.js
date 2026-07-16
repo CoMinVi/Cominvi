@@ -223,6 +223,18 @@ function initScrollDrivenSequence(sequenceController) {
   }
 }
 
+function isTabletOrBelowViewport() {
+  try {
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 991px)').matches
+    )
+  } catch (e) {
+    return false
+  }
+}
+
 function startHeroAfterLogo(loaderEase, sequenceController, opts = {}) {
   const scope = opts.scope || document
 
@@ -246,10 +258,14 @@ function startHeroAfterLogo(loaderEase, sequenceController, opts = {}) {
     }
   }
 
-  try {
-    initHeroBackgroundParallax(scope)
-  } catch (e) {
-    // ignore
+  // Mobile/tablette: le parallax est initialisé après la fin des cartes hero
+  // pour éviter un ScrollTrigger.refresh pendant l'anim de reveal.
+  if (!isTabletOrBelowViewport()) {
+    try {
+      initHeroBackgroundParallax(scope)
+    } catch (e) {
+      // ignore
+    }
   }
 
   if (opts.deferScrollSequence) return
@@ -468,6 +484,16 @@ export function initLoader() {
         sequenceController.setIntroProgress?.(this.progress())
       },
       onComplete: () => {
+        if (isTabletOrBelowViewport()) {
+          deferAfterHeroCardsSettled(() => {
+            try {
+              initHeroBackgroundParallax(document)
+            } catch (e) {
+              // ignore
+            }
+          })
+          return
+        }
         try {
           initHeroBackgroundParallax(document)
         } catch (e) {

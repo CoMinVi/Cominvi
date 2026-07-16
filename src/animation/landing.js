@@ -34,7 +34,7 @@ const easeCurve = 'M0,0 C0.6,0 0,1 1,1 '
 
 export const HERO_CARDS_REVEAL_DELAY = 0.5
 export const HERO_CARDS_REVEAL_DURATION = 1.2
-export const HERO_CARDS_MOBILE_SETTLE_MS = 200
+export const HERO_CARDS_MOBILE_SETTLE_MS = 320
 
 export function getHeroCardsRevealEndTime(opts = {}) {
   const duration =
@@ -55,7 +55,14 @@ export function deferAfterHeroCardsSettled(callback) {
   const runAfterSettle = () => {
     window.setTimeout(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(callback)
+        requestAnimationFrame(() => {
+          try {
+            document.dispatchEvent(new CustomEvent('hero:cards-settled'))
+          } catch (e) {
+            // ignore
+          }
+          callback()
+        })
       })
     }, HERO_CARDS_MOBILE_SETTLE_MS)
   }
@@ -77,50 +84,10 @@ export function deferAfterHeroCardsSettled(callback) {
   runAfterSettle()
 }
 
-function prepareHeroCardWrappers(scope) {
-  if (!isTabletOrBelowViewport()) return
-
-  scope.querySelectorAll('.hero-bottom_cards-wrapper').forEach((wrapper) => {
-    wrapper.style.overflow = 'hidden'
-  })
-}
-
-function ensureCardRevealInner(card) {
-  if (!card) return null
-
-  const existing = card.querySelector(':scope > .card-reveal-inner')
-  if (existing) return existing
-
-  const inner = document.createElement('div')
-  inner.className = 'card-reveal-inner'
-  const children = Array.from(card.childNodes)
-  children.forEach((node) => {
-    inner.appendChild(node)
-  })
-  card.appendChild(inner)
-  return inner
-}
-
-function getCardRevealTarget(card) {
-  if (!card) return null
-  if (isTabletOrBelowViewport()) {
-    return ensureCardRevealInner(card)
-  }
-  return card
-}
-
-function finalizeHeroCardRevealTarget(target) {
-  if (!target) return
-
-  try {
-    gsap.set(target, {
-      yPercent: 0,
-      force3D: false,
-      clearProps: 'willChange',
-    })
-  } catch (e) {
-    // ignore
-  }
+function getHeroCardRevealDistance(card, startPercent) {
+  if (!card) return 0
+  const height = card.offsetHeight || card.getBoundingClientRect().height || 0
+  return height * (startPercent / 100)
 }
 
 // Fait slider les .is-h1-span de y:110% à y:0 avec la même durée/ease que le dé-scale
@@ -157,10 +124,9 @@ export function heroAnimation(root = document, opts = {}) {
       ? opts.duration
       : HERO_CARDS_REVEAL_DURATION
   const ease = opts.ease || gsap.parseEase(`custom(${easeCurve})`)
+  const useMobileCardReveal = isTabletOrBelowViewport()
 
   if (!elements.length && !cards.length) return null
-
-  prepareHeroCardWrappers(scope)
 
   // Timeline par élément pour remonter l'opacité à 1 juste au démarrage, puis slider
   const tl = gsap.timeline()
@@ -202,36 +168,30 @@ export function heroAnimation(root = document, opts = {}) {
   if (cards.length) {
     const starts = [110, 120]
     const base = HERO_CARDS_REVEAL_DELAY
-    const useInnerReveal = isTabletOrBelowViewport()
 
     cards.forEach((card, i) => {
       const startPercent = starts[i] != null ? starts[i] : 100
       const pos = base
-      const revealTarget = getCardRevealTarget(card)
-      if (!revealTarget) return
-
-      if (useInnerReveal) {
-        revealTarget.style.willChange = 'transform'
-      }
+      const startY = getHeroCardRevealDistance(card, startPercent)
 
       tl.set(card, { autoAlpha: 1 }, pos)
-      tl.fromTo(
-        revealTarget,
-        { yPercent: startPercent },
-        {
-          yPercent: 0,
-          duration,
-          ease,
-          overwrite: 'auto',
-          force3D: useInnerReveal,
-          onComplete: () => {
-            if (!useInnerReveal) {
-              finalizeHeroCardRevealTarget(revealTarget)
-            }
-          },
-        },
-        pos
-      )
+
+      if (useMobileCardReveal) {
+        // y en pixels: évite les arrondis yPercent + ne touche pas au DOM/layout
+        tl.fromTo(
+          card,
+          { y: startY },
+          { y: 0, duration, ease, overwrite: 'auto' },
+          pos
+        )
+      } else {
+        tl.fromTo(
+          card,
+          { yPercent: startPercent },
+          { yPercent: 0, duration, ease, overwrite: 'auto' },
+          pos
+        )
+      }
     })
   }
 

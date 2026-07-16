@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const runNonCriticalInitializers = () => {
     initContainerModules(document, {
-      includeScrollRefresh: true,
+      includeScrollRefresh: !isHomeNamespace(document),
       includeParallax: true,
       includeButtonHover: true,
     })

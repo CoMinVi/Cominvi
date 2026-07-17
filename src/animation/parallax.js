@@ -85,15 +85,22 @@ export function initParallax(root = document) {
     }
   }
 
-  const isBigSafetyParallaxImage = (img) => {
+  const isImprovementHorizontalParallaxImage = (img) => {
     try {
-      return !!(img && img.closest && img.closest('.section_img.is-big-safety'))
+      return !!(
+        img &&
+        img.classList &&
+        img.classList.contains('image-h-p') &&
+        img.closest &&
+        img.closest('.section_improvement')
+      )
     } catch (e) {
       return false
     }
   }
 
-  const getParallaxAmplitude = (img) => (isBigSafetyParallaxImage(img) ? 5 : 10)
+  const getParallaxAmplitude = (img) =>
+    isImprovementHorizontalParallaxImage(img) ? 5 : 10
 
   const resetMachineCardImageLayout = (img) => {
     try {
@@ -236,7 +243,7 @@ export function initParallax(root = document) {
       const amplitude = getParallaxAmplitude(img) // percent used in tween below
       const isHorizontal = isHorizontalParallaxImage(img)
       const overscanFactor = 1 + (2 * amplitude) / 100 // 1.2 when A=10
-      const horizontalOverscanFactor = 1.25
+      const horizontalOverscanFactor = 1 + (2 * amplitude) / 100
       const topCompPercent = -((amplitude / 100) * overscanFactor * 100) // -12 when A=10
       const leftCompPercent = -(((horizontalOverscanFactor - 1) / 2) * 100)
 

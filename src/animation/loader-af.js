@@ -17,6 +17,7 @@ import {
   createHeroSequenceController,
   bindHeroBackgroundOverlayGuard,
 } from './hero-sequence-controller.js'
+import { getHomeScrollProgress } from './home-sequence-progress.js'
 import { deferAfterHeroCardsSettled, heroAnimation } from './landing.js'
 import { initHeroBackgroundParallax } from './parallax.js'
 
@@ -762,6 +763,49 @@ export function prefetchHomeSequenceBinary() {
   }
 }
 
+function killHeroBackgroundParallax() {
+  try {
+    if (window.__heroBgParallax?.scrollTrigger) {
+      window.__heroBgParallax.scrollTrigger.kill()
+    }
+  } catch (e) {
+    // ignore
+  }
+  try {
+    window.__heroBgParallax?.kill?.()
+  } catch (e) {
+    // ignore
+  }
+  window.__heroBgParallax = null
+}
+
+function captureHomeScrollProgress() {
+  try {
+    return getHomeScrollProgress({
+      lenisScroll: window.lenis?.scroll,
+      scrollTriggerProgress: window.__homeSequenceScrollTrigger?.progress,
+      viewportHeight: window.innerHeight,
+      rangeVh: SCROLL_RANGE_VH,
+    })
+  } catch (e) {
+    return null
+  }
+}
+
+function detachHomeSequenceRefreshRepaint() {
+  if (
+    window.__homeSequenceRefreshRepaintCleanup &&
+    typeof window.__homeSequenceRefreshRepaintCleanup === 'function'
+  ) {
+    try {
+      window.__homeSequenceRefreshRepaintCleanup()
+    } catch (e) {
+      // ignore
+    }
+    window.__homeSequenceRefreshRepaintCleanup = null
+  }
+}
+
 export function suspendHomeSequenceForLeave() {
   if (
     window.__homeSequenceTransitionTimeline &&
@@ -777,6 +821,24 @@ export function suspendHomeSequenceForLeave() {
   window.__homeSequenceTransitionStarted = false
 
   const controller = window.__homeSequenceController
+  const progress = captureHomeScrollProgress()
+  window.__homeHeroTransitionLeave = true
+
+  // Freeze the rendered surface before the page-wrap starts scaling.
+  // Do not reset its current parallax transform.
+  killHeroBackgroundParallax()
+  detachHomeSequenceRefreshRepaint()
+
+  if (
+    progress !== null &&
+    typeof controller?.setScrollProgress === 'function'
+  ) {
+    try {
+      controller.setScrollProgress(progress)
+    } catch (e) {
+      // ignore
+    }
+  }
   if (typeof controller?.freezeForTransitionLeave === 'function') {
     try {
       controller.freezeForTransitionLeave()
@@ -786,10 +848,11 @@ export function suspendHomeSequenceForLeave() {
   }
 
   cleanupHomeSequenceBindings({ destroyController: false })
-  afResizeLog('suspendHomeSequenceForLeave')
+  afResizeLog('suspendHomeSequenceForLeave', { progress })
 }
 
 export function destroyHomeSequenceForTransition() {
+  window.__homeHeroTransitionLeave = false
   if (
     window.__homeSequenceTransitionTimeline &&
     typeof window.__homeSequenceTransitionTimeline.kill === 'function'

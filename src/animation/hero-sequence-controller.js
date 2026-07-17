@@ -177,7 +177,11 @@ export function createHeroSequenceController(backgroundInner) {
 
       try {
         resizeObserver = new ResizeObserver(() => {
-          if (mode === 'scroll' && scroll) {
+          if (
+            mode === 'scroll' &&
+            scroll &&
+            !window.__homeHeroTransitionLeave
+          ) {
             scroll.repaint('resize-observer')
           }
         })
@@ -308,11 +312,14 @@ export function createHeroSequenceController(backgroundInner) {
       })
     },
     freezeForTransitionLeave() {
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+        resizeObserver = null
+      }
       intro?.stopPlayback?.()
       intro?.hide()
       hidePosterOnce()
       scroll?.show()
-      scroll?.repaint?.('transition-leave-freeze')
       afResizeLog('hero-sequence:freeze-leave')
     },
     setScrollProgress(progress) {

@@ -8,15 +8,19 @@
   overflow: hidden;
 }
 
-.navbar {
-  mix-blend-mode: difference;
-}
-
 /* Allow article pages to extend beyond 100vh and be scrollable */
 [data-barba-namespace='article'] .page-wrap {
   height: auto;
   min-height: 100vh;
   overflow: visible;
+}
+
+.menu-icon {
+  background-color: var(--white);
+}
+
+.menu-icon_bar {
+  background-color: #020202;
 }
 
 .service-icon,

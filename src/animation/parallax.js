@@ -749,6 +749,9 @@ export function destroyNextButtonSticky(root = document) {
     if (window.__nextButtonStickyLenisHandler && window.lenis?.off) {
       window.lenis.off('scroll', window.__nextButtonStickyLenisHandler)
     }
+    if (window.__nextButtonStickyTicker) {
+      gsap.ticker.remove(window.__nextButtonStickyTicker)
+    }
     if (window.__nextButtonStickyOnTransition) {
       window.removeEventListener(
         'page:transition:after',
@@ -766,9 +769,11 @@ export function destroyNextButtonSticky(root = document) {
   }
 
   window.__nextButtonStickyLenisHandler = null
+  window.__nextButtonStickyTicker = null
   window.__nextButtonStickyOnTransition = null
   window.__nextButtonStickyOnResize = null
   window.__nextButtonStickyRafId = null
+  window.__nextButtonStickyState = null
 
   const scope = root && root.querySelector ? root : document
   scope
@@ -788,31 +793,41 @@ export function initNextButtonSticky(root = document) {
   destroyNextButtonSticky(scope)
   if (!wrappers.length) return
 
+  const state = new WeakMap()
+  window.__nextButtonStickyState = state
+
+  const updateWrapper = (wrapper) => {
+    const section = wrapper.closest('.section_next')
+    if (!section) return
+
+    const sectionTop = section.getBoundingClientRect().top
+    // Sticky CSS already centers the button while the section enters the viewport.
+    // Only compensate once the section top crosses above the viewport (negative top).
+    const extraY = sectionTop < 0 ? sectionTop : 0
+    const prev = state.get(wrapper)
+    if (prev !== undefined && Math.abs(prev - extraY) < 0.05) return
+    state.set(wrapper, extraY)
+
+    if (extraY < -0.05) {
+      wrapper.style.transform = `translate3d(0, calc(-50% + ${extraY}px), 0)`
+      return
+    }
+
+    wrapper.style.removeProperty('transform')
+  }
+
   const updateAll = () => {
-    const nodes = scope.querySelectorAll('.section_next .next-button-wrapper')
-    nodes.forEach((wrapper) => {
-      const section = wrapper.closest('.section_next')
-      if (!section) return
-      const sectionTop = section.getBoundingClientRect().top
-      const extraY = Math.min(0, Math.round(sectionTop))
-      wrapper.style.transform = `translate(0, calc(-50% + ${extraY}px))`
-    })
+    scope
+      .querySelectorAll('.section_next .next-button-wrapper')
+      .forEach(updateWrapper)
   }
 
   updateAll()
 
-  let scrollRafId = null
-  const onScroll = () => {
-    if (scrollRafId != null) return
-    scrollRafId = requestAnimationFrame(() => {
-      scrollRafId = null
-      updateAll()
-    })
-  }
-  window.__nextButtonStickyLenisHandler = onScroll
-  if (window.lenis && typeof window.lenis.on === 'function') {
-    window.lenis.on('scroll', onScroll)
-  }
+  // Keep updates on the same frame as Lenis (gsap.ticker) to avoid 1-frame lag jitter.
+  const onTicker = () => updateAll()
+  window.__nextButtonStickyTicker = onTicker
+  gsap.ticker.add(onTicker)
 
   window.__nextButtonStickyOnTransition = () => {
     requestAnimationFrame(() => {

@@ -763,10 +763,46 @@ export function prefetchHomeSequenceBinary() {
   }
 }
 
+export function captureHomeHeroLeaveTransform(scope = document) {
+  const backgroundInner = getBackgroundInner(scope)
+  if (!backgroundInner) return ''
+  try {
+    const transform = window.getComputedStyle(backgroundInner).transform
+    if (transform && transform !== 'none') {
+      backgroundInner.__cominviLeaveTransform = transform
+      return transform
+    }
+  } catch (e) {
+    // ignore
+  }
+  return ''
+}
+
 function killHeroBackgroundParallax() {
+  const backgroundInner = getBackgroundInner(document)
+  let currentY = null
+  let currentTransform = backgroundInner?.__cominviLeaveTransform || ''
+  try {
+    if (!currentTransform) {
+      currentTransform = window.getComputedStyle(backgroundInner).transform
+    }
+    const match = currentTransform?.match(/^matrix(3d)?\(([^)]+)\)$/)
+    if (match) {
+      const values = match[2].split(',').map((value) => Number(value.trim()))
+      const value = match[1] ? values[13] : values[5]
+      if (Number.isFinite(value)) currentY = value
+    }
+  } catch (e) {
+    // ignore
+  }
+  if (backgroundInner && currentTransform && currentTransform !== 'none') {
+    backgroundInner.__cominviLeaveTransform = currentTransform
+  }
   try {
     if (window.__heroBgParallax?.scrollTrigger) {
-      window.__heroBgParallax.scrollTrigger.kill()
+      // `kill()` reverts by default and restores the tween start value (y: 0),
+      // which makes the hero jump whenever the page has already been scrolled.
+      window.__heroBgParallax.scrollTrigger.kill(false)
     }
   } catch (e) {
     // ignore
@@ -777,6 +813,13 @@ function killHeroBackgroundParallax() {
     // ignore
   }
   window.__heroBgParallax = null
+  if (backgroundInner && currentY !== null) {
+    try {
+      gsap.set(backgroundInner, { y: currentY })
+    } catch (e) {
+      // ignore
+    }
+  }
 }
 
 function captureHomeScrollProgress() {

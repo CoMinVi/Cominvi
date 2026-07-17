@@ -12,6 +12,7 @@ import {
 } from '../app/page-registry.js'
 import { reinitializeWebflowAnimations } from '../utils/base.js'
 import {
+  captureHomeHeroLeaveTransform,
   destroyHomeSequenceForTransition,
   suspendHomeSequenceForLeave,
   prefetchHomeSequenceBinary,
@@ -213,6 +214,22 @@ export function initializePageTransitionNav() {
       return ''
     }
   }
+  document.addEventListener(
+    'click',
+    (event) => {
+      try {
+        const anchor = event.target?.closest?.('a[href]')
+        const current = document.querySelector(
+          '[data-barba="container"][data-barba-namespace="home"]'
+        )
+        if (!anchor || !current || isLocaleSwitcherLink(anchor)) return
+        captureHomeHeroLeaveTransform(current)
+      } catch (e) {
+        // ignore
+      }
+    },
+    true
+  )
   const performPreInnerUI = () => {
     try {
       setTransitionBackground('var(--accent)')

@@ -33,12 +33,10 @@ async function testHeroLeave(browser, name, contextOptions) {
   })
   await page.waitForTimeout(1500)
 
-  if (name === 'mobile') {
-    await page.evaluate(() => {
-      window.lenis?.scrollTo?.(350, { immediate: true, force: true })
-    })
-    await page.waitForTimeout(500)
-  }
+  await page.evaluate(() => {
+    window.lenis?.scrollTo?.(150, { immediate: true, force: true })
+  })
+  await page.waitForTimeout(500)
 
   await page.evaluate(() => {
     const visibleMenuButton = [...document.querySelectorAll('.is-menu')].find(
@@ -62,9 +60,6 @@ async function testHeroLeave(browser, name, contextOptions) {
     const canvas = document.querySelector(
       '.hero-background [data-loader-sequence-canvas="true"]'
     )
-    const beforeTop = pageWrap.getBoundingClientRect().top
-    const beforeCanvasRect = canvas?.getBoundingClientRect()
-
     const samples = []
     const start = performance.now()
     const sample = () => {
@@ -74,7 +69,7 @@ async function testHeroLeave(browser, name, contextOptions) {
       samples.push({
         pageTop: pageRect.top,
         position: getComputedStyle(pageWrap).position,
-        canvasTop: canvasRect?.top,
+        canvasOffset: canvasRect?.top - pageRect.top,
         canvasVisible:
           !!canvas &&
           canvasStyle.display !== 'none' &&
@@ -109,14 +104,22 @@ async function testHeroLeave(browser, name, contextOptions) {
           })
       ),
       canvasVisible: samples.every((sampleEntry) => sampleEntry.canvasVisible),
-      canvasTopJump: beforeCanvasRect
-        ? Math.max(
-            0,
-            ...samples.map((sampleEntry) =>
-              Math.abs(sampleEntry.canvasTop - beforeCanvasRect.top)
-            )
+      canvasJump: Math.max(
+        0,
+        ...samples
+          .slice(1)
+          .filter(
+            (sampleEntry, index) =>
+              sampleEntry.position !== samples[index].position
           )
-        : null,
+          .map((sampleEntry) => {
+            const sampleIndex = samples.indexOf(sampleEntry)
+            return Math.abs(
+              sampleEntry.canvasOffset -
+                samples[sampleIndex - 1].canvasOffset
+            )
+          })
+      ),
     }
   })
 
@@ -125,6 +128,10 @@ async function testHeroLeave(browser, name, contextOptions) {
   assert.ok(
     result.pageJump <= 2,
     `${name}: le hero saute de ${result.pageJump.toFixed(1)}px au leave`
+  )
+  assert.ok(
+    result.canvasJump <= 2,
+    `${name}: le canvas saute de ${result.canvasJump.toFixed(1)}px au leave`
   )
   assert.equal(
     result.canvasVisible,

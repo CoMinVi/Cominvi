@@ -62,6 +62,15 @@ export function slideScaleLeave({ current }) {
     current.container.querySelector('.page-wrap') || current.container
   const rect = currentPage.getBoundingClientRect()
   lastTopOffsetPx = Math.max(0, rect.top)
+  const currentHeroBackground = currentPage.querySelector(
+    '.hero-background .background-inner'
+  )
+  const currentHeroTransform =
+    currentHeroBackground?.__cominviLeaveTransform ||
+    currentHeroBackground?.style?.transform ||
+    (currentHeroBackground &&
+      window.getComputedStyle(currentHeroBackground).transform) ||
+    ''
 
   // The menu opening timeline animates this same page-wrap (top + scale).
   // Stop it before switching to absolute positioning, otherwise its remaining
@@ -85,11 +94,29 @@ export function slideScaleLeave({ current }) {
     y: lastTopOffsetPx,
     overwrite: true,
   })
+  if (
+    currentHeroBackground?.style &&
+    currentHeroTransform &&
+    currentHeroTransform !== 'none'
+  ) {
+    // ScrollTrigger reverts transforms while the scroller changes geometry.
+    // Restore the exact outgoing parallax offset after that takeover.
+    currentHeroBackground.style.transform = currentHeroTransform
+  }
 
   return gsap.to(currentPage, {
     xPercent: -100,
     duration: 1.2,
     ease: gsap.parseEase(`custom(${easeCurve})`),
+    onStart: () => {
+      if (
+        currentHeroBackground?.style &&
+        currentHeroTransform &&
+        currentHeroTransform !== 'none'
+      ) {
+        currentHeroBackground.style.transform = currentHeroTransform
+      }
+    },
   })
 }
 
@@ -177,9 +204,10 @@ export function slideScaleEnter({ next }) {
   )
   // Scale background-inner during descale (lift)
   try {
-    const bgInner =
-      nextPage.querySelector('.background-inner') ||
-      document.querySelector('.background-inner')
+    // Scope strictly to the destination. Falling back to `document` selects
+    // the outgoing Home hero when the destination has no background-inner,
+    // and GSAP then rewrites its transform with y: 0.
+    const bgInner = nextPage.querySelector('.background-inner')
     if (bgInner) {
       gsap.set(bgInner, { transformOrigin: '50% 50%', scale: 1 })
       tl.to(

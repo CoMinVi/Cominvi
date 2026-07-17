@@ -440,11 +440,11 @@ function initEquitySlider(section) {
     }
 
     // Phase 1: grow orange arc from 0% to 35% while scrolling through the sticky stage.
-    // Use the tall stage wrapper (not the SVG) so progress advances while the circle stays pinned.
+    // Start when the stage enters the viewport; end at the phase-2 handoff.
     entryST = ScrollTrigger.create({
       trigger: equityStage,
       scroller,
-      start: 'top top',
+      start: 'top bottom',
       end: 'center 50%',
       scrub: 0.45,
       invalidateOnRefresh: true,

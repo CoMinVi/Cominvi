@@ -62,43 +62,22 @@ async function readTechnologyAnimationState(browser, width) {
 const browser = await chromium.launch()
 
 try {
-  for (const [width, expectedGradientWidth] of [
-    [390, '130%'],
-    [768, '100%'],
-    [991, '100%'],
-  ]) {
+  for (const width of [390, 768, 991, 992]) {
     const state = await readTechnologyAnimationState(browser, width)
-    assert.equal(
-      state.characterCount,
-      0,
-      `Technology ne doit pas créer de calques par caractère à ${width}px`
+    assert.ok(
+      state.characterCount > 0,
+      `Le reveal par caractère doit être actif à ${width}px`
     )
-    assert.equal(
-      state.triggerCount,
-      0,
-      `Technology ne doit pas créer de ScrollTrigger de texte à ${width}px`
+    assert.ok(
+      state.triggerCount > 0,
+      `Les ScrollTrigger de texte doivent être actifs à ${width}px`
     )
     assert.deepEqual(
       state.gradientWidths,
-      [expectedGradientWidth, expectedGradientWidth],
-      `Le grand titre Technology doit être visible sans animation à ${width}px`
+      ['0%', '0%'],
+      `Le reveal SVG Technology doit démarrer replié à ${width}px`
     )
   }
-
-  const desktopState = await readTechnologyAnimationState(browser, 992)
-  assert.ok(
-    desktopState.characterCount > 0,
-    'Le reveal par caractère doit rester actif sur desktop'
-  )
-  assert.ok(
-    desktopState.triggerCount > 0,
-    'Les ScrollTrigger de texte doivent rester actifs sur desktop'
-  )
-  assert.deepEqual(
-    desktopState.gradientWidths,
-    ['0%', '0%'],
-    'Le reveal du grand titre doit rester actif sur desktop'
-  )
 } finally {
   await browser.close()
 }

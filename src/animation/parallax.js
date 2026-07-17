@@ -85,6 +85,16 @@ export function initParallax(root = document) {
     }
   }
 
+  const isBigSafetyParallaxImage = (img) => {
+    try {
+      return !!(img && img.closest && img.closest('.section_img.is-big-safety'))
+    } catch (e) {
+      return false
+    }
+  }
+
+  const getParallaxAmplitude = (img) => (isBigSafetyParallaxImage(img) ? 5 : 10)
+
   const resetMachineCardImageLayout = (img) => {
     try {
       img.style.position = ''
@@ -223,7 +233,7 @@ export function initParallax(root = document) {
       }
 
       // Image should be larger than container to avoid gaps during travel.
-      const amplitude = 10 // percent used in tween below
+      const amplitude = getParallaxAmplitude(img) // percent used in tween below
       const isHorizontal = isHorizontalParallaxImage(img)
       const overscanFactor = 1 + (2 * amplitude) / 100 // 1.2 when A=10
       const horizontalOverscanFactor = 1.25
@@ -322,11 +332,12 @@ export function initParallax(root = document) {
 
       const laidOut = ensureLaidOut(img) || null
       const isHorizontal = isHorizontalParallaxImage(img)
+      const amplitude = getParallaxAmplitude(img)
       const tween = gsap.fromTo(
         img,
-        isHorizontal ? { xPercent: -10 } : { yPercent: -10 },
+        isHorizontal ? { xPercent: -amplitude } : { yPercent: -amplitude },
         {
-          ...(isHorizontal ? { xPercent: 10 } : { yPercent: 10 }),
+          ...(isHorizontal ? { xPercent: amplitude } : { yPercent: amplitude }),
           ease: 'none',
           immediateRender: false,
           scrollTrigger: getAboutParallaxScrollTrigger(img, laidOut),

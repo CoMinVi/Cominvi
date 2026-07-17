@@ -986,7 +986,6 @@ export function initServiceCards(root = document) {
     // No CSS transitionend handler needed when animating via GSAP
 
     const openCard = () => {
-      focusMachineCardBg(card)
       const collapsed = getCollapsedHeightPx()
       const target = bottomWrap.scrollHeight
       if (bottomWrap.style.height === 'auto') {

@@ -9,6 +9,11 @@ test('applique le thème orange de l’icône seulement après l’ouverture du 
   const nav = await readFile(navPath, 'utf8')
 
   assert.doesNotMatch(nav, /applyMenuThemeToIconInline\(false\)/)
+  const pointerDownHandler = nav.match(
+    /const onMenuIconPointerDown = \(e\) => \{([\s\S]*?)\n  \}\n  const onMenuIconLeave/
+  )
+  assert.ok(pointerDownHandler, 'le gestionnaire pointerdown est défini')
+  assert.doesNotMatch(pointerDownHandler[1], /applyMenuThemeToIconInline\(\)/)
   assert.doesNotMatch(
     nav,
     /menuOpen:\s*\(\)\s*=>\s*\{[\s\S]*?applyMenuIconTheme\('menu', true\)/

@@ -303,7 +303,6 @@ export function initializeMenuClick(options = {}, root = document) {
         }
       }
       menuIconElement.dataset.bgLocked = 'open'
-      applyMenuThemeToIconInline()
     } catch (e) {
       // ignore
     }

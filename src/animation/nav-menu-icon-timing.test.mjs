@@ -23,12 +23,3 @@ test('applique le thème orange de l’icône seulement après l’ouverture du 
     /if \(isOpen\) \{\s*applyMenuThemeToIconInline\(\)[\s\S]*?lockPageWrapAsFixed\(\)/s
   )
 })
-
-test('referme le menu en inversant la timeline d’ouverture terminée', async () => {
-  const nav = await readFile(navPath, 'utf8')
-
-  assert.match(
-    nav,
-    /currentMenuTl &&\s*wasOpen &&[\s\S]*?currentMenuTl\.progress\(\) === 1[\s\S]*?currentMenuTl\.reverse\(\)/
-  )
-})

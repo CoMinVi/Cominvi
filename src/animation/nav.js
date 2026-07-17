@@ -731,27 +731,6 @@ export function initializeMenuClick(options = {}, root = document) {
     } catch (e) {
       // ignore and fallback to standard flow
     }
-    // Once open, always close by reversing this exact timeline. Rebuilding a
-    // separate closing timeline introduces timing and easing differences.
-    try {
-      if (
-        currentMenuTl &&
-        wasOpen &&
-        typeof currentMenuTl.progress === 'function' &&
-        currentMenuTl.progress() === 1
-      ) {
-        if (brandLink) brandLink.setAttribute('pt-inner', '')
-        if (menuIconElement?.dataset) delete menuIconElement.dataset.bgLocked
-        applyMenuIconClosedThemeColors()
-        if (window.lenis && typeof window.lenis.start === 'function') {
-          window.lenis.start()
-        }
-        currentMenuTl.reverse()
-        return
-      }
-    } catch (e) {
-      // ignore and rebuild only if reversing is unavailable
-    }
     // Kill any ongoing timeline/tweens to make animation re-entrant
     try {
       if (currentMenuTl) {
@@ -903,7 +882,7 @@ export function initializeMenuClick(options = {}, root = document) {
         ) {
           window.lenis.start()
         }
-        isOpen = true
+        isOpen = !isOpen
         // Ensure pt-inner reflects final menu state
         if (brandLink) {
           if (isOpen) brandLink.removeAttribute('pt-inner')
@@ -1030,6 +1009,7 @@ export function initializeMenuClick(options = {}, root = document) {
             // ignore
           }
         }
+        currentMenuTl = null
       },
       onReverseComplete: () => {
         // Important when user reverses an in-flight toggle:

@@ -1144,18 +1144,16 @@ export function initializeMenuClick(options = {}, root = document) {
       }
     }
     if (!wasOpen) {
-      // Opening reverses the bars' closing tween.
+      // Preserve the original opening gesture for the bars.
       if (menuIconBar1)
-        tl.fromTo(
+        tl.set(
           menuIconBar1,
-          { top: '42%', rotation: 0 },
           { top: '49%', rotation: 0, transformOrigin: '50% 50%' },
           0
         )
       if (menuIconBar2)
-        tl.fromTo(
+        tl.set(
           menuIconBar2,
-          { bottom: '42%', rotation: 0 },
           { bottom: '49%', rotation: 90, transformOrigin: '50% 50%' },
           0
         )

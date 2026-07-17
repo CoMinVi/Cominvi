@@ -61,7 +61,12 @@ export function slideScaleLeave({ current }) {
   const currentPage =
     current.container.querySelector('.page-wrap') || current.container
   const rect = currentPage.getBoundingClientRect()
-  lastTopOffsetPx = Math.max(0, Math.round(rect.top))
+  lastTopOffsetPx = Math.max(0, rect.top)
+
+  // The menu opening timeline animates this same page-wrap (top + scale).
+  // Stop it before switching to absolute positioning, otherwise its remaining
+  // `top` tween combines with the leave `y` and moves the hero twice.
+  gsap.killTweensOf(currentPage)
 
   if (window.lenis && typeof window.lenis.stop === 'function') {
     try {
@@ -78,6 +83,7 @@ export function slideScaleLeave({ current }) {
     right: 0,
     zIndex: 1,
     y: lastTopOffsetPx,
+    overwrite: true,
   })
 
   return gsap.to(currentPage, {

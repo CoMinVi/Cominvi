@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const navPath = fileURLToPath(new URL('./nav.js', import.meta.url))
 
-test('anime l’ouverture du menu comme l’inverse de sa fermeture', async () => {
+test('conserve l’animation d’ouverture historique des barres du menu', async () => {
   const nav = await readFile(navPath, 'utf8')
 
   assert.doesNotMatch(
@@ -14,7 +14,7 @@ test('anime l’ouverture du menu comme l’inverse de sa fermeture', async () =
   )
   assert.match(
     nav,
-    /if \(!wasOpen\) \{[\s\S]*?tl\.fromTo\(\s*menuIconBar1,\s*\{ top: '42%', rotation: 0 \},[\s\S]*?top: '49%'/
+    /if \(!wasOpen\) \{[\s\S]*?tl\.set\(\s*menuIconBar1,\s*\{ top: '49%', rotation: 0, transformOrigin: '50% 50%' \}/
   )
   assert.match(
     nav,

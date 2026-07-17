@@ -167,7 +167,7 @@
 
 /* Join the Team — Gender Equity: hold sticky block a bit longer before scroll-away */
 .equity-stage {
-  height: 175svh;
+  height: 200vh;
 }
 
 /* Machines images: anchor 1em from the top of .machines (machines stays sticky) */

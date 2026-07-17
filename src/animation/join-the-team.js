@@ -380,6 +380,9 @@ function initEquitySlider(section) {
     section.querySelector('.equity-stage') ||
     section
 
+  const scroller =
+    (typeof window !== 'undefined' && window.__lenisWrapper) || undefined
+
   const tl = gsap.timeline({
     paused: true,
     defaults: { ease: TEAM_INTERACTION_EASE },
@@ -388,7 +391,6 @@ function initEquitySlider(section) {
 
   // Circle tick reveal (like minerals): drive conic mask arc (start/end) in two phases
   const darkSvg = section.querySelector('.circle.is-2')
-  let entryTl = null
   if (darkSvg) {
     const maskCSS =
       'conic-gradient(from 0deg at 50% 50%, transparent 0deg var(--start, 0deg), #fff var(--start, 0deg) var(--end, 0deg), transparent var(--end, 0deg) 360deg)'
@@ -424,30 +426,28 @@ function initEquitySlider(section) {
       }
     }
 
-    // Phase 1: grow orange arc from 0% to 35% when the circle enters the viewport
-    entryTl = gsap.timeline({
-      paused: true,
-      defaults: { ease: TEAM_INTERACTION_EASE },
+    // Phase 1: grow orange arc from 0% to 35% while the stage scrolls into view
+    const entryTl = gsap.timeline({
+      defaults: { ease: 'none' },
     })
     entryTl.to(
       arc,
       {
         end: 126, // 35% of 360°
-        duration: 0.27,
+        duration: 1,
         onUpdate: updateArcMask,
       },
       0
     )
 
-    const entryTrigger =
-      section.querySelector('.equity_content') || darkSvg || equityStage
     ScrollTrigger.create({
-      trigger: entryTrigger,
+      trigger: equityStage,
+      scroller,
       animation: entryTl,
       start: 'top bottom',
-      end: 'top bottom',
+      end: 'top 55%',
+      scrub: true,
       invalidateOnRefresh: true,
-      toggleActions: 'play none none none',
     })
 
     // Phase 2: sweep with a 65% arc (234°) — unchanged timing relative to center trigger
@@ -475,14 +475,12 @@ function initEquitySlider(section) {
 
   ScrollTrigger.create({
     trigger: equityStage,
+    scroller,
     animation: tl,
     start: 'center 50%',
     end: 'center 50%',
     invalidateOnRefresh: true,
     toggleActions: 'play none none reverse',
-    onEnter: () => {
-      if (entryTl && entryTl.progress() < 1) entryTl.progress(1)
-    },
   })
 }
 

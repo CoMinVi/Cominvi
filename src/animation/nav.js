@@ -91,7 +91,7 @@ export function initializeMenuClick(options = {}, root = document) {
     return {
       menuIconBg: menuTheme.menuIconBg || 'var(--accent)',
       menuIconBorder: menuTheme.menuIconBorder || 'var(--primary)',
-      menuIconBarsBg: menuTheme.menuIconBarsBg || '#020202',
+      menuIconBarsBg: menuTheme.menuIconBarsBg || 'var(--primary)',
     }
   }
 
@@ -216,7 +216,7 @@ export function initializeMenuClick(options = {}, root = document) {
       if (menuIconElement && menuIconElement.style) {
         menuIconElement.style.setProperty(
           'background-color',
-          'var(--white)',
+          'var(--primary)',
           'important'
         )
         menuIconElement.style.setProperty(
@@ -230,7 +230,7 @@ export function initializeMenuClick(options = {}, root = document) {
         menuIconBars.forEach((el) => {
           try {
             if (el && el.style) {
-              el.style.setProperty('background-color', '#020202', 'important')
+              el.style.setProperty('background-color', '#fff', 'important')
               el.style.setProperty('transition', 'none', 'important')
             }
           } catch (e) {
@@ -263,7 +263,7 @@ export function initializeMenuClick(options = {}, root = document) {
       tl.to(menuLabelInner, { yPercent: -50 }, 0)
     }
     if (menuIconBars && menuIconBars.length) {
-      tl.to(menuIconBars, { backgroundColor: '#020202' }, 0)
+      tl.to(menuIconBars, { backgroundColor: '#fff' }, 0)
     }
     if (menuIconBar1) {
       tl.to(
@@ -1891,7 +1891,7 @@ export function initializeThemeController() {
             isLocked && menuIconElement?.dataset?.bgLocked === 'hover'
           gsap.set(menuIconBars, {
             backgroundColor: lockedHover
-              ? '#020202'
+              ? '#fff'
               : lockedMenuTheme
               ? lockedMenuTheme.menuIconBarsBg
               : t.menuIconBarsBg,
@@ -1924,7 +1924,7 @@ export function initializeThemeController() {
             isLocked && menuIconElement?.dataset?.bgLocked === 'hover'
           gsap.to(menuIconBars, {
             backgroundColor: lockedHover
-              ? '#020202'
+              ? '#fff'
               : lockedMenuTheme
               ? lockedMenuTheme.menuIconBarsBg
               : t.menuIconBarsBg,

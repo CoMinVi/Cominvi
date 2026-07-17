@@ -838,11 +838,11 @@ export function initializeMenuClick(options = {}, root = document) {
       } catch (e) {
         // ignore
       }
-      // Pre-lock and force colors to avoid flash when clicking from hover
+      // Lock the icon during opening, but keep its current colors until the
+      // menu animation has completed.
       try {
         if (menuIconElement) {
           menuIconElement.dataset.bgLocked = 'open'
-          applyMenuThemeToIconInline(false)
         }
       } catch (e) {
         // ignore
@@ -896,6 +896,7 @@ export function initializeMenuClick(options = {}, root = document) {
         // Bind/unbind responsive resize handler when state changes
         try {
           if (isOpen) {
+            applyMenuThemeToIconInline()
             lockPageWrapAsFixed()
             if (onResizeWhileOpen)
               window.removeEventListener('resize', onResizeWhileOpen)
@@ -1100,7 +1101,6 @@ export function initializeMenuClick(options = {}, root = document) {
       try {
         if (!wasOpen) {
           menuIconElement.dataset.bgLocked = 'open'
-          applyMenuThemeToIconInline()
         }
       } catch (e) {
         // ignore
@@ -1789,7 +1789,6 @@ export function initializeThemeController() {
       menuOpen: () => {
         currentKey = 'menu'
         activeKey = 'menu'
-        applyMenuIconTheme('menu', true)
       },
       menuCloseSamePage: (options = {}) => {
         const resolved = resolveThemeKeyFromRoot(document)

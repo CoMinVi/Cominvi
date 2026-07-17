@@ -16,3 +16,4 @@ alwaysApply: true
 - `dist/` est genere par Vite et ne doit pas etre modifie manuellement.
 - Les assets statiques locaux vivent dans `public/`; ils sont recopies tels quels dans `dist/`.
 - Le build publie les assets avec la base Netlify configuree dans `vite.config.js`. Verifier cette valeur avant tout changement de deploiement.
+- **Deploiement obligatoire en fin de tache** : apres chaque modification livrable, merger sur `main`, puis verifier que le workflow GitHub Actions `Deploy dist to release` a reussi (push `main` → branche `release` → Netlify `https://cominvi.netlify.app/`). Ne pas terminer sans confirmer le deploiement ; en cas d'echec, relancer avec `gh workflow run deploy.yml --ref main` puis reverifier que les assets live (ex. `join-the-team.js`) correspondent au commit.

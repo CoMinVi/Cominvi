@@ -373,6 +373,11 @@ function initEquitySlider(section) {
   const column = section.querySelector('.equity-slider_slide_column')
   if (!column) return
 
+  if (typeof section.__equityCleanup === 'function') {
+    section.__equityCleanup()
+  }
+  const cleanupCallbacks = []
+
   gsap.set(column, { yPercent: 0 })
 
   const equityStage =
@@ -391,6 +396,8 @@ function initEquitySlider(section) {
 
   // Circle tick reveal (like minerals): drive conic mask arc (start/end) in two phases
   const darkSvg = section.querySelector('.circle.is-2')
+  let entryST = null
+  let snapArcToPhase1 = null
   if (darkSvg) {
     const maskCSS =
       'conic-gradient(from 0deg at 50% 50%, transparent 0deg var(--start, 0deg), #fff var(--start, 0deg) var(--end, 0deg), transparent var(--end, 0deg) 360deg)'
@@ -417,6 +424,12 @@ function initEquitySlider(section) {
     }
 
     const arc = { start: 0, end: 0 }
+    const setArc = (start, end) => {
+      arc.start = start
+      arc.end = end
+      updateArcMask()
+    }
+    snapArcToPhase1 = () => setArc(0, 126)
     const updateArcMask = () => {
       try {
         darkSvg.style.setProperty('--start', arc.start + 'deg')
@@ -426,28 +439,26 @@ function initEquitySlider(section) {
       }
     }
 
-    // Phase 1: grow orange arc from 0% to 35% while the stage scrolls into view
-    const entryTl = gsap.timeline({
-      defaults: { ease: 'none' },
-    })
-    entryTl.to(
-      arc,
-      {
-        end: 126, // 35% of 360°
-        duration: 1,
-        onUpdate: updateArcMask,
-      },
-      0
-    )
-
-    ScrollTrigger.create({
+    // Phase 1: grow orange arc from 0% to 35% while scrolling through the sticky stage.
+    // Use the tall stage wrapper (not the SVG) so progress advances while the circle stays pinned.
+    entryST = ScrollTrigger.create({
       trigger: equityStage,
       scroller,
-      animation: entryTl,
-      start: 'top bottom',
-      end: 'top 55%',
-      scrub: true,
+      start: 'top top',
+      end: 'center 50%',
+      scrub: 0.45,
       invalidateOnRefresh: true,
+      onUpdate: (self) => {
+        setArc(0, self.progress * 126)
+      },
+    })
+    cleanupCallbacks.push(() => {
+      try {
+        entryST?.kill()
+      } catch (e) {
+        // ignore
+      }
+      entryST = null
     })
 
     // Phase 2: sweep with a 65% arc (234°) — unchanged timing relative to center trigger
@@ -473,7 +484,7 @@ function initEquitySlider(section) {
     tl.to(labels, { yPercent: -100, duration: 0.8 }, 0)
   }
 
-  ScrollTrigger.create({
+  const mainST = ScrollTrigger.create({
     trigger: equityStage,
     scroller,
     animation: tl,
@@ -481,7 +492,35 @@ function initEquitySlider(section) {
     end: 'center 50%',
     invalidateOnRefresh: true,
     toggleActions: 'play none none reverse',
+    onEnter: () => {
+      if (entryST) entryST.disable()
+      if (snapArcToPhase1) snapArcToPhase1()
+    },
+    onLeaveBack: () => {
+      if (entryST) {
+        entryST.enable()
+        entryST.refresh()
+      }
+    },
   })
+  cleanupCallbacks.push(() => {
+    try {
+      mainST.kill()
+    } catch (e) {
+      // ignore
+    }
+  })
+
+  section.__equityCleanup = () => {
+    cleanupCallbacks.forEach((fn) => {
+      try {
+        fn()
+      } catch (e) {
+        // ignore
+      }
+    })
+    section.__equityCleanup = null
+  }
 }
 
 export function initTeam(root = document) {

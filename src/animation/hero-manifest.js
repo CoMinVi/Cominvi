@@ -1,21 +1,10 @@
 export const HOME_HERO_MANIFEST_URL = '/cave-scene/scroll/manifest.json'
+export const HERO_ASSET_ORIGIN = 'https://cominvi.netlify.app'
 
 let manifestPromise = null
 
 export function getHeroAssetOrigin() {
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) {
-      return String(import.meta.env.BASE_URL).replace(/\/$/, '')
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin
-  }
-
-  return ''
+  return HERO_ASSET_ORIGIN
 }
 
 export function resolveHeroAssetUrl(path) {

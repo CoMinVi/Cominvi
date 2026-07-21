@@ -455,6 +455,41 @@ async function testServiceTitlesAfterHoverClose(page, baseUrl) {
   })
 }
 
+async function testServiceParagraphsReflowOnResize(page, baseUrl) {
+  await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' })
+  await waitForHomeReady(page)
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await scrollSectionIntoView(page, '.section_services')
+  await page.waitForTimeout(500)
+
+  const card = page.locator('.section_services .service-card').first()
+  await card.hover()
+  await page.waitForTimeout(900)
+  await page.setViewportSize({ width: 1024, height: 900 })
+  await page.waitForTimeout(500)
+
+  const reflow = await card.evaluate((element) => {
+    const paragraph = element.querySelector('.desc .body-s')
+    const lines = paragraph?.__lines || []
+    const lineHeight = parseFloat(getComputedStyle(paragraph).lineHeight)
+    return {
+      isOpen: element.classList.contains('is-svc-hover'),
+      lines: lines.length,
+      maxLineHeight: Math.max(
+        0,
+        ...lines.map((line) => line.getBoundingClientRect().height)
+      ),
+      lineHeight,
+    }
+  })
+  console.log('SERVICE PARAGRAPH REFLOW:', reflow)
+  assert(reflow.lines > 0, 'Le paragraphe service n’est pas découpé en lignes')
+  assert(
+    reflow.maxLineHeight <= reflow.lineHeight * 1.5,
+    `Les lignes du paragraphe ne sont pas recalculées (${reflow.maxLineHeight}px pour une ligne de ${reflow.lineHeight}px)`
+  )
+}
+
 async function testServiceSectionStableOnHover(page, baseUrl) {
   await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' })
   await waitForHomeReady(page)
@@ -819,6 +854,7 @@ async function main() {
     await testCardsRevealOnHome(page, baseUrl)
     await testServiceTitlesOnResize(page, baseUrl)
     await testServiceTitlesAfterHoverClose(page, baseUrl)
+    await testServiceParagraphsReflowOnResize(page, baseUrl)
     await testServiceSectionStableOnHover(page, baseUrl)
     await testBlogLayout(page, baseUrl)
     await testBlogHoverViaBarba(page, baseUrl)

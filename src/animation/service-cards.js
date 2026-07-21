@@ -741,7 +741,6 @@ export function initServiceCards(root = document) {
       if (__svcMenuTransitionActive) return
       const allCards = scope.querySelectorAll('.service-card')
       allCards.forEach((card) => {
-        if (isServiceCardHovered(card)) return
         const desc = card.querySelector('.desc')
         const bloc = card.querySelector('.card-inner') || desc
         if (!desc || !bloc) return
@@ -772,7 +771,24 @@ export function initServiceCards(root = document) {
           return
         }
 
-        applyServiceCardDesktopClosedState(card, bloc, desc)
+        const small = desc.querySelector('.body-s')
+        const bodyL = bloc.querySelector('.body-l')
+        const shouldRemainOpen =
+          card.classList.contains('is-svc-hover') && isServiceCardHovered(card)
+
+        // SplitType only determines visual lines when it is instantiated. Rebuild
+        // them at each desktop width change, including for the currently hovered
+        // card, so a line wrapper cannot contain several visual lines.
+        ensureServiceCardBodySSplit(small, { force: true })
+        storeServiceDescContentHeight(desc, small)
+
+        if (shouldRemainOpen) {
+          openServiceCardDesktop(card, bloc, desc, bodyL, small, {
+            instant: true,
+          })
+        } else {
+          applyServiceCardDesktopClosedState(card, bloc, desc)
+        }
       })
 
       const machineCards = scope.querySelectorAll('.machine-card')

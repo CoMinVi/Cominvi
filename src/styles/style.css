@@ -154,11 +154,15 @@ html[lang='es'] .section_technology .overlay-gradients {
   height: 12.6em;
 }
 
-/* Technology page: white surfaces; keep .overlay-gradients on var(--gray). */
+/* Technology page: white surfaces; overlay-gradients must stay gray */
 .section_latest-technology .title-big,
 .section_latest-technology .is-text-mask,
 .section_latest-technology .mask-fill {
   background-color: var(--white);
+}
+
+.section_latest-technology .overlay-gradients {
+  background-color: var(--gray);
 }
 
 .machines-inner

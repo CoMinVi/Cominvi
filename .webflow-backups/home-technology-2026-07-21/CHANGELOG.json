@@ -1,0 +1,31 @@
+{
+  "backup_draft_page": {
+    "id": "6a5f4baf0c0790ddc6d29503",
+    "title": "BACKUP Home Technology pre-display-reveal 2026-07-21",
+    "slug": "backup-home-technology-2026-07-21",
+    "draft": true,
+    "note": "Duplicate of Home before structural change. Keep draft; do not publish. To rollback: compare/copy structure from this page, or reverse move (wrap overlay-gradients in gradients again)."
+  },
+  "change_applied": {
+    "page_id": "6899a2f3f7995d5e3e31b7cd",
+    "moved": "overlay-gradients.is-1 now direct child of title-big.is-1 (before is-text-mask)",
+    "removed": "empty gradients wrapper 7b88a628-22d1-aff4-fe39-424d25af948c",
+    "preserved": [
+      "svg-t-bottom.is-1",
+      "svgtext-mask.is-1",
+      "is-text-mask.is-1",
+      "mask-fill.is-green",
+      "overlay-gradients.is-1",
+      "title-big.is-1"
+    ],
+    "structure_after": [
+      "display-text",
+      "  title-big.is-1",
+      "    display.is-1",
+      "    overlay-gradients.is-1",
+      "    is-text-mask.is-1",
+      "  eyebrow-wrapper-a"
+    ]
+  },
+  "publish_status": "NOT published - awaiting visual validation and explicit user confirmation"
+}

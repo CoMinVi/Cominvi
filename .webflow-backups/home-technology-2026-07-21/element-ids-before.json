@@ -1,0 +1,15 @@
+{
+  "site_id": "6899a2f3f7995d5e3e31b7c6",
+  "home_page_id": "6899a2f3f7995d5e3e31b7cd",
+  "structure_before": {
+    "display-text": "dbe4b642-5e4e-7f8d-ea30-60b7166d0b64",
+    "title-big.is-1": "dbe4b642-5e4e-7f8d-ea30-60b7166d0b65",
+    "display.is-1": "dbe4b642-5e4e-7f8d-ea30-60b7166d0b66",
+    "gradients": "7b88a628-22d1-aff4-fe39-424d25af948c",
+    "overlay-gradients.is-1": "dbe4b642-5e4e-7f8d-ea30-60b7166d0b7b",
+    "is-text-mask.is-1": "dbe4b642-5e4e-7f8d-ea30-60b7166d0b82",
+    "eyebrow-wrapper-a": "dbe4b642-5e4e-7f8d-ea30-60b7166d0b87"
+  },
+  "planned_change": "Move overlay-gradients.is-1 to be direct child of title-big.is-1 (before is-text-mask), then remove empty gradients wrapper",
+  "rollback": "Restore via duplicated draft page if created, or re-nest overlay-gradients under gradients wrapper"
+}

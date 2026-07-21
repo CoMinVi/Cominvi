@@ -148,6 +148,19 @@
   margin-left: -1px;
 }
 
+/* Home ES: 2-line title — match EN overlay height (do not touch width).
+   Global `.overlay-gradients:lang(es)` is 18.9em for Technology 3-line. */
+html[lang='es'] .section_technology .overlay-gradients {
+  height: 12.6em;
+}
+
+/* Technology page: white surfaces; keep .overlay-gradients on var(--gray). */
+.section_latest-technology .title-big,
+.section_latest-technology .is-text-mask,
+.section_latest-technology .mask-fill {
+  background-color: var(--white);
+}
+
 .machines-inner
   > .machines_wrap:first-of-type
   .machines-list-list

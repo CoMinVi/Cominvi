@@ -358,6 +358,10 @@ export function slideScaleEnter({ next }) {
         gsap.set(next.container, {
           clearProps: 'position,top,left,right,zIndex,visibility,opacity,y',
         })
+        gsap.set(nextPage, {
+          clearProps:
+            'transform,transformOrigin,scale,x,xPercent,y,yPercent,top,right,bottom,left,borderRadius,willChange',
+        })
       },
       y: (i, target) => (target === next.container ? 0 : undefined),
       borderRadius: (i, target) => (target === nextPage ? '0rem' : undefined),

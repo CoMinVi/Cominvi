@@ -51,7 +51,7 @@ function isLocaleSwitcherLink(el) {
 }
 
 function resetPageWrapTransitionState(container) {
-  try {
+  const reset = () => {
     const pageWrap = container?.matches?.('.page-wrap')
       ? container
       : container?.querySelector?.('.page-wrap')
@@ -68,6 +68,15 @@ function resetPageWrapTransitionState(container) {
       'border-radius',
       'will-change',
     ].forEach((property) => pageWrap.style.removeProperty(property))
+  }
+
+  try {
+    reset()
+    // Webflow and the clip transition can complete after Barba's `after`
+    // hook. Clear their final inline values once layout has settled.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(reset)
+    })
   } catch (e) {
     // The next container may already have been removed by Barba.
   }

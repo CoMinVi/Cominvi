@@ -75,7 +75,6 @@ export function initMinerals(root = document) {
     const NAME_TRANSITION_DURATION = 0.25
     const NAME_MOBILE_CENTER_DURATION = 0.3
     const EYEBROW_TRANSITION_DURATION = 0.25
-    const EYEBROW_SLIDE_STEP_EM = 0.75
     const isMobileViewport = () => {
       const mm =
         window.matchMedia && window.matchMedia('(max-width: 767px)').matches
@@ -292,8 +291,13 @@ export function initMinerals(root = document) {
           else el.classList.remove('is-active')
         })
 
+        // The slider's visible viewport is 0.75em on desktop and 0.813em
+        // on mobile. Measure the actual row distance rather than assuming a
+        // fixed em value, otherwise each transition progressively drifts.
+        const rowOffset = items[next].offsetTop - items[0].offsetTop
+
         gsap.to(slider, {
-          y: `${-EYEBROW_SLIDE_STEP_EM * next}em`,
+          y: -rowOffset,
           duration: EYEBROW_TRANSITION_DURATION,
           ease: mineralsEase,
           overwrite: 'auto',
@@ -361,6 +365,7 @@ export function initMinerals(root = document) {
         }
         centerActiveNameMobile(idx)
         setMobileExitTranslate(mobileExitProgress)
+        setActiveEyebrowIndex(idx)
       })
     }
     window.addEventListener('resize', handleResize)

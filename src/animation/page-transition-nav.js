@@ -50,38 +50,6 @@ function isLocaleSwitcherLink(el) {
   }
 }
 
-function resetPageWrapTransitionState(container) {
-  const reset = () => {
-    const pageWrap = container?.matches?.('.page-wrap')
-      ? container
-      : container?.querySelector?.('.page-wrap')
-
-    if (!pageWrap?.style) return
-    ;[
-      'transform',
-      'transform-origin',
-      'scale',
-      'top',
-      'right',
-      'bottom',
-      'left',
-      'border-radius',
-      'will-change',
-    ].forEach((property) => pageWrap.style.removeProperty(property))
-  }
-
-  try {
-    reset()
-    // Webflow and the clip transition can complete after Barba's `after`
-    // hook. Clear their final inline values once layout has settled.
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(reset)
-    })
-  } catch (e) {
-    // The next container may already have been removed by Barba.
-  }
-}
-
 // Minimal Barba setup that focuses only on nav-related transitions
 export function initializePageTransitionNav() {
   const reinitFsAttributes = () => {
@@ -601,7 +569,6 @@ export function initializePageTransitionNav() {
             // ignore
           }
 
-          resetPageWrapTransitionState(next && next.container)
           destroyLenis()
           initLenis(next && next.container)
           // Re-init Webflow first, then (re)bind nav handlers/animations
@@ -702,7 +669,6 @@ export function initializePageTransitionNav() {
             // ignore
           }
 
-          resetPageWrapTransitionState(next && next.container)
           destroyLenis()
           initLenis(next && next.container)
           // Re-init Webflow first, then (re)bind nav handlers/animations
@@ -810,7 +776,6 @@ export function initializePageTransitionNav() {
             // ignore
           }
 
-          resetPageWrapTransitionState(next && next.container)
           destroyLenis()
           initLenis(next && next.container)
           // Re-init Webflow first, then (re)bind nav handlers/animations
@@ -843,7 +808,6 @@ export function initializePageTransitionNav() {
             // ignore
           }
 
-          resetPageWrapTransitionState(next && next.container)
           destroyLenis()
           initLenis(next && next.container)
           // Re-init Webflow first, then (re)bind nav handlers/animations
@@ -976,7 +940,6 @@ export function initializePageTransitionNav() {
     // Global fallback: ensure Finsweet Attributes are reinitialized
     reinitFsAttributes()
 
-    resetPageWrapTransitionState(next && next.container)
     destroyLenis()
     initLenis(next && next.container)
     resetMenuLinksAnimationState(next && next.container)

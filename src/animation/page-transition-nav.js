@@ -26,6 +26,7 @@ import {
   destroyLenis,
   holdLenisUntilClipComplete,
   lockScrollForTransition,
+  unlockScrollForTransition,
 } from './scroll.js'
 import {
   createViewportClipOverlay,
@@ -296,13 +297,26 @@ export function initializePageTransitionNav() {
   document.addEventListener(
     'click',
     (ev) => {
+      // Nav menu links use slide-scale (no pt-inner) — lock immediately on click
+      try {
+        const navLink =
+          ev.target && ev.target.closest
+            ? ev.target.closest('.nav-inner a.navlink')
+            : null
+        if (navLink) {
+          lockScrollForTransition()
+        }
+      } catch (e) {
+        /* ignore */
+      }
+
       const target =
         ev.target && ev.target.closest
           ? ev.target.closest('[pt-inner], [data-pt-inner], #pt-inner')
           : null
       if (!target) return
       try {
-        // Hard-lock scroll immediately on menu link click (before Barba leave)
+        // Hard-lock scroll immediately on pt-inner click (before Barba leave)
         try {
           lockScrollForTransition()
         } catch (e) {
@@ -830,8 +844,22 @@ export function initializePageTransitionNav() {
       {
         name: 'slide-scale',
         sync: true,
-        leave: slideScaleLeave,
-        enter: ({ next }) => slideScaleEnter({ next }),
+        leave: (data) => {
+          try {
+            lockScrollForTransition()
+          } catch (e) {
+            /* ignore */
+          }
+          return slideScaleLeave(data)
+        },
+        enter: ({ next }) => {
+          try {
+            lockScrollForTransition()
+          } catch (e) {
+            /* ignore */
+          }
+          return slideScaleEnter({ next })
+        },
         after: ({ next }) => {
           // Re-initialize Finsweet Attributes (CMS Filter) after the new DOM is in place
           reinitFsAttributes()
@@ -844,6 +872,12 @@ export function initializePageTransitionNav() {
 
           destroyLenis()
           initLenis(next && next.container)
+          // Release hard lock after leave + enter (slide + descale) both finished
+          try {
+            unlockScrollForTransition()
+          } catch (e) {
+            /* ignore */
+          }
           // Re-init Webflow first, then (re)bind nav handlers/animations
           reinitializeWebflowForPage(next && next.container)
           initializeNav2()

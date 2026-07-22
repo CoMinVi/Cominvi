@@ -4,6 +4,7 @@ import { CustomEase } from 'gsap/CustomEase'
 import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
 import { addMenuLinksCloseToTimeline } from './nav.js'
+import { lockScrollForTransition } from './scroll.js'
 
 // Helper local pour éviter les retours d'import/order
 function getNavbarBaseOffset() {
@@ -58,6 +59,13 @@ function getDestinationTheme() {
 }
 
 export function slideScaleLeave({ current }) {
+  // Nav menu links (.navlink) use this transition — hard-lock for leave + enter.
+  try {
+    lockScrollForTransition()
+  } catch (err) {
+    // ignore
+  }
+
   const currentPage =
     current.container.querySelector('.page-wrap') || current.container
   const rect = currentPage.getBoundingClientRect()
@@ -77,12 +85,10 @@ export function slideScaleLeave({ current }) {
   // `top` tween combines with the leave `y` and moves the hero twice.
   gsap.killTweensOf(currentPage)
 
-  if (window.lenis && typeof window.lenis.stop === 'function') {
-    try {
-      window.lenis.stop()
-    } catch (err) {
-      // ignore
-    }
+  try {
+    lockScrollForTransition()
+  } catch (err) {
+    // ignore
   }
 
   gsap.set(current.container, {
@@ -121,6 +127,13 @@ export function slideScaleLeave({ current }) {
 }
 
 export function slideScaleEnter({ next }) {
+  // Keep hard lock through the enter/descale half of the nav transition
+  try {
+    lockScrollForTransition()
+  } catch (err) {
+    // ignore
+  }
+
   const nextPage = next.container.querySelector('.page-wrap') || next.container
 
   // Initialize Contact page SDK map early without keeping MapLibre in the shell.

@@ -431,12 +431,22 @@ function removeHardScrollLock() {
 }
 
 /**
- * Hard-lock all scrolling for menu → page transitions.
- * Keeps Lenis stopped and blocks native iOS touch/wheel until release.
+ * Hard-lock all scrolling during page transitions (Lenis + native touch/wheel).
+ * - With hostEl: also waits for pt-inner clip.tl to finish, then auto-unlocks.
+ * - Without hostEl: stays locked until unlockScrollForTransition() (slide-scale nav).
  */
 export function lockScrollForTransition(hostEl) {
   applyHardScrollLock()
-  return holdLenisUntilClipComplete(hostEl)
+  if (hostEl) {
+    return holdLenisUntilClipComplete(hostEl)
+  }
+  armClipHoldSafetyTimeout()
+  return true
+}
+
+/** Release the hard scroll lock and restart Lenis. */
+export function unlockScrollForTransition() {
+  releaseLenisClipHold()
 }
 
 /**

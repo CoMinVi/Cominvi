@@ -43,6 +43,16 @@ export function initLenis(root = document) {
   window.lenis = lenis
   window.__lenisWrapper = wrapper
 
+  // If a pt-inner clip hold is active, keep the fresh instance stopped
+  try {
+    if (window.__lenisHeldForClip && typeof lenis.stop === 'function') {
+      lenis.stop()
+      lockLenisScrollToWhileHeld()
+    }
+  } catch (err) {
+    // ignore
+  }
+
   // Synchronize Lenis with ScrollTrigger
   lenis.on('scroll', () => {
     ScrollTrigger.update()
@@ -135,6 +145,23 @@ export function initLenis(root = document) {
 
 export function destroyLenis() {
   try {
+    if (window.__lenisClipHoldTimeout) {
+      clearTimeout(window.__lenisClipHoldTimeout)
+      window.__lenisClipHoldTimeout = null
+    }
+  } catch (err) {
+    // ignore
+  }
+  try {
+    if (window.__lenisClipPoll) {
+      clearInterval(window.__lenisClipPoll)
+      window.__lenisClipPoll = null
+    }
+  } catch (err) {
+    // ignore
+  }
+  // Keep __lenisHeldForClip: initLenis must re-apply the hold on the new instance
+  try {
     if (window.__lenisTickerRaf) {
       gsap.ticker.remove(window.__lenisTickerRaf)
       window.__lenisTickerRaf = null
@@ -151,6 +178,225 @@ export function destroyLenis() {
   }
   try {
     window.lenis = null
+  } catch (err) {
+    // ignore
+  }
+}
+
+export function stopLenis() {
+  try {
+    if (window.lenis && typeof window.lenis.stop === 'function') {
+      window.lenis.stop()
+    }
+  } catch (err) {
+    // ignore
+  }
+}
+
+export function startLenis() {
+  try {
+    if (window.__lenisHeldForClip) return
+    if (window.lenis && typeof window.lenis.start === 'function') {
+      window.lenis.start()
+    }
+  } catch (err) {
+    // ignore
+  }
+}
+
+function resolveClipHost(hostEl) {
+  try {
+    if (hostEl && hostEl.__clip) return hostEl
+    if (hostEl && typeof hostEl.querySelector === 'function') {
+      const nested = hostEl.querySelector('.page-wrap')
+      if (nested && nested.__clip) return nested
+      if (hostEl.classList && hostEl.classList.contains('page-wrap')) {
+        return hostEl
+      }
+    }
+    const fallback = document.querySelector('.page-wrap')
+    return fallback || hostEl || null
+  } catch (err) {
+    return hostEl || null
+  }
+}
+
+/**
+ * Keep Lenis stopped until the host clip timeline reaches progress === 1.
+ * Used during pt-inner transitions so early scroll cannot run while the
+ * page-wrap clip-path is still in its inset "window" state.
+ */
+export function holdLenisUntilClipComplete(hostEl) {
+  const host = resolveClipHost(hostEl)
+  const clip = host && host.__clip
+
+  try {
+    window.__lenisHeldForClip = true
+  } catch (err) {
+    // ignore
+  }
+  stopLenis()
+  lockLenisScrollToWhileHeld()
+
+  // Clip not ready yet (leave/early enter): keep hold and poll briefly
+  if (!clip || !clip.tl || typeof clip.tl.progress !== 'function') {
+    pollForClipAndHold(hostEl)
+    return true
+  }
+
+  try {
+    if (clip.tl.progress() === 1) {
+      releaseLenisClipHold()
+      return false
+    }
+  } catch (err) {
+    // ignore and hold below
+  }
+
+  stopLenis()
+  attachClipCompleteRelease(clip)
+  armClipHoldSafetyTimeout()
+  return true
+}
+
+function releaseLenisClipHold() {
+  try {
+    if (window.__lenisClipHoldTimeout) {
+      clearTimeout(window.__lenisClipHoldTimeout)
+      window.__lenisClipHoldTimeout = null
+    }
+  } catch (err) {
+    // ignore
+  }
+  try {
+    if (window.__lenisClipPoll) {
+      clearInterval(window.__lenisClipPoll)
+      window.__lenisClipPoll = null
+    }
+  } catch (err) {
+    // ignore
+  }
+  try {
+    window.__lenisHeldForClip = false
+  } catch (err) {
+    // ignore
+  }
+  unlockLenisScrollTo()
+  startLenis()
+}
+
+function attachClipCompleteRelease(clip) {
+  if (!clip || !clip.tl) return
+  try {
+    const prevOnComplete = clip.tl.eventCallback('onComplete')
+    clip.tl.eventCallback('onComplete', function onClipComplete() {
+      try {
+        if (typeof prevOnComplete === 'function') {
+          prevOnComplete.apply(this, arguments)
+        }
+      } catch (err) {
+        // ignore
+      }
+      try {
+        if (
+          typeof clip.tl.progress === 'function' &&
+          clip.tl.progress() !== 1
+        ) {
+          return
+        }
+      } catch (err) {
+        // ignore
+      }
+      releaseLenisClipHold()
+    })
+  } catch (err) {
+    // ignore
+  }
+}
+
+function pollForClipAndHold(hostEl) {
+  try {
+    if (window.__lenisClipPoll) clearInterval(window.__lenisClipPoll)
+  } catch (err) {
+    // ignore
+  }
+  let tries = 0
+  try {
+    window.__lenisClipPoll = setInterval(() => {
+      tries += 1
+      const host = resolveClipHost(hostEl)
+      const clip = host && host.__clip
+      if (clip && clip.tl && typeof clip.tl.progress === 'function') {
+        try {
+          clearInterval(window.__lenisClipPoll)
+          window.__lenisClipPoll = null
+        } catch (err) {
+          // ignore
+        }
+        if (clip.tl.progress() === 1) {
+          releaseLenisClipHold()
+          return
+        }
+        attachClipCompleteRelease(clip)
+        armClipHoldSafetyTimeout()
+        stopLenis()
+        return
+      }
+      if (tries > 80) {
+        try {
+          clearInterval(window.__lenisClipPoll)
+          window.__lenisClipPoll = null
+        } catch (err) {
+          // ignore
+        }
+        // Don't leave scroll locked forever if no clip appears
+        releaseLenisClipHold()
+      }
+    }, 50)
+  } catch (err) {
+    // ignore
+  }
+  armClipHoldSafetyTimeout()
+}
+
+function armClipHoldSafetyTimeout() {
+  try {
+    if (window.__lenisClipHoldTimeout) {
+      clearTimeout(window.__lenisClipHoldTimeout)
+    }
+    window.__lenisClipHoldTimeout = setTimeout(() => {
+      releaseLenisClipHold()
+    }, 5000)
+  } catch (err) {
+    // ignore
+  }
+}
+
+function lockLenisScrollToWhileHeld() {
+  try {
+    const lenis = window.lenis
+    if (!lenis || typeof lenis.scrollTo !== 'function') return
+    if (lenis.__clipHoldScrollToPatched) return
+    lenis.__clipHoldOriginalScrollTo = lenis.scrollTo.bind(lenis)
+    lenis.scrollTo = function scrollToWhileHeld(target, options) {
+      if (window.__lenisHeldForClip) return
+      return lenis.__clipHoldOriginalScrollTo(target, options)
+    }
+    lenis.__clipHoldScrollToPatched = true
+  } catch (err) {
+    // ignore
+  }
+}
+
+function unlockLenisScrollTo() {
+  try {
+    const lenis = window.lenis
+    if (!lenis || !lenis.__clipHoldScrollToPatched) return
+    if (typeof lenis.__clipHoldOriginalScrollTo === 'function') {
+      lenis.scrollTo = lenis.__clipHoldOriginalScrollTo
+    }
+    lenis.__clipHoldScrollToPatched = false
+    lenis.__clipHoldOriginalScrollTo = null
   } catch (err) {
     // ignore
   }

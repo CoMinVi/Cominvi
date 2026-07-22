@@ -21,7 +21,11 @@ import {
 } from './loader-af.js'
 import { initializeNav2, resetMenuLinksAnimationState } from './nav.js'
 import { initHeroBackgroundParallax } from './parallax.js'
-import { initLenis, destroyLenis } from './scroll.js'
+import {
+  initLenis,
+  destroyLenis,
+  holdLenisUntilClipComplete,
+} from './scroll.js'
 import {
   createViewportClipOverlay,
   resetOverlayClipBaseState,
@@ -671,6 +675,11 @@ export function initializePageTransitionNav() {
 
           destroyLenis()
           initLenis(next && next.container)
+          try {
+            holdLenisUntilClipComplete(next && next.container)
+          } catch (e) {
+            /* ignore */
+          }
           // Re-init Webflow first, then (re)bind nav handlers/animations
           reinitializeWebflowForPage(next && next.container)
           try {
@@ -713,6 +722,13 @@ export function initializePageTransitionNav() {
           }
         },
         leave: (data) => {
+          // Lock Lenis immediately — before clip exists — until clip.tl progress === 1
+          try {
+            window.__lenisHeldForClip = true
+            holdLenisUntilClipComplete(data && data.next && data.next.container)
+          } catch (e) {
+            /* ignore */
+          }
           setTransitionBackground(
             'var(--accent)',
             data && data.current && data.current.container
@@ -747,6 +763,11 @@ export function initializePageTransitionNav() {
           } catch (e) {
             /* ignore */
           }
+          try {
+            holdLenisUntilClipComplete(data && data.next && data.next.container)
+          } catch (e) {
+            /* ignore */
+          }
           return innerEnter({ next: data && data.next })
         },
         after: ({ next }) => {
@@ -778,6 +799,12 @@ export function initializePageTransitionNav() {
 
           destroyLenis()
           initLenis(next && next.container)
+          // Block scroll until host clip expansion reaches progress === 1
+          try {
+            holdLenisUntilClipComplete(next && next.container)
+          } catch (e) {
+            /* ignore */
+          }
           // Re-init Webflow first, then (re)bind nav handlers/animations
           reinitializeWebflowForPage(next && next.container)
           resetMenuLinksAnimationState(next && next.container)

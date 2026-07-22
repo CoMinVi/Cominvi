@@ -6,6 +6,7 @@ import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
 import { showHomeSequenceFirstFrame } from './loader-af.js'
 import { addMenuLinksCloseToTimeline } from './nav.js'
+import { holdLenisUntilClipComplete, stopLenis } from './scroll.js'
 import {
   createViewportClipOverlay,
   resetOverlayClipBaseState,
@@ -134,6 +135,12 @@ function formatNamespaceName(ns) {
 }
 
 export function slideScaleLeave({ current }) {
+  try {
+    window.__lenisHeldForClip = true
+    stopLenis()
+  } catch (err) {
+    // ignore
+  }
   const currentPage =
     current.container.querySelector('.page-wrap') || current.container
   const rect = currentPage.getBoundingClientRect()
@@ -142,6 +149,15 @@ export function slideScaleLeave({ current }) {
   baseTopPx = pageInfo
     ? Math.max(0, Math.round(pageInfo.getBoundingClientRect().height))
     : 0
+
+  // Prevent early Lenis scroll for the whole pt-inner transition.
+  // Flag is cleared when host clip.tl reaches progress === 1.
+  try {
+    window.__lenisHeldForClip = true
+    stopLenis()
+  } catch (err) {
+    // ignore
+  }
 
   // Update #page-from with current page name
   try {
@@ -156,7 +172,7 @@ export function slideScaleLeave({ current }) {
 
   if (window.lenis && typeof window.lenis.stop === 'function') {
     try {
-      window.lenis.stop()
+      stopLenis()
     } catch (err) {
       // ignore
     }
@@ -386,6 +402,13 @@ export function slideScaleEnter({ next }) {
               if (clip) {
                 resetHostClipBaseState(host, baseTopPx)
                 try {
+                  window.__lenisHeldForClip = true
+                  stopLenis()
+                  holdLenisUntilClipComplete(host)
+                } catch (e) {
+                  // ignore
+                }
+                try {
                   const rect2 = host.getBoundingClientRect()
                   let measured = 0
                   if (
@@ -566,6 +589,12 @@ export function slideScaleEnter({ next }) {
               // ignore
             }
             clip.tl.play(0)
+            // Keep Lenis locked until this clip timeline actually finishes
+            try {
+              holdLenisUntilClipComplete(host)
+            } catch (e) {
+              // ignore
+            }
           }
         }
       } catch (err) {

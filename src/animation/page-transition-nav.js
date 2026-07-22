@@ -20,7 +20,6 @@ import {
   startHomeSequenceAfterTransition,
 } from './loader-af.js'
 import { initializeNav2, resetMenuLinksAnimationState } from './nav.js'
-import { initHeroBackgroundParallax } from './parallax.js'
 import {
   initLenis,
   destroyLenis,
@@ -459,7 +458,6 @@ export function initializePageTransitionNav() {
     { includeScrollRefresh = false, includeTransitionEvent = false } = {}
   ) => {
     // Priorité critique: hero de la home immédiatement.
-    initHeroBackgroundParallax(container)
     if (isHomeNamespace(container)) {
       try {
         suppressHomeHeroVideo(container)

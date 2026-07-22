@@ -40,8 +40,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 120%;
-  height: 120%;
+  width: 100%;
+  height: 100%;
   flex: 0 0 auto;
   position: relative !important;
   z-index: 2 !important;

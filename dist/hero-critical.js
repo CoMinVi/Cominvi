@@ -8,6 +8,7 @@
   const LOCK_ATTR = 'data-cominvi-hero-locked'
   const POSTER_IMG_ATTR = 'data-cominvi-hero-poster-img'
   const INTRO_VIDEO_ATTR = 'data-cominvi-hero-intro-video'
+  const DIM_OVERLAY_ATTR = 'data-cominvi-hero-dim-overlay'
   const WEBFLOW_VIDEO_SELECTOR =
     '.hero-background .background_video > video:not([' +
     INTRO_VIDEO_ATTR +
@@ -94,6 +95,18 @@
   object-position: 50% 50% !important;
   z-index: 2 !important;
   pointer-events: none !important;
+}
+.hero-background .background_video > [data-cominvi-hero-dim-overlay="true"],
+.hero-background .w-background-video > [data-cominvi-hero-dim-overlay="true"] {
+  position: absolute !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 4 !important;
+  background-color: rgba(2, 2, 2, 0.2) !important;
 }
 `
 
@@ -193,11 +206,26 @@
     })
 
     ensureEarlyPosterImg(video)
+    if (isHome) {
+      ensureHeroDimOverlay(wrapper)
+    }
+  }
+
+  function ensureHeroDimOverlay(wrapper) {
+    if (!wrapper || !wrapper.appendChild) return
+    if (wrapper.querySelector('[' + DIM_OVERLAY_ATTR + '="true"]')) return
+
+    const dim = document.createElement('div')
+    dim.setAttribute(DIM_OVERLAY_ATTR, 'true')
+    dim.setAttribute('aria-hidden', 'true')
+    wrapper.appendChild(dim)
   }
 
   function scanHeroVideos() {
     document.querySelectorAll(WEBFLOW_VIDEO_SELECTOR).forEach(lockHeroVideo)
-    const overlay = document.querySelector('.hero-background > .background-overlay')
+    const overlay = document.querySelector(
+      '.hero-background > .background-overlay'
+    )
     if (overlay) {
       overlay.setAttribute('data-cominvi-hero-overlay-disabled', 'true')
       try {
@@ -257,8 +285,8 @@
         phase: posterImg
           ? 'placeholder-img'
           : hasBg
-            ? 'placeholder-bg'
-            : 'placeholder-poster',
+          ? 'placeholder-bg'
+          : 'placeholder-poster',
         source: 'hero-critical',
         placeholder: {
           w: round(rect.width),
@@ -330,8 +358,7 @@
 
     function tick() {
       push(read('early-raf'))
-      window.__cominviHeroSizeDebugEarly.rafId =
-        requestAnimationFrame(tick)
+      window.__cominviHeroSizeDebugEarly.rafId = requestAnimationFrame(tick)
     }
 
     push(read('hero-critical-start'))
@@ -344,7 +371,6 @@
     }
     console.info(PREFIX, 'early logger — logs uniquement si une taille change')
   })()
-
   ;(function preloadHomeHeroAssetsEarly() {
     const path = (location.pathname || '/').replace(/\/$/, '') || '/'
     if (path !== '/' && !path.endsWith('/index.html')) return

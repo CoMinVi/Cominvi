@@ -10,8 +10,23 @@ import {
 import { createHeroScrollSequence } from './hero-scroll-sequence.js'
 
 export const HERO_OVERLAY_DISABLED_ATTR = 'data-cominvi-hero-overlay-disabled'
+export const HERO_DIM_OVERLAY_ATTR = 'data-cominvi-hero-dim-overlay'
 
 let heroOverlayGuardObserver = null
+
+export function ensureHeroMediaDimOverlay(host) {
+  if (!host?.appendChild) return null
+
+  let overlay = host.querySelector(`[${HERO_DIM_OVERLAY_ATTR}="true"]`)
+  if (!overlay) {
+    overlay = document.createElement('div')
+    overlay.setAttribute(HERO_DIM_OVERLAY_ATTR, 'true')
+    overlay.setAttribute('aria-hidden', 'true')
+    host.appendChild(overlay)
+  }
+
+  return overlay
+}
 
 export function disableHeroBackgroundOverlay(scope = document) {
   const root = scope && scope.querySelector ? scope : document
@@ -132,6 +147,8 @@ export function createHeroSequenceController(backgroundInner) {
 
   const mediaHost =
     backgroundInner.querySelector('.background_video') || backgroundInner
+
+  ensureHeroMediaDimOverlay(mediaHost)
 
   let intro = null
   let scroll = null

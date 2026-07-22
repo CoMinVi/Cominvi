@@ -44,10 +44,19 @@ export function initLenis(root = document) {
   window.__lenisWrapper = wrapper
 
   // If a pt-inner clip hold is active, keep the fresh instance stopped
+  // and re-bind hard lock listeners onto the new wrapper.
   try {
-    if (window.__lenisHeldForClip && typeof lenis.stop === 'function') {
-      lenis.stop()
+    if (window.__lenisHeldForClip || window.__hardScrollLockActive) {
+      if (typeof lenis.stop === 'function') lenis.stop()
+      // New page always starts at top; freeze lock position there
+      try {
+        window.__hardScrollLockY = 0
+        wrapper.scrollTop = 0
+      } catch (err) {
+        // ignore
+      }
       lockLenisScrollToWhileHeld()
+      applyHardScrollLock()
     }
   } catch (err) {
     // ignore
@@ -144,21 +153,25 @@ export function initLenis(root = document) {
 }
 
 export function destroyLenis() {
-  try {
-    if (window.__lenisClipHoldTimeout) {
-      clearTimeout(window.__lenisClipHoldTimeout)
-      window.__lenisClipHoldTimeout = null
+  // Do not clear clip-hold watchers while a transition lock is active —
+  // Barba swaps Lenis mid-transition and the hold must survive.
+  if (!(window.__lenisHeldForClip || window.__hardScrollLockActive)) {
+    try {
+      if (window.__lenisClipHoldTimeout) {
+        clearTimeout(window.__lenisClipHoldTimeout)
+        window.__lenisClipHoldTimeout = null
+      }
+    } catch (err) {
+      // ignore
     }
-  } catch (err) {
-    // ignore
-  }
-  try {
-    if (window.__lenisClipPoll) {
-      clearInterval(window.__lenisClipPoll)
-      window.__lenisClipPoll = null
+    try {
+      if (window.__lenisClipPoll) {
+        clearInterval(window.__lenisClipPoll)
+        window.__lenisClipPoll = null
+      }
+    } catch (err) {
+      // ignore
     }
-  } catch (err) {
-    // ignore
   }
   // Keep __lenisHeldForClip: initLenis must re-apply the hold on the new instance
   try {
@@ -195,7 +208,7 @@ export function stopLenis() {
 
 export function startLenis() {
   try {
-    if (window.__lenisHeldForClip) return
+    if (window.__lenisHeldForClip || window.__hardScrollLockActive) return
     if (window.lenis && typeof window.lenis.start === 'function') {
       window.lenis.start()
     }
@@ -221,6 +234,211 @@ function resolveClipHost(hostEl) {
   }
 }
 
+function getScrollLockTargets() {
+  const targets = [window, document, document.documentElement, document.body]
+  try {
+    document.querySelectorAll('.page-wrap, .content-wrap').forEach((el) => {
+      targets.push(el)
+    })
+  } catch (err) {
+    // ignore
+  }
+  if (window.__lenisWrapper) targets.push(window.__lenisWrapper)
+  return targets.filter(Boolean)
+}
+
+function applyHardScrollLock() {
+  try {
+    window.__lenisHeldForClip = true
+  } catch (err) {
+    // ignore
+  }
+  stopLenis()
+  lockLenisScrollToWhileHeld()
+
+  const wasActive = !!window.__hardScrollLockActive
+  try {
+    window.__hardScrollLockActive = true
+  } catch (err) {
+    // ignore
+  }
+
+  // Freeze CSS overflow / touch-action (iOS ignores Lenis.stop for native gestures).
+  // Re-apply after Barba swaps so the new .page-wrap is also locked.
+  try {
+    const wraps = Array.from(
+      document.querySelectorAll('.page-wrap, .content-wrap')
+    )
+    if (!wasActive || !window.__hardScrollLockStyles) {
+      window.__hardScrollLockStyles = {
+        htmlOverflow: document.documentElement.style.overflow,
+        htmlTouch: document.documentElement.style.touchAction,
+        htmlOverscroll: document.documentElement.style.overscrollBehavior,
+        bodyOverflow: document.body.style.overflow,
+        bodyTouch: document.body.style.touchAction,
+        bodyOverscroll: document.body.style.overscrollBehavior,
+        wraps: [],
+      }
+      try {
+        window.__hardScrollLockY =
+          window.lenis && typeof window.lenis.scroll === 'number'
+            ? window.lenis.scroll
+            : window.__lenisWrapper
+            ? window.__lenisWrapper.scrollTop
+            : window.scrollY || 0
+      } catch (err) {
+        window.__hardScrollLockY = 0
+      }
+    }
+    const saved = window.__hardScrollLockStyles
+    const known = new Set((saved.wraps || []).map((entry) => entry.el))
+    wraps.forEach((el) => {
+      if (!known.has(el)) {
+        saved.wraps.push({
+          el,
+          overflow: el.style.overflow,
+          touch: el.style.touchAction,
+          overscroll: el.style.overscrollBehavior,
+        })
+        known.add(el)
+      }
+      el.style.setProperty('overflow', 'hidden')
+      el.style.setProperty('touch-action', 'none')
+      el.style.setProperty('overscroll-behavior', 'none')
+    })
+    document.documentElement.style.setProperty('overflow', 'hidden')
+    document.body.style.setProperty('overflow', 'hidden')
+    document.documentElement.style.setProperty('touch-action', 'none')
+    document.body.style.setProperty('touch-action', 'none')
+    document.documentElement.style.setProperty('overscroll-behavior', 'none')
+    document.body.style.setProperty('overscroll-behavior', 'none')
+  } catch (err) {
+    // ignore
+  }
+
+  // Block native wheel / touch scrolling at capture phase
+  try {
+    if (!window.__hardScrollLockBlocker) {
+      window.__hardScrollLockBlocker = (event) => {
+        if (!(window.__lenisHeldForClip || window.__hardScrollLockActive)) {
+          return
+        }
+        try {
+          event.preventDefault()
+        } catch (err) {
+          // ignore
+        }
+        try {
+          event.stopPropagation()
+        } catch (err) {
+          // ignore
+        }
+        // Snap scroll back if anything slipped through (iOS rubber-band)
+        try {
+          const y =
+            typeof window.__hardScrollLockY === 'number'
+              ? window.__hardScrollLockY
+              : 0
+          if (window.__lenisWrapper) {
+            window.__lenisWrapper.scrollTop = y
+          }
+          if (
+            window.lenis &&
+            typeof window.lenis.__clipHoldOriginalScrollTo === 'function'
+          ) {
+            window.lenis.__clipHoldOriginalScrollTo(y, { immediate: true })
+          }
+          window.scrollTo(0, 0)
+        } catch (err) {
+          // ignore
+        }
+      }
+    }
+    const blocker = window.__hardScrollLockBlocker
+    const opts = { passive: false, capture: true }
+    const prevTargets = window.__hardScrollLockTargets || []
+    const nextTargets = getScrollLockTargets()
+    const prevSet = new Set(prevTargets)
+    nextTargets.forEach((target) => {
+      if (prevSet.has(target)) return
+      try {
+        target.addEventListener('touchmove', blocker, opts)
+        target.addEventListener('wheel', blocker, opts)
+      } catch (err) {
+        // ignore
+      }
+    })
+    window.__hardScrollLockTargets = Array.from(
+      new Set([...prevTargets, ...nextTargets])
+    )
+  } catch (err) {
+    // ignore
+  }
+}
+
+function removeHardScrollLock() {
+  try {
+    const blocker = window.__hardScrollLockBlocker
+    const opts = { capture: true }
+    const targets = window.__hardScrollLockTargets || getScrollLockTargets()
+    if (blocker) {
+      targets.forEach((target) => {
+        try {
+          target.removeEventListener('touchmove', blocker, opts)
+          target.removeEventListener('wheel', blocker, opts)
+        } catch (err) {
+          // ignore
+        }
+      })
+    }
+  } catch (err) {
+    // ignore
+  }
+
+  try {
+    const saved = window.__hardScrollLockStyles
+    if (saved) {
+      document.documentElement.style.overflow = saved.htmlOverflow || ''
+      document.documentElement.style.touchAction = saved.htmlTouch || ''
+      document.documentElement.style.overscrollBehavior =
+        saved.htmlOverscroll || ''
+      document.body.style.overflow = saved.bodyOverflow || ''
+      document.body.style.touchAction = saved.bodyTouch || ''
+      document.body.style.overscrollBehavior = saved.bodyOverscroll || ''
+      ;(saved.wraps || []).forEach(({ el, overflow, touch, overscroll }) => {
+        try {
+          if (!el || !el.style) return
+          el.style.overflow = overflow || ''
+          el.style.touchAction = touch || ''
+          el.style.overscrollBehavior = overscroll || ''
+        } catch (err) {
+          // ignore
+        }
+      })
+    }
+  } catch (err) {
+    // ignore
+  }
+
+  try {
+    window.__hardScrollLockStyles = null
+    window.__hardScrollLockTargets = null
+    window.__hardScrollLockY = null
+    window.__hardScrollLockActive = false
+  } catch (err) {
+    // ignore
+  }
+}
+
+/**
+ * Hard-lock all scrolling for menu → page transitions.
+ * Keeps Lenis stopped and blocks native iOS touch/wheel until release.
+ */
+export function lockScrollForTransition(hostEl) {
+  applyHardScrollLock()
+  return holdLenisUntilClipComplete(hostEl)
+}
+
 /**
  * Keep Lenis stopped until the host clip timeline reaches progress === 1.
  * Used during pt-inner transitions so early scroll cannot run while the
@@ -230,13 +448,7 @@ export function holdLenisUntilClipComplete(hostEl) {
   const host = resolveClipHost(hostEl)
   const clip = host && host.__clip
 
-  try {
-    window.__lenisHeldForClip = true
-  } catch (err) {
-    // ignore
-  }
-  stopLenis()
-  lockLenisScrollToWhileHeld()
+  applyHardScrollLock()
 
   // Clip not ready yet (leave/early enter): keep hold and poll briefly
   if (!clip || !clip.tl || typeof clip.tl.progress !== 'function') {
@@ -253,7 +465,6 @@ export function holdLenisUntilClipComplete(hostEl) {
     // ignore and hold below
   }
 
-  stopLenis()
   attachClipCompleteRelease(clip)
   armClipHoldSafetyTimeout()
   return true
@@ -281,6 +492,7 @@ function releaseLenisClipHold() {
   } catch (err) {
     // ignore
   }
+  removeHardScrollLock()
   unlockLenisScrollTo()
   startLenis()
 }
@@ -324,6 +536,7 @@ function pollForClipAndHold(hostEl) {
   try {
     window.__lenisClipPoll = setInterval(() => {
       tries += 1
+      applyHardScrollLock()
       const host = resolveClipHost(hostEl)
       const clip = host && host.__clip
       if (clip && clip.tl && typeof clip.tl.progress === 'function') {
@@ -342,7 +555,7 @@ function pollForClipAndHold(hostEl) {
         stopLenis()
         return
       }
-      if (tries > 80) {
+      if (tries > 100) {
         try {
           clearInterval(window.__lenisClipPoll)
           window.__lenisClipPoll = null
@@ -364,9 +577,10 @@ function armClipHoldSafetyTimeout() {
     if (window.__lenisClipHoldTimeout) {
       clearTimeout(window.__lenisClipHoldTimeout)
     }
+    // Menu + leave + descale + clip ≈ ~4s; keep a safety margin
     window.__lenisClipHoldTimeout = setTimeout(() => {
       releaseLenisClipHold()
-    }, 5000)
+    }, 8000)
   } catch (err) {
     // ignore
   }
@@ -379,7 +593,7 @@ function lockLenisScrollToWhileHeld() {
     if (lenis.__clipHoldScrollToPatched) return
     lenis.__clipHoldOriginalScrollTo = lenis.scrollTo.bind(lenis)
     lenis.scrollTo = function scrollToWhileHeld(target, options) {
-      if (window.__lenisHeldForClip) return
+      if (window.__lenisHeldForClip || window.__hardScrollLockActive) return
       return lenis.__clipHoldOriginalScrollTo(target, options)
     }
     lenis.__clipHoldScrollToPatched = true

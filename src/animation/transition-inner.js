@@ -6,7 +6,7 @@ import { initContactHero } from './contact-hero.js'
 import { heroAnimation } from './landing.js'
 import { showHomeSequenceFirstFrame } from './loader-af.js'
 import { addMenuLinksCloseToTimeline } from './nav.js'
-import { holdLenisUntilClipComplete, stopLenis } from './scroll.js'
+import { lockScrollForTransition, stopLenis } from './scroll.js'
 import {
   createViewportClipOverlay,
   resetOverlayClipBaseState,
@@ -135,9 +135,10 @@ function formatNamespaceName(ns) {
 }
 
 export function slideScaleLeave({ current }) {
+  // Hard-lock scroll for the whole pt-inner transition (Lenis + native iOS).
+  // Released when host clip.tl reaches progress === 1.
   try {
-    window.__lenisHeldForClip = true
-    stopLenis()
+    lockScrollForTransition()
   } catch (err) {
     // ignore
   }
@@ -149,15 +150,6 @@ export function slideScaleLeave({ current }) {
   baseTopPx = pageInfo
     ? Math.max(0, Math.round(pageInfo.getBoundingClientRect().height))
     : 0
-
-  // Prevent early Lenis scroll for the whole pt-inner transition.
-  // Flag is cleared when host clip.tl reaches progress === 1.
-  try {
-    window.__lenisHeldForClip = true
-    stopLenis()
-  } catch (err) {
-    // ignore
-  }
 
   // Update #page-from with current page name
   try {
@@ -402,9 +394,7 @@ export function slideScaleEnter({ next }) {
               if (clip) {
                 resetHostClipBaseState(host, baseTopPx)
                 try {
-                  window.__lenisHeldForClip = true
-                  stopLenis()
-                  holdLenisUntilClipComplete(host)
+                  lockScrollForTransition(host)
                 } catch (e) {
                   // ignore
                 }
@@ -589,9 +579,9 @@ export function slideScaleEnter({ next }) {
               // ignore
             }
             clip.tl.play(0)
-            // Keep Lenis locked until this clip timeline actually finishes
+            // Keep scroll locked until this clip timeline actually finishes
             try {
-              holdLenisUntilClipComplete(host)
+              lockScrollForTransition(host)
             } catch (e) {
               // ignore
             }

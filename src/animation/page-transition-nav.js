@@ -25,6 +25,7 @@ import {
   initLenis,
   destroyLenis,
   holdLenisUntilClipComplete,
+  lockScrollForTransition,
 } from './scroll.js'
 import {
   createViewportClipOverlay,
@@ -301,6 +302,12 @@ export function initializePageTransitionNav() {
           : null
       if (!target) return
       try {
+        // Hard-lock scroll immediately on menu link click (before Barba leave)
+        try {
+          lockScrollForTransition()
+        } catch (e) {
+          /* ignore */
+        }
         setTransitionBackground('var(--accent)')
         const navInner = document.querySelector('.nav-inner')
         const pageInfo = document.querySelector('.page-info')

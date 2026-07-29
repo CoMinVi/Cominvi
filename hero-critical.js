@@ -7,6 +7,14 @@
 
   const LOCK_ATTR = 'data-cominvi-hero-locked'
   const POSTER_IMG_ATTR = 'data-cominvi-hero-poster-img'
+  const INTRO_VIDEO_ATTR = 'data-cominvi-hero-intro-video'
+  const DIM_OVERLAY_ATTR = 'data-cominvi-hero-dim-overlay'
+  const WEBFLOW_VIDEO_SELECTOR =
+    '.hero-background .background_video > video:not([' +
+    INTRO_VIDEO_ATTR +
+    '="true"]), .hero-background .w-background-video > video:not([' +
+    INTRO_VIDEO_ATTR +
+    '="true"])'
 
   const style = document.createElement('style')
   style.setAttribute('data-cominvi-hero-critical', '')
@@ -20,13 +28,23 @@
   align-items: center;
   overflow: hidden;
 }
-.hero-background .background-inner {
+.hero-background > .background-overlay {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  background-image: none !important;
+  z-index: -1 !important;
+}
+.hero-background > .background-inner {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 120%;
-  height: 120%;
+  width: 100%;
+  height: 100%;
   flex: 0 0 auto;
+  position: relative !important;
+  z-index: 2 !important;
 }
 .hero-background .is-video {
   width: 100%;
@@ -40,8 +58,8 @@
   height: 100% !important;
   background-image: none !important;
 }
-.hero-background .background_video > video,
-.hero-background .w-background-video > video {
+.hero-background .background_video > video:not([data-cominvi-hero-intro-video="true"]),
+.hero-background .w-background-video > video:not([data-cominvi-hero-intro-video="true"]) {
   position: absolute !important;
   inset: 0 !important;
   margin: 0 !important;
@@ -53,6 +71,17 @@
   z-index: 1 !important;
   opacity: 0 !important;
   visibility: hidden !important;
+}
+.hero-background .background_video > video[data-cominvi-hero-intro-video="true"] {
+  position: absolute !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: 50% 50% !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
 }
 .hero-background .background_video > img[data-cominvi-hero-poster-img="true"],
 .hero-background .w-background-video > img[data-cominvi-hero-poster-img="true"] {
@@ -66,6 +95,18 @@
   object-position: 50% 50% !important;
   z-index: 2 !important;
   pointer-events: none !important;
+}
+.hero-background .background_video > [data-cominvi-hero-dim-overlay="true"],
+.hero-background .w-background-video > [data-cominvi-hero-dim-overlay="true"] {
+  position: absolute !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 4 !important;
+  background-color: rgba(2, 2, 2, 0.2) !important;
 }
 `
 
@@ -113,6 +154,7 @@
 
   function lockHeroVideo(video) {
     if (!video || video.getAttribute(LOCK_ATTR) === 'true') return
+    if (video.getAttribute(INTRO_VIDEO_ATTR) === 'true') return
     video.setAttribute(LOCK_ATTR, 'true')
 
     const homeContainer = video.closest('[data-barba-namespace]')
@@ -164,12 +206,39 @@
     })
 
     ensureEarlyPosterImg(video)
+    if (isHome) {
+      ensureHeroDimOverlay(wrapper)
+    }
+  }
+
+  function ensureHeroDimOverlay(wrapper) {
+    if (!wrapper || !wrapper.appendChild) return
+    if (wrapper.querySelector('[' + DIM_OVERLAY_ATTR + '="true"]')) return
+
+    const dim = document.createElement('div')
+    dim.setAttribute(DIM_OVERLAY_ATTR, 'true')
+    dim.setAttribute('aria-hidden', 'true')
+    wrapper.appendChild(dim)
   }
 
   function scanHeroVideos() {
-    document
-      .querySelectorAll('.hero-background .background_video video')
-      .forEach(lockHeroVideo)
+    document.querySelectorAll(WEBFLOW_VIDEO_SELECTOR).forEach(lockHeroVideo)
+    const overlay = document.querySelector(
+      '.hero-background > .background-overlay'
+    )
+    if (overlay) {
+      overlay.setAttribute('data-cominvi-hero-overlay-disabled', 'true')
+      try {
+        overlay.style.setProperty('display', 'none', 'important')
+        overlay.style.setProperty('opacity', '0', 'important')
+        overlay.style.setProperty('visibility', 'hidden', 'important')
+        overlay.style.setProperty('pointer-events', 'none', 'important')
+        overlay.style.setProperty('background-image', 'none', 'important')
+        overlay.style.setProperty('z-index', '-1', 'important')
+      } catch (e) {
+        // ignore
+      }
+    }
   }
 
   scanHeroVideos()
@@ -216,8 +285,8 @@
         phase: posterImg
           ? 'placeholder-img'
           : hasBg
-            ? 'placeholder-bg'
-            : 'placeholder-poster',
+          ? 'placeholder-bg'
+          : 'placeholder-poster',
         source: 'hero-critical',
         placeholder: {
           w: round(rect.width),
@@ -289,8 +358,7 @@
 
     function tick() {
       push(read('early-raf'))
-      window.__cominviHeroSizeDebugEarly.rafId =
-        requestAnimationFrame(tick)
+      window.__cominviHeroSizeDebugEarly.rafId = requestAnimationFrame(tick)
     }
 
     push(read('hero-critical-start'))
@@ -303,14 +371,14 @@
     }
     console.info(PREFIX, 'early logger — logs uniquement si une taille change')
   })()
-
-  ;(function preloadHomeAfAssetsEarly() {
+  ;(function preloadHomeHeroAssetsEarly() {
     const path = (location.pathname || '/').replace(/\/$/, '') || '/'
     if (path !== '/' && !path.endsWith('/index.html')) return
 
     const ORIGIN = 'https://cominvi.netlify.app'
-    const AF_URL = ORIGIN + '/cave-scene/cave-scene-full-sequence.af'
-    const POSTER_URL = ORIGIN + '/cave-scene/frame_00001.avif'
+    const MANIFEST_URL = ORIGIN + '/cave-scene/scroll/manifest.json'
+    const INTRO_URL = ORIGIN + '/cave-scene/intro.mp4'
+    const POSTER_URL = ORIGIN + '/cave-scene/poster/frame_00000.webp'
     const head = document.head || document.getElementsByTagName('head')[0]
     if (!head) return
 
@@ -323,15 +391,26 @@
       head.appendChild(preconnect)
     }
 
-    if (!head.querySelector('link[data-cominvi-af-preload]')) {
-      const preloadAf = document.createElement('link')
-      preloadAf.rel = 'preload'
-      preloadAf.as = 'fetch'
-      preloadAf.href = AF_URL
-      preloadAf.crossOrigin = 'anonymous'
-      preloadAf.setAttribute('fetchpriority', 'high')
-      preloadAf.setAttribute('data-cominvi-af-preload', 'true')
-      head.appendChild(preloadAf)
+    if (!head.querySelector('link[data-cominvi-hero-manifest-preload]')) {
+      const preloadManifest = document.createElement('link')
+      preloadManifest.rel = 'preload'
+      preloadManifest.as = 'fetch'
+      preloadManifest.href = MANIFEST_URL
+      preloadManifest.crossOrigin = 'anonymous'
+      preloadManifest.setAttribute('fetchpriority', 'high')
+      preloadManifest.setAttribute('data-cominvi-hero-manifest-preload', 'true')
+      head.appendChild(preloadManifest)
+    }
+
+    if (!head.querySelector('link[data-cominvi-hero-intro-preload]')) {
+      const preloadIntro = document.createElement('link')
+      preloadIntro.rel = 'preload'
+      preloadIntro.as = 'fetch'
+      preloadIntro.href = INTRO_URL
+      preloadIntro.crossOrigin = 'anonymous'
+      preloadIntro.setAttribute('fetchpriority', 'high')
+      preloadIntro.setAttribute('data-cominvi-hero-intro-preload', 'true')
+      head.appendChild(preloadIntro)
     }
 
     if (!head.querySelector('link[data-cominvi-af-poster-preload]')) {

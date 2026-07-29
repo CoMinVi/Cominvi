@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "intro": {
+    "frameCount": 86,
+    "fps": 24,
+    "durationSec": 3.6,
+    "detectFromVideo": false,
+    "source": {
+      "frameCount": 108,
+      "fps": 30
+    }
+  },
+  "scroll": {
+    "frameCount": 150,
+    "batchSize": 30,
+    "scrollRangeVh": 100,
+    "filePattern": "frame_{index}.webp",
+    "indexPad": 5
+  },
+  "variants": {
+    "desktop": {
+      "width": 1920,
+      "height": 1080,
+      "minWidth": 992,
+      "intro": {
+        "mp4": "/cave-scene/intro.mp4",
+        "webm": "/cave-scene/intro.webm"
+      },
+      "scroll": {
+        "frameCount": 150,
+        "basePath": "/cave-scene/scroll/desktop",
+        "batches": [
+          { "id": "batch-0", "startIndex": 0, "count": 30 },
+          { "id": "batch-1", "startIndex": 30, "count": 30 },
+          { "id": "batch-2", "startIndex": 60, "count": 30 },
+          { "id": "batch-3", "startIndex": 90, "count": 30 },
+          { "id": "batch-4", "startIndex": 120, "count": 30 }
+        ]
+      }
+    },
+    "mobile": {
+      "width": 440,
+      "height": 960,
+      "maxWidth": 991,
+      "intro": {
+        "mp4": "/cave-scene/intro-mobile.mp4",
+        "webm": "/cave-scene/intro-mobile.webm"
+      },
+      "scroll": {
+        "frameCount": 132,
+        "basePath": "/cave-scene/scroll/mobile",
+        "batches": [
+          { "id": "batch-0", "startIndex": 0, "count": 30 },
+          { "id": "batch-1", "startIndex": 30, "count": 30 },
+          { "id": "batch-2", "startIndex": 60, "count": 30 },
+          { "id": "batch-3", "startIndex": 90, "count": 30 },
+          { "id": "batch-4", "startIndex": 120, "count": 12 }
+        ]
+      }
+    }
+  },
+  "poster": {
+    "webp": "/cave-scene/poster/frame_00000.webp"
+  }
+}

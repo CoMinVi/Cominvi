@@ -7,6 +7,7 @@
       "src/animation/service-icons.js",
       "src/animation/button-hover.js",
       "src/animation/service-cards.js",
+      "src/animation/cards-reveal.js",
       "src/animation/text-reveal.js",
       "src/animation/minerals.js",
       "src/animation/minerals-canvas-local-debug.js",
@@ -31,6 +32,14 @@
   "src/animation/cylinder.js": {
     "file": "assets/cylinder.js",
     "src": "src/animation/cylinder.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ]
+  },
+  "src/animation/safety-sticky.js": {
+    "file": "assets/safety-sticky.js",
+    "src": "src/animation/safety-sticky.js",
     "isDynamicEntry": true,
     "imports": [
       "src/main.js"
@@ -78,6 +87,17 @@
   "_index.js": {
     "file": "assets/index.js"
   },
+  "src/animation/cards-reveal.js": {
+    "file": "assets/cards-reveal.js",
+    "src": "src/animation/cards-reveal.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.js"
+    ],
+    "dynamicImports": [
+      "src/animation/service-cards.js"
+    ]
+  },
   "src/animation/text-reveal.js": {
     "file": "assets/text-reveal.js",
     "src": "src/animation/text-reveal.js",
@@ -100,16 +120,12 @@
     "src": "src/animation/minerals-canvas-local-debug.js",
     "isDynamicEntry": true,
     "imports": [
-      "src/main.js"
+      "src/main.js",
+      "_scroll-performance.js"
     ]
   },
-  "src/animation/safety-sticky.js": {
-    "file": "assets/safety-sticky.js",
-    "src": "src/animation/safety-sticky.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/main.js"
-    ]
+  "_scroll-performance.js": {
+    "file": "assets/scroll-performance.js"
   },
   "src/animation/scroll-list.js": {
     "file": "assets/scroll-list.js",
@@ -124,7 +140,8 @@
     "src": "src/animation/process-progression.js",
     "isDynamicEntry": true,
     "imports": [
-      "src/main.js"
+      "src/main.js",
+      "_scroll-performance.js"
     ]
   },
   "src/animation/testimonials.js": {
@@ -153,7 +170,8 @@
     "src": "src/animation/map.js",
     "isDynamicEntry": true,
     "imports": [
-      "src/main.js"
+      "src/main.js",
+      "_scroll-performance.js"
     ]
   },
   "src/animation/technology.js": {

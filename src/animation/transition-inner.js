@@ -525,7 +525,12 @@ export function slideScaleEnter({ next }) {
               const bgInner =
                 host.querySelector('.background-inner') ||
                 document.querySelector('.background-inner')
-              if (bgInner) {
+              const nextNamespace = (
+                next.container.getAttribute('data-barba-namespace') || ''
+              )
+                .trim()
+                .toLowerCase()
+              if (bgInner && nextNamespace !== 'home') {
                 gsap.set(bgInner, { transformOrigin: '50% 50%', scale: 1 })
                 tl.to(
                   bgInner,

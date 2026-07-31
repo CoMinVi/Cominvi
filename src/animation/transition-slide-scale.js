@@ -221,7 +221,12 @@ export function slideScaleEnter({ next }) {
     // the outgoing Home hero when the destination has no background-inner,
     // and GSAP then rewrites its transform with y: 0.
     const bgInner = nextPage.querySelector('.background-inner')
-    if (bgInner) {
+    const nextNamespace = (
+      next.container.getAttribute('data-barba-namespace') || ''
+    )
+      .trim()
+      .toLowerCase()
+    if (bgInner && nextNamespace !== 'home') {
       gsap.set(bgInner, { transformOrigin: '50% 50%', scale: 1 })
       tl.to(
         bgInner,

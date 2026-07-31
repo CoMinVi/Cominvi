@@ -17,7 +17,7 @@ function registerTextRevealCleanup(root) {
   try {
     __textRevealActive = true
     window.__textRevealCleanupRoot = root
-    window.__textRevealCleanup = () => destroyTextReveal(root)
+    window.__textRevealCleanup = (options) => destroyTextReveal(root, options)
   } catch (e) {
     // ignore
   }
@@ -529,7 +529,10 @@ export function initTextReveal(root = document) {
   return timelines
 }
 
-export function destroyTextReveal(root = document) {
+export function destroyTextReveal(
+  root = document,
+  { preserveDom = false, refresh = true } = {}
+) {
   __textRevealActive = false
   if (__textRevealResizeTimeout) {
     clearTimeout(__textRevealResizeTimeout)
@@ -540,7 +543,7 @@ export function destroyTextReveal(root = document) {
     try {
       if (el.__textRevealTimeline) {
         if (el.__textRevealTimeline.scrollTrigger) {
-          el.__textRevealTimeline.scrollTrigger.kill()
+          el.__textRevealTimeline.scrollTrigger.kill(!preserveDom)
         }
         el.__textRevealTimeline.kill()
         el.__textRevealTimeline = null
@@ -555,7 +558,9 @@ export function destroyTextReveal(root = document) {
       ) {
         el.__textRevealLineTweens.forEach((tw) => {
           try {
-            if (tw && tw.scrollTrigger) tw.scrollTrigger.kill()
+            if (tw && tw.scrollTrigger) {
+              tw.scrollTrigger.kill(!preserveDom)
+            }
             if (tw && typeof tw.kill === 'function') tw.kill()
           } catch (e) {
             // ignore
@@ -568,6 +573,7 @@ export function destroyTextReveal(root = document) {
     }
     try {
       if (
+        !preserveDom &&
         el.__textRevealSplit &&
         typeof el.__textRevealSplit.revert === 'function'
       ) {
@@ -590,6 +596,7 @@ export function destroyTextReveal(root = document) {
           proc.__processMobileLineST = null
         }
         if (
+          !preserveDom &&
           proc.__processMobileLineSplits &&
           Array.isArray(proc.__processMobileLineSplits)
         ) {
@@ -690,7 +697,7 @@ export function destroyTextReveal(root = document) {
   } catch (e) {
     // ignore
   }
-  ScrollTrigger.refresh()
+  if (refresh) ScrollTrigger.refresh()
 }
 
 // No auto-init here; main.js controls timing after Lenis setup

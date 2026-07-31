@@ -266,9 +266,7 @@ function applyHardScrollLock() {
   // Freeze CSS overflow / touch-action (iOS ignores Lenis.stop for native gestures).
   // Re-apply after Barba swaps so the new .page-wrap is also locked.
   try {
-    const wraps = Array.from(
-      document.querySelectorAll('.page-wrap, .content-wrap')
-    )
+    const wraps = Array.from(document.querySelectorAll('.page-wrap'))
     if (!wasActive || !window.__hardScrollLockStyles) {
       window.__hardScrollLockStyles = {
         htmlOverflow: document.documentElement.style.overflow,
@@ -302,6 +300,8 @@ function applyHardScrollLock() {
         })
         known.add(el)
       }
+      // Only freeze the actual scroller. Mutating `.content-wrap` collapses its
+      // flex sizing and disturbs layout-driven reveals during the transition.
       el.style.setProperty('overflow', 'hidden')
       el.style.setProperty('touch-action', 'none')
       el.style.setProperty('overscroll-behavior', 'none')

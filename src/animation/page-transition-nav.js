@@ -927,7 +927,9 @@ export function initializePageTransitionNav() {
         window.__processProgressionCleanup()
       }
       if (typeof window.__textRevealCleanup === 'function') {
-        window.__textRevealCleanup()
+        // Kill stale ScrollTriggers without reverting SplitType while the
+        // outgoing page is still visible. Barba removes this DOM after leave.
+        window.__textRevealCleanup({ preserveDom: true, refresh: false })
       }
     } catch (e) {
       /* ignore */

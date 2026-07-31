@@ -4,10 +4,12 @@ import { getScrollFrameCount, getScrollFrameUrl } from './hero-manifest.js'
 const PRELOAD_AHEAD = 48
 const PRELOAD_BEHIND = 12
 const BACKGROUND_PRELOAD_YIELD_EVERY = 4
+const sharedImageCache = new Map()
+const sharedImageInflight = new Map()
 
 function createImageLoader() {
-  const cache = new Map()
-  const inflight = new Map()
+  const cache = sharedImageCache
+  const inflight = sharedImageInflight
 
   const load = (url) => {
     if (!url) return Promise.resolve(null)
@@ -19,7 +21,12 @@ function createImageLoader() {
       const img = new Image()
       img.decoding = 'async'
       img.crossOrigin = 'anonymous'
-      img.onload = () => {
+      img.onload = async () => {
+        try {
+          await img.decode()
+        } catch (e) {
+          // The loaded image remains drawable when explicit decoding is unavailable.
+        }
         cache.set(url, img)
         inflight.delete(url)
         resolve(img)

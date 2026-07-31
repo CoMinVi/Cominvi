@@ -449,6 +449,19 @@ export function initHeroBackgroundParallax(root = document) {
     document.querySelector('.hero-background .background-inner')
   if (!bgInner) return null
 
+  const namespace = (
+    bgInner
+      .closest('[data-barba="container"]')
+      ?.getAttribute('data-barba-namespace') || ''
+  )
+    .trim()
+    .toLowerCase()
+  if (namespace !== 'home') {
+    bgInner.style.width = '100%'
+    bgInner.style.height = '100%'
+    bgInner.style.flex = '0 0 auto'
+  }
+
   const scroller = window.__lenisWrapper || undefined
   // Small translation range to avoid revealing edges while preserving size
   const amplitudePx = 40
@@ -665,18 +678,18 @@ export function initNextBackgroundParallax(root = document) {
       const section = bg.closest('.section_next') || bg.parentElement
       const cs = window.getComputedStyle(bg)
       if (cs.position === 'static') bg.style.position = 'absolute'
-      bg.style.inset = 'auto'
-      bg.style.left = '50%'
-      bg.style.top = '50%'
-      bg.style.width = '120%'
-      bg.style.height = '120%'
+      bg.style.inset = '0'
+      bg.style.left = '0'
+      bg.style.top = '0'
+      bg.style.width = '100%'
+      bg.style.height = '100%'
       bg.style.overflow = 'hidden'
-      // Match the hero background: 120% base size plus scale(1.2).
+      // Match internal heroes exactly: a full-size centered layer scaled to 1.2.
       gsap.set(bg, {
         transformOrigin: '50% 50%',
         willChange: 'transform',
-        xPercent: -50,
-        yPercent: -50,
+        xPercent: 0,
+        yPercent: 0,
         scale: 1.2,
       })
       return section || bg

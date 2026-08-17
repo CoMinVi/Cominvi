@@ -24,22 +24,27 @@ function splitBlogTitles(scope = document) {
             const wordEls = Array.from(title.querySelectorAll('.blogline-word'))
             if (!wordEls.length) return
             let currentTop = null
-            let lineWrap = null
+            const lineGroups = []
             wordEls.forEach((wEl) => {
               const top = wEl.offsetTop
               if (currentTop === null || Math.abs(top - currentTop) > 1) {
                 currentTop = top
-                lineWrap = document.createElement('span')
-                lineWrap.className = 'blogline-line'
-                title.insertBefore(lineWrap, wEl)
+                lineGroups.push([])
               }
-              lineWrap.appendChild(wEl)
-              if (
-                wEl.nextSibling &&
-                wEl.nextSibling.nodeType === Node.TEXT_NODE
-              ) {
-                lineWrap.appendChild(wEl.nextSibling)
-              }
+              lineGroups[lineGroups.length - 1].push(wEl)
+            })
+
+            title.textContent = ''
+            lineGroups.forEach((lineWords, lineIndex) => {
+              const lineWrap = document.createElement('span')
+              lineWrap.className = 'blogline-line'
+              lineWords.forEach((word, index) => {
+                if (index > 0)
+                  lineWrap.appendChild(document.createTextNode(' '))
+                lineWrap.appendChild(word)
+              })
+              if (lineIndex > 0) title.appendChild(document.createTextNode(' '))
+              title.appendChild(lineWrap)
             })
             title.dataset.linesSplit = 'true'
           } catch (err) {

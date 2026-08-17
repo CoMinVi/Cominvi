@@ -127,7 +127,7 @@ function setupCardsReveal(root = document) {
             if (card.classList.contains('service-card')) {
               requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                  refreshServiceCardsAfterReveal(scope)
+                  refreshServiceCardsAfterReveal(card)
                 })
               })
             }

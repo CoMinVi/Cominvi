@@ -121,8 +121,18 @@ const TITLE_TRANSITION = `transform ${SVC_DURATION} ${SVC_EASING}`
 
 const setServiceCardDescClosed = (desc, { instant = false } = {}) => {
   if (!desc) return
+  const card = desc.closest('.service-card')
+  if (card && (card.__svcHoverActive || isServiceCardHovered(card))) return
+  if (desc.__svcAutoHeightHandler) {
+    desc.removeEventListener('transitionend', desc.__svcAutoHeightHandler)
+    desc.__svcAutoHeightHandler = null
+  }
   if (instant) desc.style.transition = 'none'
   else desc.style.transition = DESC_TRANSITION
+  if (!instant && desc.style.height === 'auto') {
+    desc.style.height = `${desc.getBoundingClientRect().height}px`
+    void desc.offsetHeight
+  }
   desc.style.height = '0'
   desc.style.maxHeight = ''
   desc.style.opacity = '0'
@@ -136,10 +146,14 @@ const setServiceCardDescClosed = (desc, { instant = false } = {}) => {
 
 const setServiceCardDescOpen = (desc, heightPx, { instant = false } = {}) => {
   if (!desc) return
-  const h = Math.max(0, Math.round(heightPx || 0))
+  const h = Math.max(0, Number(heightPx) || 0)
+  if (desc.__svcAutoHeightHandler) {
+    desc.removeEventListener('transitionend', desc.__svcAutoHeightHandler)
+    desc.__svcAutoHeightHandler = null
+  }
   if (instant) desc.style.transition = 'none'
   else desc.style.transition = DESC_TRANSITION
-  desc.style.height = `${h}px`
+  desc.style.height = instant ? 'auto' : `${h}px`
   desc.style.maxHeight = ''
   desc.style.opacity = h > 0 ? '1' : '0'
   desc.style.overflow = 'hidden'
@@ -147,6 +161,18 @@ const setServiceCardDescOpen = (desc, heightPx, { instant = false } = {}) => {
   if (instant) {
     void desc.offsetHeight
     desc.style.transition = DESC_TRANSITION
+  } else {
+    const setAutoHeight = (event) => {
+      if (event.propertyName !== 'height') return
+      desc.removeEventListener('transitionend', setAutoHeight)
+      desc.__svcAutoHeightHandler = null
+      const card = desc.closest('.service-card')
+      if (card && (card.__svcHoverActive || isServiceCardHovered(card))) {
+        desc.style.height = 'auto'
+      }
+    }
+    desc.__svcAutoHeightHandler = setAutoHeight
+    desc.addEventListener('transitionend', setAutoHeight)
   }
 }
 
@@ -157,12 +183,12 @@ const getServiceTitleLiftPx = (desc, bloc) => {
     parseFloat(getComputedStyle(bloc).rowGap) ||
     parseFloat(getComputedStyle(bloc).gap) ||
     0
-  return Math.round(contentH + gap)
+  return contentH + gap
 }
 
 const setServiceTitleLift = (bodyL, liftPx, { instant = false } = {}) => {
   if (!bodyL) return
-  const lift = Math.max(0, Math.round(liftPx || 0))
+  const lift = Math.max(0, Number(liftPx) || 0)
   if (instant) bodyL.style.transition = 'none'
   else bodyL.style.transition = TITLE_TRANSITION
   bodyL.style.transform = lift > 0 ? `translateY(-${lift}px)` : ''
@@ -172,12 +198,63 @@ const setServiceTitleLift = (bodyL, liftPx, { instant = false } = {}) => {
   }
 }
 
-const measureServiceDescContentHeight = (desc, small) => {
-  if (!desc) return 0
+const snapshotServiceDescLayout = (desc, small) => {
   const inners = small?.__lineInners || []
-  const savedTransforms = inners.map((el) => el.style.transform)
-  const savedTransition = desc.style.transition
+  return {
+    transition: desc.style.transition,
+    height: desc.style.height,
+    maxHeight: desc.style.maxHeight,
+    opacity: desc.style.opacity,
+    overflow: desc.style.overflow,
+    visibility: desc.style.visibility,
+    pointerEvents: desc.style.pointerEvents,
+    innerTransforms: inners.map((el) => el.style.transform),
+    innerDelays: inners.map((el) => el.style.transitionDelay),
+  }
+}
 
+const restoreServiceDescLayout = (desc, small, snapshot) => {
+  if (!desc || !snapshot) return
+  const card = desc.closest('.service-card')
+  const keepOpen =
+    !!card && (card.__svcHoverActive || isServiceCardHovered(card))
+  if (keepOpen) {
+    const inners = small?.__lineInners || []
+    desc.style.transition = snapshot.transition || DESC_TRANSITION
+    desc.style.visibility = ''
+    desc.style.overflow = 'hidden'
+    desc.style.pointerEvents = 'auto'
+    const height = Math.max(
+      0,
+      Math.round(desc.__svcContentHeightPx || desc.scrollHeight || 0)
+    )
+    desc.style.height = 'auto'
+    desc.style.maxHeight = ''
+    desc.style.opacity = height > 0 ? '1' : '0'
+    inners.forEach((el) => {
+      el.style.transitionDelay = '0s'
+      el.style.transform = 'translateY(0%)'
+    })
+    return
+  }
+  const inners = small?.__lineInners || []
+  desc.style.transition = snapshot.transition
+  desc.style.height = snapshot.height
+  desc.style.maxHeight = snapshot.maxHeight
+  desc.style.opacity = snapshot.opacity
+  desc.style.overflow = snapshot.overflow
+  desc.style.visibility = snapshot.visibility
+  desc.style.pointerEvents = snapshot.pointerEvents
+  inners.forEach((el, i) => {
+    el.style.transitionDelay = snapshot.innerDelays[i] || '0s'
+    el.style.transform = snapshot.innerTransforms[i] || 'translateY(100%)'
+  })
+}
+
+const withServiceDescExpandedForLayout = (desc, small, fn) => {
+  if (!desc) return fn()
+  const snapshot = snapshotServiceDescLayout(desc, small)
+  const inners = small?.__lineInners || []
   desc.style.transition = 'none'
   desc.style.height = 'auto'
   desc.style.maxHeight = 'none'
@@ -189,20 +266,21 @@ const measureServiceDescContentHeight = (desc, small) => {
     el.style.transitionDelay = '0s'
     el.style.transform = 'translateY(0%)'
   })
+  void desc.offsetHeight
+  try {
+    return fn()
+  } finally {
+    restoreServiceDescLayout(desc, small, snapshot)
+  }
+}
 
-  const height = Math.round(desc.scrollHeight)
-
-  desc.style.visibility = ''
-  desc.style.height = '0'
-  desc.style.maxHeight = ''
-  desc.style.opacity = '0'
-  desc.style.overflow = 'hidden'
-  desc.style.transition = savedTransition || DESC_TRANSITION
-  inners.forEach((el, i) => {
-    el.style.transform = savedTransforms[i] || 'translateY(100%)'
+const measureServiceDescContentHeight = (desc, small) => {
+  if (!desc) return 0
+  return withServiceDescExpandedForLayout(desc, small, () => {
+    const height = desc.getBoundingClientRect().height
+    desc.__svcContentHeightPx = height
+    return height
   })
-
-  return height
 }
 
 const storeServiceDescContentHeight = (desc, small) => {
@@ -248,8 +326,15 @@ const openServiceCardDesktop = (
   const lift = getServiceTitleLiftPx(desc, bloc)
   setServiceCardDescOpen(desc, contentH, { instant })
   setServiceTitleLift(bodyL, lift, { instant })
-  if (instant) hideServiceCardBodySLines(small, { instant: true })
-  else revealServiceCardBodySLines(small)
+  if (instant) {
+    const inners = small?.__lineInners || []
+    inners.forEach((el) => {
+      el.style.transitionDelay = '0s'
+      el.style.transform = 'translateY(0%)'
+    })
+  } else {
+    revealServiceCardBodySLines(small)
+  }
 }
 
 const closeServiceCardDesktop = (
@@ -291,48 +376,59 @@ const resetServiceCardDesktopLayout = (card, bloc, desc, bodyL) => {
   bloc.style.removeProperty('min-height')
 }
 
-const splitServiceCardBodyS = (small) => {
+const splitServiceCardBodyS = (small, desc) => {
   if (!small) return []
-  try {
-    if (small.__splitLines && typeof small.__splitLines.revert === 'function') {
-      small.__splitLines.revert()
-      small.__splitLines = null
-      small.__lines = null
-      small.__lineInners = null
-    }
-    const split = new SplitType(small, {
-      types: 'lines',
-      tagName: 'span',
-    })
-    small.__splitLines = split
-    small.__lines = split.lines || []
-    const inners = []
-    small.__lines.forEach((line) => {
-      line.style.display = 'block'
-      line.style.overflow = 'hidden'
-      if (!line.__inner) {
-        const inner = document.createElement('span')
-        inner.className = 'line-inner'
-        inner.style.display = 'inline-block'
-        while (line.firstChild) inner.appendChild(line.firstChild)
-        line.appendChild(inner)
-        line.__inner = inner
+  const runSplit = () => {
+    try {
+      if (
+        small.__splitLines &&
+        typeof small.__splitLines.revert === 'function'
+      ) {
+        small.__splitLines.revert()
+        small.__splitLines = null
+        small.__lines = null
+        small.__lineInners = null
       }
-      inners.push(line.__inner)
-    })
-    inners.forEach((el) => {
-      el.style.transform = 'translateY(100%)'
-      el.style.willChange = 'transform'
-      el.style.transition = `transform ${SVC_DURATION} ${SVC_EASING}`
-    })
-    small.__lineInners = inners
-    return inners
-  } catch (e) {
-    return []
+      const split = new SplitType(small, {
+        types: 'lines',
+        tagName: 'span',
+      })
+      small.__splitLines = split
+      small.__lines = split.lines || []
+      const inners = []
+      small.__lines.forEach((line) => {
+        line.style.display = 'block'
+        line.style.overflow = 'hidden'
+        if (!line.__inner) {
+          const inner = document.createElement('span')
+          inner.className = 'line-inner'
+          inner.style.display = 'inline-block'
+          while (line.firstChild) inner.appendChild(line.firstChild)
+          line.appendChild(inner)
+          line.__inner = inner
+        }
+        inners.push(line.__inner)
+      })
+      inners.forEach((el) => {
+        el.style.transform = 'translateY(100%)'
+        el.style.willChange = 'transform'
+        el.style.transition = `transform ${SVC_DURATION} ${SVC_EASING}`
+      })
+      small.__lineInners = inners
+      return inners
+    } catch (e) {
+      return []
+    }
   }
+  return desc
+    ? withServiceDescExpandedForLayout(desc, small, runSplit)
+    : runSplit()
 }
 
-const ensureServiceCardBodySSplit = (small, { force = false } = {}) => {
+const ensureServiceCardBodySSplit = (
+  small,
+  { force = false, desc = null } = {}
+) => {
   if (!small) return []
   if (
     !force &&
@@ -342,31 +438,48 @@ const ensureServiceCardBodySSplit = (small, { force = false } = {}) => {
   ) {
     return small.__lineInners
   }
-  return splitServiceCardBodyS(small)
+  return splitServiceCardBodyS(small, desc)
 }
 
-const applyServiceCardDesktopClosedState = (card, bloc, desc) => {
+const applyServiceCardDesktopClosedState = (
+  card,
+  bloc,
+  desc,
+  { forceSplit = false } = {}
+) => {
   const small = desc.querySelector('.body-s')
   const bodyL = bloc.querySelector('.body-l')
-  ensureServiceCardBodySSplit(small)
+  ensureServiceCardBodySSplit(small, { force: forceSplit, desc })
   storeServiceDescContentHeight(desc, small)
 
-  if (!isServiceCardHovered(card)) {
-    card.classList.remove('is-svc-hover')
-    closeServiceCardDesktop(card, bloc, desc, bodyL, small, { instant: true })
-    card.style.removeProperty('background-color')
-    card.style.backgroundColor = 'var(--white)'
+  if (isServiceCardHovered(card) || card.__svcHoverActive) {
+    openServiceCardDesktop(card, bloc, desc, bodyL, small, { instant: true })
+    return
   }
+
+  card.classList.remove('is-svc-hover')
+  closeServiceCardDesktop(card, bloc, desc, bodyL, small, { instant: true })
+  card.style.removeProperty('background-color')
+  card.style.backgroundColor = 'var(--white)'
 }
 
 export function refreshServiceCards(root = document) {
   if (isTabletOrBelowNow() || isMenuOpenNow()) return
 
-  const scope = root && root.querySelector ? root : document
-  scope.querySelectorAll('.service-card').forEach((card) => {
+  const cards = root?.matches?.('.service-card')
+    ? [root]
+    : Array.from(
+        (root && root.querySelector ? root : document).querySelectorAll(
+          '.service-card'
+        )
+      )
+  cards.forEach((card) => {
     const desc = card.querySelector('.desc')
     const bloc = card.querySelector('.card-inner') || desc
     if (!desc || !bloc) return
+    if (card.__svcHoverActive || isServiceCardHovered(card)) {
+      return
+    }
     const isPending = card.classList.contains('is-card-reveal-pending')
     if (
       isPending &&
@@ -375,7 +488,9 @@ export function refreshServiceCards(root = document) {
     ) {
       return
     }
-    applyServiceCardDesktopClosedState(card, bloc, desc)
+    applyServiceCardDesktopClosedState(card, bloc, desc, {
+      forceSplit: !isPending,
+    })
   })
 }
 
@@ -736,10 +851,10 @@ export function initServiceCards(root = document) {
   serviceCardsHover(scope)
 
   // Debounced resize recalculation for service and machine cards
-  const recalcOnResize = () => {
+  const recalcOnResize = (targetRoot = document) => {
     try {
       if (__svcMenuTransitionActive) return
-      const allCards = scope.querySelectorAll('.service-card')
+      const allCards = targetRoot.querySelectorAll('.service-card')
       allCards.forEach((card) => {
         const desc = card.querySelector('.desc')
         const bloc = card.querySelector('.card-inner') || desc
@@ -779,7 +894,7 @@ export function initServiceCards(root = document) {
         // SplitType only determines visual lines when it is instantiated. Rebuild
         // them at each desktop width change, including for the currently hovered
         // card, so a line wrapper cannot contain several visual lines.
-        ensureServiceCardBodySSplit(small, { force: true })
+        ensureServiceCardBodySSplit(small, { force: true, desc })
         storeServiceDescContentHeight(desc, small)
 
         if (shouldRemainOpen) {
@@ -791,7 +906,7 @@ export function initServiceCards(root = document) {
         }
       })
 
-      const machineCards = scope.querySelectorAll('.machine-card')
+      const machineCards = targetRoot.querySelectorAll('.machine-card')
       machineCards.forEach((card) => {
         const bloc = card.querySelector('.machine-card_inner')
         if (!bloc) {
@@ -865,7 +980,7 @@ export function initServiceCards(root = document) {
       })
 
       // Refresh viewer bindings/state according to viewport
-      serviceCardsHover(scope)
+      serviceCardsHover(targetRoot)
     } catch (e) {
       // ignore
     }
@@ -877,7 +992,7 @@ export function initServiceCards(root = document) {
       const nextWidth = getViewportWidth()
       if (nextWidth === __svcViewportWidth) return
       __svcViewportWidth = nextWidth
-      recalcOnResize()
+      recalcOnResize(document)
     }, 150)
     window.addEventListener('resize', __svcResizeHandler)
     __svcResizeBound = true

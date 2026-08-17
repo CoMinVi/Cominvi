@@ -39,3 +39,9 @@ export function getProcessLineRevealOpacity(
 
   return 1
 }
+
+export function getProcessBorderRevealOpacity(progress) {
+  const p = clamp01(Number.isFinite(progress) ? progress : 0)
+  const local = clamp01(p / FADE_PORTION)
+  return roundOpacity(MIN_OPACITY + (1 - MIN_OPACITY) * local)
+}

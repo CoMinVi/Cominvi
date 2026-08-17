@@ -758,7 +758,7 @@ export function initMap(root = document) {
         return
       }
       highlightPointAndRegion(pk)
-      if (hoverPk) dimNonActiveMarkers(hoverPk)
+      if (pinnedPk || hoverPk) dimNonActiveMarkers(pk)
     } catch (e) {
       // ignore
     }
@@ -829,7 +829,7 @@ export function initMap(root = document) {
       pinnedDescriptionPointKey =
         hoveredCardPointKey || getHoveredCardPointKey() || selectedPointKey
       if (pinnedDescriptionPointKey) {
-        highlightPointAndRegion(pinnedDescriptionPointKey)
+        syncMarkerVisualState()
       } else {
         reapplyActiveMarker()
       }

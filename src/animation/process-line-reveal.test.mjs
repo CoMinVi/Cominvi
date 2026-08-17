@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  getProcessBorderRevealOpacity,
   getProcessLineRevealOpacity,
   shouldUseProcessLineReveal,
 } from './process-line-reveal.js'
@@ -27,4 +28,12 @@ test('calcule une enveloppe fade-in, maintien et fade-out', () => {
 test('borne la progression avant de calculer l’opacité', () => {
   assert.equal(getProcessLineRevealOpacity(-1), 0.2)
   assert.equal(getProcessLineRevealOpacity(2), 0.2)
+})
+
+test('maintient une bordure opaque après son apparition', () => {
+  assert.equal(getProcessBorderRevealOpacity(0), 0.2)
+  assert.equal(getProcessBorderRevealOpacity(0.125), 0.6)
+  assert.equal(getProcessBorderRevealOpacity(0.25), 1)
+  assert.equal(getProcessBorderRevealOpacity(0.75), 1)
+  assert.equal(getProcessBorderRevealOpacity(1), 1)
 })

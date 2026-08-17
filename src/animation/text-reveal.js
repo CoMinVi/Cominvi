@@ -3,6 +3,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import SplitType from 'split-type'
 
 import {
+  getProcessBorderRevealOpacity,
   getProcessLineRevealOpacity,
   shouldUseProcessLineReveal,
 } from './process-line-reveal.js'
@@ -156,11 +157,12 @@ function createMobileProcessLineReveal(process) {
       )
     })
     const groupOpacity = getProcessLineRevealOpacity(progress)
+    const borderOpacity = getProcessBorderRevealOpacity(progress)
     eyebrows.forEach((eyebrow) => {
       eyebrow.style.opacity = String(groupOpacity)
     })
     if (inner) {
-      const rgba = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${groupOpacity})`
+      const rgba = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${borderOpacity})`
       inner.style.borderBottomColor = rgba
       inner.style.borderBottom = `1px solid ${rgba}`
     }
@@ -374,7 +376,8 @@ export function initTextReveal(root = document) {
           '.process_index .eyebrow-m, .process_index .eyebrow-s'
         const eyebrowNodes = Array.from(proc.querySelectorAll(EYEBROW_SELECTOR))
 
-        // Smooth transitions for color/border
+        // Smooth transitions for eyebrow colors. The border is scrubbed directly
+        // by ScrollTrigger; a CSS transition here would lag behind scroll progress.
         eyebrowNodes.forEach((ey) => {
           try {
             ey.style.transition =
@@ -383,15 +386,6 @@ export function initTextReveal(root = document) {
             // ignore
           }
         })
-        if (inner && !inner.__processBorderTransitionSet) {
-          try {
-            inner.style.transition =
-              'border-bottom-color 0.5s ease, border-bottom 0.5s ease'
-            inner.__processBorderTransitionSet = true
-          } catch (e) {
-            // ignore
-          }
-        }
 
         // Determine border color from the nearest live text color on each frame, then animate only its alpha
         const colorAnchor =
@@ -485,24 +479,20 @@ export function initTextReveal(root = document) {
           },
         })
 
-        // At 12em from top while moving upward, animate eyebrow opacity and border alpha (1 -> 0.2)
+        // At 12em from top while moving upward, fade only the eyebrow.
+        // Once revealed, process borders remain fully opaque.
         const stTop = ScrollTrigger.create({
           trigger: proc,
-          // Delay border fade-out slightly compared to texts to prevent leading
           start: 'top 12.75em',
           end: 'top -12.75em',
           scroller,
           onUpdate(self) {
-            if (!inner) return
             const p = self.progress
             const alpha = 1 - 0.8 * p
             eyebrowNodes.forEach((ey) => (ey.style.opacity = String(alpha)))
-            // Border alpha follows the same alpha as texts
-            setBorderAlpha(alpha)
           },
           onLeave() {
             eyebrowNodes.forEach((ey) => (ey.style.opacity = '0.2'))
-            setBorderAlpha(0.2)
           },
           // No explicit onEnter/onEnterBack: onUpdate provides smooth ramp both ways
         })

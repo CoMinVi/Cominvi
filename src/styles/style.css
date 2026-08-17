@@ -44,7 +44,10 @@
 
 .scroll-item > .body-xl,
 .scroll-item > .body-xxl,
-.scroll-item > .body-next {
+.scroll-item > .body-next,
+.scroll-item-h > .body-xl,
+.scroll-item-h > .body-xxl,
+.scroll-item-h > .body-next {
   transition: all 0.2s ease-in-out;
 }
 
@@ -407,6 +410,16 @@ html[lang='es'] .section_technology .overlay-gradients {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform-style: preserve-3d;
+}
+
+[data-barba-namespace='Join the Team'] .hero-background .background-inner::after,
+[data-barba-namespace='About us'] .section_next .next_background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background-color: rgba(0, 0, 0, 0.15);
+  pointer-events: none;
 }
 
 /* Make sure the video resamples in the SAME layer as the parent scale.
@@ -1491,5 +1504,17 @@ svg.is-map g.region[id] {
 
   .service-card {
     grid-column-gap: 1.5em;
+  }
+
+  .machine-grid_mobile
+    .machine-card_bg_mobile:has(> img[src*='hydraulic-scaler']) {
+    height: 20em;
+    padding-left: 1em;
+  }
+
+  .machine-grid_mobile
+    .machine-card_bg_mobile
+    > img[src*='hydraulic-scaler'] {
+    transform: translateX(-1em);
   }
 }

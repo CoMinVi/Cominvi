@@ -132,6 +132,7 @@ export function initProcessProgression(root = document) {
   const doInit = () => {
     processInitInnerRafId = null
     buildVerticalTicks(track, sticky)
+    syncProcessProgressionEndAlignment(section, sticky)
     let runTickUpdate = null
     let runTickRefresh = null
     let controls = null
@@ -140,6 +141,7 @@ export function initProcessProgression(root = document) {
     const rebuildForResize = () => {
       resizePending = false
       buildVerticalTicks(track, sticky)
+      syncProcessProgressionEndAlignment(section, sticky)
       ScrollTrigger.refresh()
       if (typeof runTickRefresh === 'function') runTickRefresh()
       if (typeof runTickUpdate === 'function') runTickUpdate()
@@ -148,6 +150,7 @@ export function initProcessProgression(root = document) {
       if (processResizeTimer != null) clearTimeout(processResizeTimer)
       processResizeTimer = setTimeout(() => {
         processResizeTimer = null
+        syncProcessProgressionEndAlignment(section, sticky)
         if (controls && !controls.isNear()) {
           resizePending = true
           return
@@ -189,6 +192,71 @@ export function initProcessProgression(root = document) {
     processInitRafId = null
     processInitInnerRafId = requestAnimationFrame(doInit)
   })
+}
+
+function syncProcessProgressionEndAlignment(section, sticky) {
+  if (!section || !sticky) return
+
+  const processes = section.querySelector('.processes')
+  const wrap = processes?.querySelector(':scope > .process-progression-wrap')
+  const video = processes?.querySelector(':scope > .video')
+  const processItems = Array.from(processes?.querySelectorAll('.process') || [])
+  const lastProcess = processItems[processItems.length - 1]
+  const lastBorder = lastProcess?.querySelector('.process_inner')
+  const media = video?.querySelector('.video-inner, video, img')
+  if (!processes || !wrap || !video || !media || !lastProcess || !lastBorder)
+    return
+
+  try {
+    if (wrap.__processProgressionOriginalBottom === undefined) {
+      wrap.__processProgressionOriginalBottom = wrap.style.bottom
+    }
+    if (lastProcess.__processProgressionOriginalHeight === undefined) {
+      lastProcess.__processProgressionOriginalHeight = lastProcess.style.height
+    }
+    wrap.style.bottom = wrap.__processProgressionOriginalBottom
+    lastProcess.style.height = lastProcess.__processProgressionOriginalHeight
+
+    if (isProcessMobile()) return
+
+    const processesStyle = getComputedStyle(processes)
+    const videoStyle = getComputedStyle(video)
+    const stickyRect = sticky.getBoundingClientRect()
+    const videoRect = video.getBoundingClientRect()
+    const mediaRect = media.getBoundingClientRect()
+    const lastProcessRect = lastProcess.getBoundingClientRect()
+    const lastBorderRect = lastBorder.getBoundingClientRect()
+
+    const processesPaddingBottom = parseFloat(processesStyle.paddingBottom) || 0
+    const videoTop = parseFloat(videoStyle.top) || 0
+    const videoMarginBottom = parseFloat(videoStyle.marginBottom) || 0
+    const videoReleaseOffset =
+      processesPaddingBottom +
+      videoTop +
+      videoRect.height +
+      videoMarginBottom -
+      stickyRect.height
+
+    wrap.style.bottom = `${Math.max(0, videoReleaseOffset)}px`
+
+    const contentBottomAtRelease =
+      stickyRect.height + videoReleaseOffset - processesPaddingBottom
+    const mediaBottomAtRelease = videoTop + (mediaRect.bottom - videoRect.top)
+    const borderBottomWithinLastProcess =
+      lastBorderRect.bottom - lastProcessRect.top
+    const borderBottomAtRelease =
+      contentBottomAtRelease -
+      lastProcessRect.height +
+      borderBottomWithinLastProcess
+    const borderGap = borderBottomAtRelease - mediaBottomAtRelease
+
+    lastProcess.style.height = `${Math.max(
+      0,
+      lastProcessRect.height + borderGap
+    )}px`
+  } catch (e) {
+    // Keep the Webflow layout as fallback when measurements are unavailable.
+  }
 }
 
 function buildVerticalTicks(track, sticky) {

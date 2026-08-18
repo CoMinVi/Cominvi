@@ -509,21 +509,109 @@ export function initAbout(root = document) {
         return null
       }
     }
-    const handlePlayRejection = () => void 0
     const videoEls = vids.map((w) => getVideoEl(w))
     const hasPlayed = new Array(vids.length).fill(false)
     const indexByWrap = new Map()
     vids.forEach((wrap, i) => wrap && indexByWrap.set(wrap, i))
+    let currentActive = -1
+    const PLAY_BUTTON_SVG =
+      '<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><circle cx="32" cy="32" r="30.5" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M26 20.5v23L46 32 26 20.5z" fill="currentColor"></path></svg>'
 
-    const prepareForAutoplay = (video) => {
+    const getPlayHost = (wrap) => {
+      if (!wrap) return null
+      return wrap.querySelector('.story_video-wrap') || wrap
+    }
+
+    const setPlaybackBlocked = (idx, blocked) => {
+      const wrap = vids[idx]
+      if (!wrap || !wrap.classList) return
+      wrap.classList.toggle('is-playback-blocked', !!blocked)
+    }
+
+    const hideAllPlaybackPrompts = () => {
+      vids.forEach((_, idx) => setPlaybackBlocked(idx, false))
+    }
+
+    const isAutoplayBlockedError = (err) => {
+      if (!err) return true
+      return err.name === 'NotAllowedError'
+    }
+
+    const prepareForInlinePlay = (video) => {
       if (!video) return
       try {
         video.muted = true
         video.playsInline = true
+        video.autoplay = false
+        video.removeAttribute('autoplay')
+        video.setAttribute('muted', '')
+        video.setAttribute('playsinline', '')
+        video.setAttribute('webkit-playsinline', '')
       } catch (e) {
         // ignore
       }
     }
+
+    const tryPlayVideo = (idx) => {
+      const video = videoEls[idx]
+      if (!video) return
+      prepareForInlinePlay(video)
+      if (!hasPlayed[idx] && typeof video.currentTime === 'number') {
+        try {
+          video.currentTime = 0
+        } catch (e) {
+          // ignore
+        }
+      }
+      const onPlaying = () => {
+        hasPlayed[idx] = true
+        setPlaybackBlocked(idx, false)
+      }
+      const onBlocked = (err) => {
+        if (currentActive !== idx) return
+        if (err && err.name === 'AbortError') return
+        if (isAutoplayBlockedError(err) && video.paused) {
+          setPlaybackBlocked(idx, true)
+        }
+      }
+      try {
+        const playPromise = video.play()
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise.then(onPlaying, onBlocked)
+        } else if (video.paused) {
+          onBlocked()
+        } else {
+          onPlaying()
+        }
+      } catch (err) {
+        onBlocked(err)
+      }
+    }
+
+    const ensurePlayButton = (wrap, idx) => {
+      const host = getPlayHost(wrap)
+      if (!host) return
+      if (host.querySelector('.story_video-play')) return
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'story_video-play'
+      button.setAttribute('aria-label', 'Play video')
+      button.innerHTML = PLAY_BUTTON_SVG
+      button.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        tryPlayVideo(idx)
+      })
+      host.appendChild(button)
+    }
+
+    vids.forEach((wrap, idx) => {
+      if (!wrap) return
+      ensurePlayButton(wrap, idx)
+      const video = videoEls[idx]
+      if (!video) return
+      video.addEventListener('playing', () => setPlaybackBlocked(idx, false))
+    })
 
     const pauseAllExcept = (exceptIndex) => {
       for (let i = 0; i < videoEls.length; i += 1) {
@@ -534,6 +622,7 @@ export function initAbout(root = document) {
         } catch (e) {
           // ignore
         }
+        setPlaybackBlocked(i, false)
       }
     }
 
@@ -541,24 +630,14 @@ export function initAbout(root = document) {
       try {
         const el = videoEls[idx]
         if (!el) return
-        prepareForAutoplay(el)
-        // Only reset to start on first play to avoid jumpy behavior on re-entry
-        if (!hasPlayed[idx] && typeof el.currentTime === 'number') {
-          el.currentTime = 0
-        }
-        const p = el.play()
-        if (p && typeof p.then === 'function') {
-          p.then(undefined, handlePlayRejection)
-        }
-        hasPlayed[idx] = true
         pauseAllExcept(idx)
+        tryPlayVideo(idx)
       } catch (e) {
         // ignore
       }
     }
     if (!storyContent) return null
 
-    let currentActive = -1
     const setActive = (idx) => {
       if (typeof idx !== 'number' || idx < 0 || idx >= vids.length) return
       if (currentActive === idx) return
@@ -640,6 +719,7 @@ export function initAbout(root = document) {
       if (s <= 0) {
         if (currentActive !== -1) {
           currentActive = -1
+          hideAllPlaybackPrompts()
         }
         applyDateOverlayTarget(-1)
         animateVideoTextLines(-1)

@@ -282,6 +282,36 @@ html[lang='es'] .section_technology .overlay-gradients {
   margin: 0 !important;
 }
 
+.story_video-play {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 8;
+  width: 4em;
+  height: 4em;
+  padding: 0;
+  color: var(--white);
+  background: transparent;
+  border: none;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.story_video-play svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.story_videos.is-playback-blocked .story_video-play {
+  display: flex;
+  pointer-events: auto;
+}
+
 /* Webflow shared CSS sets .w-background-video > video { inset: -100% }.
    This causes a visible crop/zoom jump when our hero styles take over. */
 .hero-background .w-background-video > video {

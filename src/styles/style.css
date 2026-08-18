@@ -1448,6 +1448,27 @@ svg.is-map g.region[id] {
 
 /* Max 767 */
 @media (max-width: 767px) {
+  /* Match .section_partners cylinder ticks as they appear on mobile */
+  .section_work-team .scroll-tick {
+    width: 0.5em;
+  }
+
+  .section_work-team .scroll-tick.is-m {
+    width: 0.5625em;
+  }
+
+  .section_work-team .scroll-tick.is-l {
+    width: 0.625em;
+  }
+
+  .section_work-team .scroll-tick.is-xl {
+    width: 0.6875em;
+  }
+
+  .section_work-team .scroll-tick.is-xxl {
+    width: 0.75em;
+  }
+
   .body-s {
     font-size: 1.2rem;
   }

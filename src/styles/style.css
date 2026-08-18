@@ -583,6 +583,12 @@ a.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after {
   transform-origin: bottom left;
 }
 
+[data-barba-namespace='article']
+  .section_blog-inner.is-related:not(:has(.w-dyn-item)),
+[data-barba-namespace='article'] .section_blog-inner.is-related[hidden] {
+  display: none;
+}
+
 .service-card.is-card-reveal-pending,
 .team-card.is-card-reveal-pending {
   opacity: 0 !important;

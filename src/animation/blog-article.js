@@ -119,6 +119,11 @@ export function blogArticleInit(root = document) {
   }
 
   try {
+    const relatedSection = root.querySelector('.section_blog-inner.is-related')
+    if (relatedSection && !relatedSection.querySelector('.w-dyn-item')) {
+      relatedSection.setAttribute('hidden', '')
+    }
+
     // Apply once on init
     applyDateFormat(root)
     splitTitles(root)

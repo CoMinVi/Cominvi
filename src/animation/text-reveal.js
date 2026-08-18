@@ -125,14 +125,22 @@ function createMobileProcessLineReveal(process) {
   const textNodes = Array.from(
     process.querySelectorAll('.process-infos h3, .process-desc p')
   )
-  const splits = textNodes.map(
-    (element) =>
-      new SplitType(element, {
-        types: 'lines',
-        tagName: 'span',
-      })
-  )
-  const lines = splits.flatMap((split) => split.lines || [])
+  const splits = []
+  const lines = []
+  const holdAfterReveal = []
+
+  textNodes.forEach((element) => {
+    const split = new SplitType(element, {
+      types: 'lines',
+      tagName: 'span',
+    })
+    splits.push(split)
+    const keepVisible = Boolean(element.closest('.process-desc'))
+    ;(split.lines || []).forEach((line) => {
+      lines.push(line)
+      holdAfterReveal.push(keepVisible)
+    })
+  })
   const eyebrows = Array.from(
     process.querySelectorAll(
       '.process_index .eyebrow-m, .process_index .eyebrow-s'
@@ -153,7 +161,12 @@ function createMobileProcessLineReveal(process) {
     const count = Math.max(1, lines.length)
     lines.forEach((line, index) => {
       line.style.opacity = String(
-        getProcessLineRevealOpacity(progress, index, count)
+        getProcessLineRevealOpacity(
+          progress,
+          index,
+          count,
+          holdAfterReveal[index]
+        )
       )
     })
     const groupOpacity = getProcessLineRevealOpacity(progress)
@@ -319,15 +332,14 @@ export function initTextReveal(root = document) {
     // ignore
   }
 
-  // Add reverse fade (1 -> 0.2) only when elements pass 12em from top going upward (after intro)
+  // Reverse fade (1 -> 0.2) when titles pass 12em from top.
+  // .process-desc stays at opacity 1 after its reveal.
   try {
     const scope = root && root.querySelectorAll ? root : document
     const scroller = window.__lenisWrapper || undefined
-    const PROCESS_TEXT_SELECTOR = [
-      '.section_process .process-infos h3',
-      '.section_process .process-desc p',
-    ].join(', ')
-    const fadeOutNodes = scope.querySelectorAll(PROCESS_TEXT_SELECTOR)
+    const fadeOutNodes = scope.querySelectorAll(
+      '.section_process .process-infos h3'
+    )
     fadeOutNodes.forEach((node) => {
       try {
         // Ensure starting opacity = 1

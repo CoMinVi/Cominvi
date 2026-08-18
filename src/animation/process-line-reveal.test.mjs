@@ -30,6 +30,14 @@ test('borne la progression avant de calculer l’opacité', () => {
   assert.equal(getProcessLineRevealOpacity(2), 0.2)
 })
 
+test('conserve l’opacité à 1 après apparition si holdAfterReveal', () => {
+  assert.equal(getProcessLineRevealOpacity(0, 0, 1, true), 0.2)
+  assert.equal(getProcessLineRevealOpacity(0.25, 0, 1, true), 1)
+  assert.equal(getProcessLineRevealOpacity(0.875, 0, 1, true), 1)
+  assert.equal(getProcessLineRevealOpacity(1, 0, 1, true), 1)
+  assert.equal(getProcessLineRevealOpacity(2, 0, 1, true), 1)
+})
+
 test('maintient une bordure opaque après son apparition', () => {
   assert.equal(getProcessBorderRevealOpacity(0), 0.2)
   assert.equal(getProcessBorderRevealOpacity(0.125), 0.6)

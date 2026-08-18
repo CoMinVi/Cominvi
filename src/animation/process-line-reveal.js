@@ -13,7 +13,8 @@ export function shouldUseProcessLineReveal(viewportWidth) {
 export function getProcessLineRevealOpacity(
   progress,
   lineIndex = 0,
-  lineCount = 1
+  lineCount = 1,
+  holdAfterReveal = false
 ) {
   const p = clamp01(Number.isFinite(progress) ? progress : 0)
   const count = Math.max(1, Math.floor(lineCount || 1))
@@ -29,7 +30,7 @@ export function getProcessLineRevealOpacity(
     return roundOpacity(MIN_OPACITY + (1 - MIN_OPACITY) * local)
   }
 
-  if (p > 1 - FADE_PORTION) {
+  if (!holdAfterReveal && p > 1 - FADE_PORTION) {
     const reverseIndex = count - 1 - index
     const local = clamp01(
       (p - (1 - FADE_PORTION) - reverseIndex * LINE_STAGGER) / fadeDuration

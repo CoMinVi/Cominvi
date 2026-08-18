@@ -3,7 +3,6 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import SplitType from 'split-type'
 
 import {
-  getProcessBorderRevealOpacity,
   getProcessLineRevealOpacity,
   shouldUseProcessLineReveal,
 } from './process-line-reveal.js'
@@ -109,18 +108,6 @@ function createLetterRevealTimeline(element) {
   return tweens
 }
 
-function parseRgbColor(value) {
-  try {
-    const match = String(value || '').match(
-      /rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i
-    )
-    if (match) return [match[1], match[2], match[3]]
-  } catch (e) {
-    // ignore
-  }
-  return ['0', '0', '0']
-}
-
 function createMobileProcessLineReveal(process) {
   const textNodes = Array.from(
     process.querySelectorAll('.process-infos h3, .process-desc p')
@@ -147,8 +134,6 @@ function createMobileProcessLineReveal(process) {
     )
   )
   const inner = process.querySelector('.process_inner')
-  const colorAnchor = textNodes[0] || eyebrows[0] || process
-  const rgb = parseRgbColor(getComputedStyle(colorAnchor).color)
 
   gsap.set(lines, {
     opacity: 0.2,
@@ -170,15 +155,14 @@ function createMobileProcessLineReveal(process) {
       )
     })
     const groupOpacity = getProcessLineRevealOpacity(progress)
-    const borderOpacity = getProcessBorderRevealOpacity(progress)
     eyebrows.forEach((eyebrow) => {
       eyebrow.style.opacity = String(groupOpacity)
     })
-    if (inner) {
-      const rgba = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${borderOpacity})`
-      inner.style.borderBottomColor = rgba
-      inner.style.borderBottom = `1px solid ${rgba}`
-    }
+  }
+
+  if (inner) {
+    inner.style.borderBottom = ''
+    inner.style.borderBottomColor = ''
   }
 
   const scrollTrigger = ScrollTrigger.create({

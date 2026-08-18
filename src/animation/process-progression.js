@@ -6,13 +6,9 @@ import {
   isNearViewport,
 } from './scroll-performance.js'
 
-const PROCESS_MOBILE_MAX = 767
-const processIndexOrigins = new WeakMap()
 let processInitRafId = null
 let processInitInnerRafId = null
 let processResizeTimer = null
-
-const isProcessMobile = () => window.innerWidth < PROCESS_MOBILE_MAX
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -132,7 +128,7 @@ export function initProcessProgression(root = document) {
   const doInit = () => {
     processInitInnerRafId = null
     buildVerticalTicks(track, sticky)
-    syncProcessProgressionEndAlignment(section, sticky)
+    syncLastProcessEndAlignment(section, sticky)
     let runTickUpdate = null
     let runTickRefresh = null
     let controls = null
@@ -141,7 +137,7 @@ export function initProcessProgression(root = document) {
     const rebuildForResize = () => {
       resizePending = false
       buildVerticalTicks(track, sticky)
-      syncProcessProgressionEndAlignment(section, sticky)
+      syncLastProcessEndAlignment(section, sticky)
       ScrollTrigger.refresh()
       if (typeof runTickRefresh === 'function') runTickRefresh()
       if (typeof runTickUpdate === 'function') runTickUpdate()
@@ -150,7 +146,7 @@ export function initProcessProgression(root = document) {
       if (processResizeTimer != null) clearTimeout(processResizeTimer)
       processResizeTimer = setTimeout(() => {
         processResizeTimer = null
-        syncProcessProgressionEndAlignment(section, sticky)
+        syncLastProcessEndAlignment(section, sticky)
         if (controls && !controls.isNear()) {
           resizePending = true
           return
@@ -194,18 +190,17 @@ export function initProcessProgression(root = document) {
   })
 }
 
-function syncProcessProgressionEndAlignment(section, sticky) {
+function syncLastProcessEndAlignment(section, sticky) {
   if (!section || !sticky) return
 
   const processes = section.querySelector('.processes')
   const wrap = processes?.querySelector(':scope > .process-progression-wrap')
   const video = processes?.querySelector(':scope > .video')
+  const media = video?.querySelector('.video-inner, video, img')
   const processItems = Array.from(processes?.querySelectorAll('.process') || [])
   const lastProcess = processItems[processItems.length - 1]
   const lastBorder = lastProcess?.querySelector('.process_inner')
-  const media = video?.querySelector('.video-inner, video, img')
-  if (!processes || !wrap || !video || !media || !lastProcess || !lastBorder)
-    return
+  if (!wrap || !video || !media || !lastProcess || !lastBorder) return
 
   try {
     if (wrap.__processProgressionOriginalBottom === undefined) {
@@ -217,26 +212,25 @@ function syncProcessProgressionEndAlignment(section, sticky) {
     wrap.style.bottom = wrap.__processProgressionOriginalBottom
     lastProcess.style.height = lastProcess.__processProgressionOriginalHeight
 
-    if (isProcessMobile()) return
-
     const processesStyle = getComputedStyle(processes)
+    const wrapStyle = getComputedStyle(wrap)
     const videoStyle = getComputedStyle(video)
+    if (wrapStyle.display === 'none' || videoStyle.position !== 'sticky') return
+
+    const processesPaddingBottom = parseFloat(processesStyle.paddingBottom) || 0
+    const videoTop = parseFloat(videoStyle.top) || 0
+    const videoMarginBottom = parseFloat(videoStyle.marginBottom) || 0
     const stickyRect = sticky.getBoundingClientRect()
     const videoRect = video.getBoundingClientRect()
     const mediaRect = media.getBoundingClientRect()
     const lastProcessRect = lastProcess.getBoundingClientRect()
     const lastBorderRect = lastBorder.getBoundingClientRect()
-
-    const processesPaddingBottom = parseFloat(processesStyle.paddingBottom) || 0
-    const videoTop = parseFloat(videoStyle.top) || 0
-    const videoMarginBottom = parseFloat(videoStyle.marginBottom) || 0
     const videoReleaseOffset =
       processesPaddingBottom +
       videoTop +
       videoRect.height +
       videoMarginBottom -
       stickyRect.height
-
     wrap.style.bottom = `${Math.max(0, videoReleaseOffset)}px`
 
     const contentBottomAtRelease =
@@ -519,129 +513,49 @@ export function syncProcessMobileLayout(section) {
     })
   }
 
-  const moveIndexInside = (proc) => {
-    if (!proc) return
-    const processIndex = proc.querySelector('.process_index')
-    const inner = proc.querySelector('.process_inner')
-    const processInfos = proc.querySelector('.process-infos')
-    if (!processIndex || !inner) return
-    if (processIndex.parentElement === inner) return
-
-    const desc = inner.querySelector('.process-desc')
-
-    if (!processIndexOrigins.has(processIndex)) {
-      processIndexOrigins.set(processIndex, {
-        parent: processIndex.parentElement,
-        nextSibling: processIndex.nextElementSibling,
-        innerStyles: {
-          display: inner.style.display,
-          gridTemplateColumns: inner.style.gridTemplateColumns,
-          columnGap: inner.style.columnGap,
-          marginLeft: inner.style.marginLeft,
-          marginRight: inner.style.marginRight,
-        },
-        processIndexStyles: {
-          gridColumn: processIndex.style.gridColumn,
-          paddingTop: processIndex.style.paddingTop,
-        },
-        processInfosStyles: processInfos
-          ? {
-              node: processInfos,
-              width: processInfos.style.width,
-            }
-          : null,
-        descStyles: desc
-          ? {
-              node: desc,
-              gridColumn: desc.style.gridColumn,
-              display: desc.style.display,
-            }
-          : null,
-      })
-    }
-
-    if (processInfos) {
-      processInfos.style.width = '100%'
-    }
-
-    inner.prepend(processIndex)
-    inner.style.display = 'grid'
-    inner.style.gridTemplateColumns = 'repeat(4, 1fr)'
-    inner.style.columnGap = '1em'
-    inner.style.marginLeft = '0'
-    inner.style.marginRight = '0'
-    processIndex.style.gridColumn = '1 / 2'
-    processIndex.style.paddingTop = '0'
-
-    if (desc) {
-      desc.style.gridColumn = '2 / 5'
-      desc.style.display = 'block'
-    }
-  }
-
   const restoreIndex = (proc) => {
     if (!proc) return
     const processIndex = proc.querySelector('.process_index')
+    const title = proc.querySelector('.process-title')
     const inner = proc.querySelector('.process_inner')
-    if (!processIndex || !inner) return
+    const processInfos = proc.querySelector('.process-infos')
+    const desc = inner?.querySelector('.process-desc')
+    if (!processIndex) return
 
-    const origin = processIndexOrigins.get(processIndex)
-    if (!origin) return
-
-    const {
-      parent,
-      nextSibling,
-      innerStyles,
-      processIndexStyles,
-      processInfosStyles,
-      descStyles,
-    } = origin
-
-    if (parent) {
-      if (nextSibling && parent.contains(nextSibling)) {
-        parent.insertBefore(processIndex, nextSibling)
-      } else {
-        parent.appendChild(processIndex)
-      }
+    if (title && processIndex.parentElement !== title) {
+      const heading = title.querySelector('h3, .body-l')
+      if (heading) title.insertBefore(processIndex, heading)
+      else title.prepend(processIndex)
     }
 
-    restoreInlineStyles(inner, innerStyles)
-    restoreInlineStyles(processIndex, processIndexStyles)
-    if (processInfosStyles && processInfosStyles.node) {
-      restoreInlineStyles(processInfosStyles.node, {
-        width: processInfosStyles.width,
+    if (inner) {
+      restoreInlineStyles(inner, {
+        display: '',
+        gridTemplateColumns: '',
+        columnGap: '',
+        marginLeft: '',
+        marginRight: '',
       })
     }
-
-    if (descStyles && descStyles.node) {
-      descStyles.node.style.gridColumn = descStyles.gridColumn ?? ''
-      descStyles.node.style.display = descStyles.display ?? ''
+    restoreInlineStyles(processIndex, {
+      gridColumn: '',
+      paddingTop: '',
+    })
+    if (processInfos) {
+      restoreInlineStyles(processInfos, { width: '' })
     }
-
-    processIndexOrigins.delete(processIndex)
+    if (desc) {
+      desc.style.gridColumn = ''
+      desc.style.display = ''
+    }
   }
 
-  const applyMobile = () => processes.forEach(moveIndexInside)
   const revertDesktop = () => processes.forEach(restoreIndex)
 
-  let currentMobile = null
-  const evaluate = () => {
-    const shouldBeMobile = isProcessMobile()
-    if (shouldBeMobile === currentMobile) return
-    currentMobile = shouldBeMobile
-    if (shouldBeMobile) {
-      applyMobile()
-    } else {
-      revertDesktop()
-    }
-    notifyTextRevealReflow()
-  }
-
-  evaluate()
-  window.addEventListener('resize', evaluate)
+  revertDesktop()
+  notifyTextRevealReflow()
 
   return () => {
-    window.removeEventListener('resize', evaluate)
     revertDesktop()
   }
 }

@@ -1195,6 +1195,134 @@ button.maplibregl-ctrl-compass {
     border: none;
   }
 
+  /* Mobile: 4-col grid — index | title
+                                | desc
+     Figma 158:206 — pt 16 / gap 64 / pb 80 (1em / 4em / 5em at 16px). */
+  .processes .process {
+    padding-top: 0;
+  }
+
+  .processes .process-infos {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto auto;
+    align-items: start;
+    column-gap: 1em;
+    row-gap: 4em;
+    width: 100%;
+    border-top: 1px solid #15151580;
+    padding-top: 1em;
+    padding-bottom: 5em;
+  }
+
+  .processes .process-title {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    align-items: start;
+  }
+
+  .processes .process_index {
+    grid-column: 1 / 2;
+    grid-row: 1;
+    padding-top: 0;
+  }
+
+  .processes .process_index .eyebrow-m {
+    text-box-trim: trim-start;
+    text-box-edge: cap alphabetic;
+  }
+
+  .processes .process-title > :not(.process_index) {
+    grid-column: 2 / -1;
+    grid-row: 1;
+    text-box-trim: trim-start;
+    text-box-edge: cap alphabetic;
+  }
+
+  .processes .process_inner {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    border: none !important;
+    padding-bottom: 0;
+  }
+
+  .processes .process-desc {
+    display: block;
+    grid-column: 2 / -1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .processes .process-desc > p {
+    grid-area: auto;
+    width: 100%;
+  }
+
+  .sissmac_inner {
+    grid-row-gap: 0;
+    row-gap: 0;
+  }
+
+  .sissmac_inner > .sissmac-row {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-rows: auto auto;
+    align-items: start;
+    column-gap: 1em;
+    row-gap: 4em;
+    padding-top: 1em;
+    padding-bottom: 5em;
+  }
+
+  .sissmac-row > .eyebrow-wrapper {
+    grid-area: auto !important;
+    grid-column: 1 / 2 !important;
+    grid-row: 1 !important;
+    padding-top: 0;
+  }
+
+  .sissmac-row > .eyebrow-wrapper .eyebrow-m,
+  .sissmac-row > .sissmac_title .body-l {
+    text-box-trim: trim-start;
+    text-box-edge: cap alphabetic;
+  }
+
+  .sissmac-row > .sissmac_title {
+    grid-area: auto !important;
+    grid-column: 2 / -1 !important;
+    grid-row: 1 !important;
+    width: auto;
+    min-width: 0;
+  }
+
+  .sissmac-row > .sissmac_p-wrap {
+    grid-area: auto !important;
+    grid-column: 2 / -1 !important;
+    grid-row: 2 !important;
+    width: 100%;
+    min-width: 0;
+    padding-left: 0 !important;
+  }
+
+  .section_values .scroll-list .body-xxl {
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+  }
+
+  .section_values .scroll-list .body-s {
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
   .blog-category::after {
     bottom: -1.5em;
   }

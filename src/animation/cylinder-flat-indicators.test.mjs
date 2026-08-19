@@ -25,6 +25,13 @@ test('la timeline 3D ne fait tourner que les noms', () => {
   )
 })
 
+test('la taille des textes conserve le rayon historique du cylindre', () => {
+  assert.match(
+    source,
+    /const radius = Math\.min\(window\.innerWidth,\s*getViewportHeight\(\)\) \* 0\.4/
+  )
+})
+
 test('les indicators restent plats et limités à la portion visible', () => {
   assert.match(
     styles,

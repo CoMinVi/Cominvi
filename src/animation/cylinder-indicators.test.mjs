@@ -10,7 +10,7 @@ import {
 
 test('limite les indicators à la portion visible du cylindre', () => {
   assert.equal(getCylinderIndicatorHeight(1440, 900), 360)
-  assert.equal(getCylinderIndicatorHeight(500, 844), 250)
+  assert.equal(getCylinderIndicatorHeight(500, 844), 400)
 })
 
 test('reproduit en 2D la densité visible de l’ancien cylindre', () => {

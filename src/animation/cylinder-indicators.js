@@ -6,7 +6,7 @@ export function getCylinderIndicatorHeight(viewportWidth, viewportHeight) {
     ? Math.max(0, viewportHeight)
     : 0
   const shortestSide = Math.min(width, height)
-  return shortestSide * (shortestSide < 767 ? 0.5 : 0.4)
+  return shortestSide * (shortestSide < 767 ? 0.8 : 0.4)
 }
 
 export function getFlatTickCount(itemCount, tickMultiplier) {

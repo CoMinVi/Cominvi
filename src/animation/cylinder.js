@@ -191,7 +191,7 @@ export function initCylinder(root = document) {
       window.innerWidth,
       getViewportHeight()
     )
-    const radius = indicatorHeight
+    const radius = Math.min(window.innerWidth, getViewportHeight()) * 0.4
     wrapper.style.setProperty(
       '--cylinder-indicator-height',
       `${indicatorHeight}px`

@@ -89,7 +89,7 @@ async function verifyViewport(browser, contextOptions, label) {
           cylinderHeight: cylinderRect.height,
           indicatorHeight:
             Math.min(window.innerWidth, window.innerHeight) *
-            (isMobile ? 0.5 : 0.4),
+            (isMobile ? 0.8 : 0.4),
           expectedTickCount:
             items.length *
             Math.max(

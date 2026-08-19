@@ -203,13 +203,10 @@ function syncLastProcessEndAlignment(section, sticky) {
   if (!wrap || !video || !media || !lastProcess || !lastBorder) return
 
   try {
-    if (wrap.__processProgressionOriginalBottom === undefined) {
-      wrap.__processProgressionOriginalBottom = wrap.style.bottom
-    }
     if (lastProcess.__processProgressionOriginalHeight === undefined) {
       lastProcess.__processProgressionOriginalHeight = lastProcess.style.height
     }
-    wrap.style.bottom = wrap.__processProgressionOriginalBottom
+    wrap.style.removeProperty('bottom')
     lastProcess.style.height = lastProcess.__processProgressionOriginalHeight
 
     const processesStyle = getComputedStyle(processes)
@@ -231,7 +228,6 @@ function syncLastProcessEndAlignment(section, sticky) {
       videoRect.height +
       videoMarginBottom -
       stickyRect.height
-    wrap.style.bottom = `${Math.max(0, videoReleaseOffset)}px`
 
     const contentBottomAtRelease =
       stickyRect.height + videoReleaseOffset - processesPaddingBottom

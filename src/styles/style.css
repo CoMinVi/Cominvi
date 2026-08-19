@@ -138,6 +138,13 @@
   height: calc(100vh - 2em);
 }
 
+@media (min-width: 768px) {
+  /* Keep the video and progress indicator on the same sticky end boundary. */
+  .section_process .video {
+    margin-bottom: 0;
+  }
+}
+
 [data-video='last'].video {
   position: relative;
   top: 0;
@@ -617,6 +624,12 @@ a.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after {
   .section_blog-inner.is-related:not(:has(.w-dyn-item)),
 [data-barba-namespace='article'] .section_blog-inner.is-related[hidden] {
   display: none;
+}
+
+@media (max-width: 767px) {
+  [data-barba-namespace='article'] .section_blog-inner.is-related .blog-desc {
+    padding-left: 0;
+  }
 }
 
 .service-card.is-card-reveal-pending,
@@ -1184,6 +1197,29 @@ button.maplibregl-ctrl-compass {
     opacity: 1;
   }
 
+  [data-barba-namespace='technology'] .workshops_left_bottom,
+  [data-barba-namespace='About us'] .workshops_left_bottom {
+    padding-bottom: 0;
+    height: auto;
+  }
+
+  [data-barba-namespace='technology'] .workshops_left_middle,
+  [data-barba-namespace='About us'] .workshops_left_middle {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  [data-barba-namespace='technology'] .workshops-sm-wrap,
+  [data-barba-namespace='About us'] .workshops-sm-wrap,
+  [data-barba-namespace='About us'] .workshops-sm-wrap.is-2 {
+    padding-top: 2em;
+    gap: 1em;
+    justify-content: flex-start;
+  }
+
   .workshops_left-sm .workshops_left_middle .body-xl.is-black:not(.is-active),
   .workshops_left-sm .workshops_left_bottom .body-s:not(.is-active) {
     opacity: 0;
@@ -1310,11 +1346,15 @@ button.maplibregl-ctrl-compass {
     padding-left: 0 !important;
   }
 
-  .section_values .scroll-list .body-xxl {
-    font-size: 1.5em;
+  .scroll-list.is-l-aligned .body-xxl {
+    font-size: 2em;
     font-weight: 700;
     line-height: 1.1;
     letter-spacing: -0.025em;
+  }
+
+  .section_improvement .body-xl {
+    font-size: 1.2em;
   }
 
   .section_values .scroll-list .body-s {
@@ -1612,6 +1652,14 @@ svg.is-map g.region[id] {
 
 /* Max 767 */
 @media (max-width: 767px) {
+  .section_work-team .equity_content .body-xxl {
+    font-size: 4em;
+  }
+
+  .equity_content .equity-slider_slide:not(.is-2) {
+    height: 3.2em;
+  }
+
   /* Match .section_partners cylinder ticks as they appear on mobile */
   .section_work-team .scroll-indicator {
     row-gap: 0.095em;

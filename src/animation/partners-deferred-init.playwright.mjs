@@ -17,6 +17,26 @@ async function serveLocalBuild(page) {
     })
   }
 
+  await page.route('http://localhost:3000/@vite/client', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' })
+  )
+  await page.route('http://localhost:3000/src/main.js', async (route) => {
+    const body = await readFile(resolve('dist', 'main.js'))
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/javascript',
+      body,
+    })
+  })
+  await page.route('http://localhost:3000/src/assets/**/*.js', async (route) => {
+    const pathname = new URL(route.request().url()).pathname
+    const body = await readFile(resolve('dist', pathname.replace('/src/', '')))
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/javascript',
+      body,
+    })
+  })
   await page.route('https://cominvi.netlify.app/main.js', serveJavaScript)
   await page.route(
     'https://cominvi.netlify.app/assets/**/*.js',

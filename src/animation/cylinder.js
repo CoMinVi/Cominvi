@@ -1,6 +1,12 @@
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
+import {
+  getCylinderIndicatorHeight,
+  getFlatTickIndex,
+  getFlatTickTop,
+} from './cylinder-indicators.js'
+
 gsap.registerPlugin(ScrollTrigger)
 
 export function initCylinder(root = document) {
@@ -26,13 +32,6 @@ export function initCylinder(root = document) {
       10
     )
     return Number.isFinite(v) && v > 0 ? v : 7 // ≈252° by default (close to existing 250°)
-  })()
-  const tickZones = (() => {
-    const v = parseInt(
-      wrapper?.dataset?.tickZones ?? wrapper?.dataset?.textZones,
-      10
-    )
-    return Number.isFinite(v) && v > 0 ? v : textZones
   })()
   const tickMultiplier = (() => {
     const v = parseInt(
@@ -118,7 +117,7 @@ export function initCylinder(root = document) {
     // ignore
   }
 
-  // Build dense tick rings inside scroll indicators and cache refs
+  // Build dense, flat tick columns inside the scroll indicators.
   const scrollIndicators = Array.from(
     wrapper.querySelectorAll('.scroll-indicator_c')
   )
@@ -128,7 +127,10 @@ export function initCylinder(root = document) {
     // Ensure ticks are positioned relative to their left/right containers
     try {
       container.style.position = 'relative'
-      container.style.transformStyle = 'preserve-3d'
+      container.style.transformStyle = 'flat'
+      container.style.height = 'var(--cylinder-indicator-height)'
+      container.style.top = 'calc(50% - var(--cylinder-indicator-height) / 2)'
+      container.style.transform = 'none'
       container.style.pointerEvents = 'none'
     } catch (e) {
       // ignore
@@ -146,12 +148,13 @@ export function initCylinder(root = document) {
     // If we already have EXACTLY the desired count, reuse; otherwise rebuild
     let ticks = Array.from(container.querySelectorAll('.scroll-tick'))
     if (ticks.length === desiredCount) {
-      // Ensure absolute centering within the column so transforms match text origin
-      ticks.forEach((t) => {
+      // Reapply the flat layout after resize or Barba reinitialization.
+      ticks.forEach((t, idx) => {
         t.style.position = 'absolute'
-        t.style.top = '50%'
+        t.style.top = `${getFlatTickTop(idx, desiredCount)}%`
         t.style.left = '50%'
-        t.style.transformStyle = 'preserve-3d'
+        t.style.transform = 'translate(-50%, -50%)'
+        t.style.transformStyle = 'flat'
       })
       return ticks
     }
@@ -166,9 +169,10 @@ export function initCylinder(root = document) {
     for (let i = 0; i < desiredCount; i += 1) {
       const tick = base.cloneNode(true)
       tick.style.position = 'absolute'
-      tick.style.top = '50%'
+      tick.style.top = `${getFlatTickTop(i, desiredCount)}%`
       tick.style.left = '50%'
-      tick.style.transformStyle = 'preserve-3d'
+      tick.style.transform = 'translate(-50%, -50%)'
+      tick.style.transformStyle = 'flat'
       frag.appendChild(tick)
     }
     container.appendChild(frag)
@@ -177,21 +181,22 @@ export function initCylinder(root = document) {
 
   // Match number of ticks to number of text items times multiplier
   const desiredTickCount = Math.max(items.length * tickMultiplier, 1)
-  // Materialize ticks for each indicator now so we can position them
-  const indicatorToTicks = new Map()
-  scrollIndicators.forEach((ind) => {
-    indicatorToTicks.set(ind, ensureTicks(ind, desiredTickCount))
-  })
+  scrollIndicators.forEach((ind) => ensureTicks(ind, desiredTickCount))
 
   const calculatePositions = () => {
     syncMobileViewportHeight()
     const count = items.length || 1
-    const offset = 0.4
-    const radius = Math.min(window.innerWidth, getViewportHeight()) * offset
+    const indicatorHeight = getCylinderIndicatorHeight(
+      window.innerWidth,
+      getViewportHeight()
+    )
+    const radius = indicatorHeight
+    wrapper.style.setProperty(
+      '--cylinder-indicator-height',
+      `${indicatorHeight}px`
+    )
     const zoneAngle = 360 / zoneCount
     const textSweep = zoneAngle * textZones
-    const tickSweep = zoneAngle * tickZones
-    // Use identical spacing for texts/ticks when zones equal
     // 14 items => 14 slots; use sweep/(count-1) so first/last align to sweep ends
     const textSpacing = count > 1 ? textSweep / (count - 1) : textSweep
 
@@ -203,34 +208,14 @@ export function initCylinder(root = document) {
       const z = Math.cos(angle) * radius
       item.style.transform = `translate3d(-50%, -50%, 0) translate3d(${x}px, ${y}px, ${z}px) rotateX(${rotationAngle}deg)`
     })
-
-    // Ticks spacing: strictly equal to texts when zones equal, else proportional
-    const tickCount = desiredTickCount
-    const tickSpacing =
-      tickZones === textZones
-        ? textSpacing / tickMultiplier
-        : tickCount > 1
-        ? tickSweep / (tickCount - 1)
-        : tickSweep
-    indicatorToTicks.forEach((ticks) => {
-      ticks.forEach((tick, idx) => {
-        const tAngle = (idx * tickSpacing * Math.PI) / 180
-        const tRot = idx * -tickSpacing
-        const x = 0
-        const y = Math.sin(tAngle) * radius
-        const z = Math.cos(tAngle) * radius
-        tick.style.transform = `translate3d(-50%, -50%, 0) translate3d(${x}px, ${y}px, ${z}px) rotateX(${tRot}deg)`
-      })
-    })
   }
 
   calculatePositions()
 
-  // Build a unified timeline so ticks and texts rotate together
+  // Keep the partners on their 3D cylinder; indicators remain flat.
   const tl = gsap.timeline({ defaults: { ease: 'none' } })
-  // Aligner l'origine de rotation des conteneurs
   try {
-    gsap.set([textWrapper, ...Array.from(scrollIndicators)], {
+    gsap.set(textWrapper, {
       transformOrigin: '50% 50% 0',
       force3D: true,
     })
@@ -238,12 +223,7 @@ export function initCylinder(root = document) {
     // ignore
   }
   tl.fromTo(textWrapper, { rotateX: 0 }, { rotateX: 150 }, 0)
-  // Animer aussi les conteneurs de ticks pour faire tourner l'ensemble du cylindre
-  const indicatorNodes = Array.from(
-    wrapper.querySelectorAll('.scroll-indicator_c')
-  )
-  if (indicatorNodes.length)
-    tl.fromTo(indicatorNodes, { rotateX: 0 }, { rotateX: 150 }, 0)
+  const indicatorNodes = scrollIndicators
   tl.pause(0)
 
   // Enforce a fixed .pin-spacer height on small mobile viewports
@@ -502,13 +482,7 @@ export function initCylinder(root = document) {
       const progress =
         trigger && Number.isFinite(trigger.progress) ? trigger.progress : 0
       const rotationProgress = getCylinderRotationProgress(progress)
-      const closestIndex = Math.max(
-        0,
-        Math.min(
-          ticks.length - 1,
-          Math.round(rotationProgress * (ticks.length - 1))
-        )
-      )
+      const closestIndex = getFlatTickIndex(rotationProgress, ticks.length)
       const previousHighlight = lastTickHighlightIndexes.get(indicator)
       if (
         previousHighlight?.index === closestIndex &&
@@ -753,6 +727,7 @@ export function initCylinder(root = document) {
     try {
       wrapper.style.removeProperty('--cylinder-viewport-height')
       wrapper.style.removeProperty('--cylinder-visual-offset')
+      wrapper.style.removeProperty('--cylinder-indicator-height')
     } catch (e) {
       // ignore
     }

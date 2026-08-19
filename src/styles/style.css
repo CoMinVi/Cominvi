@@ -450,12 +450,13 @@ html[lang='es'] .section_technology .overlay-gradients {
 }
 
 [data-barba-namespace='Join the Team'] .hero-background .background-inner::after,
-[data-barba-namespace='About us'] .section_next .next_background::after {
+.section_next .next_background::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 3;
   background-color: rgba(0, 0, 0, 0.15);
+  opacity: var(--next-overlay-opacity, 1);
   pointer-events: none;
 }
 
@@ -828,30 +829,34 @@ a.blog-inner_item:hover > .blog-name > .body-l > .blogline-line::after {
   text-align: center;
 }
 
-/* Cylindar ticks columns */
+/* Keep side indicators on the exact same pin origin as the text cylinder. */
+.cylindar__text__wrapper-2 {
+  margin-top: 0;
+}
+
+/* Partners ticks stay flat while the names rotate in 3D. */
 .scroll-indicator_c {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
   width: 100%;
-  height: 100%;
+  height: var(--cylinder-indicator-height);
   background: transparent;
-  transform-style: preserve-3d;
+  transform-style: flat;
   transform-origin: center center;
   pointer-events: none;
   position: relative;
-  top: var(--cylinder-visual-offset, 0px);
+  top: calc(50% - var(--cylinder-indicator-height) / 2);
 }
 
-/* Individual ticks (cylinder only): ensure backface culling and center anchoring for 3D transforms */
+/* Individual ticks are distributed over the full indicator height in JS. */
 .scroll-indicator_c .scroll-tick {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
   position: absolute;
-  top: 50%;
   left: 50%;
-  transform-style: preserve-3d;
+  transform-style: flat;
 }
 
 .cylindar__text__item {

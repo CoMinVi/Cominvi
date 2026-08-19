@@ -163,6 +163,19 @@ export function nextLeave({ current, trigger, next }) {
   const tl = gsap.timeline({
     defaults: { ease: gsap.parseEase(`custom(${easeCurve})`) },
   })
+  const nextBackground =
+    current &&
+    current.container &&
+    current.container.querySelector &&
+    current.container.querySelector('.section_next .next_background')
+  const reduceMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  if (nextBackground) {
+    gsap.set(nextBackground, { '--next-overlay-opacity': 1 })
+  }
 
   const anchor =
     trigger && trigger.closest ? trigger.closest('[pt-next]') : null
@@ -178,8 +191,19 @@ export function nextLeave({ current, trigger, next }) {
   tl.add(gsap.to({}, { duration: 0.001 }), 0)
   // Step 1: scroll (timeline waits for this tween)
   tl.add(scrollToSectionNext(current && current.container), '+=0')
+  if (nextBackground) {
+    tl.to(
+      nextBackground,
+      {
+        '--next-overlay-opacity': 0,
+        duration: reduceMotion ? 0 : 0.6,
+        ease: 'power1.out',
+      },
+      '>'
+    )
+  }
 
-  // Step 2: place next beneath, right after scroll completes
+  // Step 2: place the destination beneath once the overlay reveal completes
   tl.call(
     () => {
       if (current && current.container) {

@@ -3,13 +3,19 @@ import test from 'node:test'
 
 import {
   getCylinderIndicatorHeight,
+  getFlatTickCount,
   getFlatTickIndex,
   getFlatTickTop,
 } from './cylinder-indicators.js'
 
 test('limite les indicators à la portion visible du cylindre', () => {
   assert.equal(getCylinderIndicatorHeight(1440, 900), 360)
-  assert.equal(getCylinderIndicatorHeight(500, 844), 200)
+  assert.equal(getCylinderIndicatorHeight(500, 844), 250)
+})
+
+test('reproduit en 2D la densité visible de l’ancien cylindre', () => {
+  assert.equal(getFlatTickCount(14, 8), 56)
+  assert.equal(getFlatTickCount(14, 1), 14)
 })
 
 test('répartit précisément les ticks sur toute la hauteur', () => {

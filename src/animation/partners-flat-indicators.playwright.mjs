@@ -87,7 +87,17 @@ async function verifyViewport(browser, contextOptions, label) {
         return {
           cylinderTop: cylinderRect.top,
           cylinderHeight: cylinderRect.height,
-          indicatorHeight: Math.min(window.innerWidth, window.innerHeight) * 0.4,
+          indicatorHeight:
+            Math.min(window.innerWidth, window.innerHeight) *
+            (isMobile ? 0.5 : 0.4),
+          expectedTickCount:
+            items.length *
+            Math.max(
+              1,
+              Math.round(
+                (Number.parseInt(cylinder.dataset.tickMultiplier, 10) || 1) / 2
+              )
+            ),
           textTransform: getComputedStyle(textWrapper).transform,
           activeTextIndex,
           textCount: items.length,
@@ -151,6 +161,11 @@ async function verifyViewport(browser, contextOptions, label) {
           `${label}: dernier tick en bas`
         )
         assert.ok(indicator.activeTickIndex >= 0, `${label}: tick actif`)
+        assert.equal(
+          indicator.tickCount,
+          state.expectedTickCount,
+          `${label}: densité héritée du cylindre 3D`
+        )
 
         const textRatio =
           state.activeTextIndex / Math.max(1, state.textCount - 1)

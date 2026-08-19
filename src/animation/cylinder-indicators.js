@@ -5,7 +5,16 @@ export function getCylinderIndicatorHeight(viewportWidth, viewportHeight) {
   const height = Number.isFinite(viewportHeight)
     ? Math.max(0, viewportHeight)
     : 0
-  return Math.min(width, height) * 0.4
+  const shortestSide = Math.min(width, height)
+  return shortestSide * (shortestSide < 767 ? 0.5 : 0.4)
+}
+
+export function getFlatTickCount(itemCount, tickMultiplier) {
+  const items = Number.isFinite(itemCount) ? Math.max(1, itemCount) : 1
+  const multiplier = Number.isFinite(tickMultiplier)
+    ? Math.max(1, tickMultiplier)
+    : 1
+  return Math.round(items) * Math.max(1, Math.round(multiplier / 2))
 }
 
 export function getFlatTickTop(index, count) {

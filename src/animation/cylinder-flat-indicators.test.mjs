@@ -9,6 +9,7 @@ const styles = await readFile(
 )
 
 test('les indicators utilisent le layout 2D précis', () => {
+  assert.match(source, /getFlatTickCount\(items\.length,\s*tickMultiplier\)/)
   assert.match(source, /getFlatTickTop\(idx,\s*desiredCount\)/)
   assert.match(source, /getFlatTickIndex\(rotationProgress,\s*ticks\.length\)/)
 })

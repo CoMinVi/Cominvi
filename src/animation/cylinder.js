@@ -3,6 +3,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 import {
   getCylinderIndicatorHeight,
+  getFlatTickCount,
   getFlatTickIndex,
   getFlatTickTop,
 } from './cylinder-indicators.js'
@@ -180,7 +181,7 @@ export function initCylinder(root = document) {
   }
 
   // Match number of ticks to number of text items times multiplier
-  const desiredTickCount = Math.max(items.length * tickMultiplier, 1)
+  const desiredTickCount = getFlatTickCount(items.length, tickMultiplier)
   scrollIndicators.forEach((ind) => ensureTicks(ind, desiredTickCount))
 
   const calculatePositions = () => {
